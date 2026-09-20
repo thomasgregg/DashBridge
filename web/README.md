@@ -21,6 +21,12 @@ The build verifies both image checksums, sizes, bootloader target, flash offset 
 
 Dependencies are pinned in `package-lock.json`. The Material Web override is intentional: ESP Web Tools 10.4.0 imports style module names from Material 2.2.0 that were renamed in 2.5.0. Runtime dependency notices are included in the deployed site.
 
+## Completion screen
+
+`install-dialog-patch.mjs` adds a rendering hook to the pinned ESP Web Tools 10.4.0 dialog during bundling. It changes only the successful-install view and the return from logs, without changing flash operations or serial cleanup. `install-success.js` supplies board-specific instructions, Done, Logs, and a selector for the other board. Selecting the other board does not request a USB port or install anything.
+
+The hook requires a confirmed installation, the flasher’s `finished` state, and completed serial reinitialization. Writing 100%, failures, cancelled confirmations and a newly connected board must never display success. Dependency version or method changes fail the build until the integration is reviewed.
+
 ## Publishing
 
 The `Web installer` workflow builds and tests on relevant pull requests. On `main`, it also deploys `_site/` through GitHub Pages. Repository Settings → Pages must use **GitHub Actions** as its source. Firmware changes must include rebuilt `dist/` images and their updated manifest before publishing.

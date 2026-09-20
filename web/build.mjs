@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import { installDialogPatch } from './install-dialog-patch.mjs';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, cp, rm, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -53,6 +54,7 @@ async function main() {
   const firmware = await prepareFirmware(root, output);
   const bundle = await build({
     absWorkingDir: path.join(root, 'web'),
+    plugins: [installDialogPatch],
     entryPoints: ['app.js'], bundle: true, splitting: true, format: 'esm',
     outdir: path.join(output, 'assets'), entryNames: '[name]-[hash]',
     chunkNames: '[name]-[hash]', minify: true, metafile: true, target: 'es2022',

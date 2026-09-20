@@ -1,3 +1,5 @@
+import { successRenderer } from './install-success.js';
+
 const status = document.querySelector('#browser-status');
 const control = document.querySelector('#install-control');
 const description = document.querySelector('#board-description');
@@ -20,6 +22,12 @@ function selectBoard() {
   // element and manifest, so changing the selector cannot change its firmware.
   const installer = document.createElement('esp-web-install-button');
   installer.setAttribute('manifest', choice.dataset.manifest);
+  installer.overrides = {
+    renderInstallSuccess: successRenderer(choice.value, (otherRole) => {
+      choices.find(input => input.value === otherRole).checked = true;
+      selectBoard();
+    }),
+  };
   const button = document.createElement('button');
   button.className = 'install';
   button.slot = 'activate';
