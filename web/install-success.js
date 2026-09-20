@@ -1,35 +1,16 @@
 import { html } from 'lit';
 
-export function successRenderer(role, onSelectOther) {
-  const phone = role === 'phone';
-  const board = phone ? 'A' : 'B';
-  const other = phone ? 'B' : 'A';
-  const guide = 'https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#' +
-    (phone ? 'test-2-iphone-notification-access' : 'test-1-tesla-with-board-b-alone');
-
+export function successRenderer() {
   return ({ close, showLogs }) => [
-    `Board ${board} installed`,
+    'DashBridge installed',
     html`
       <div slot="content" style="max-width:420px;line-height:1.6">
-        <p style="margin:0 0 18px">Firmware installation is complete.</p>
-        <ol style="padding-left:22px;margin:0 0 18px">
-          <li>Label this board <strong>${board} — ${phone ? 'iPhone' : 'Tesla'}</strong>.</li>
-          <li>Close this window before unplugging the board.</li>
-          <li>${phone
-            ? 'Next, set up notification access on your iPhone.'
-            : 'Next, pair DashBridge B with your Tesla while parked and send the test message.'}</li>
-        </ol>
-        <a href=${guide} target="_blank" rel="noopener noreferrer" style="color:#126856;font-weight:600;text-underline-offset:3px">
-          ${phone ? 'Open iPhone setup guide' : 'Open Tesla test guide'} ↗
-        </a>
-        <p style="font-size:13px;margin:18px 0 0">To install Board ${other}, unplug this board and connect the other one.</p>
+        <p>Next, pair this board with your Tesla and iPhone.</p>
+        <p>Open Logs &amp; Console and type <strong>pair car</strong> or <strong>pair phone</strong> to start pairing. Type <strong>status</strong> to check both connections.</p>
+        <a href="https://github.com/thomasgregg/DashBridge/blob/single-board/docs/SINGLE_BOARD.md" target="_blank" rel="noopener noreferrer" style="color:#126856;font-weight:600">Open setup guide ↗</a>
       </div>
-      <div slot="actions" style="display:flex;flex-wrap:wrap;gap:4px;--md-sys-color-primary:#126856">
+      <div slot="actions" style="display:flex;gap:4px;--md-sys-color-primary:#176c59">
         <ew-text-button @click=${showLogs}>Logs &amp; Console</ew-text-button>
-        <ew-text-button @click=${() => {
-          close();
-          onSelectOther(phone ? 'car' : 'phone');
-        }}>Select Board ${other}</ew-text-button>
         <ew-text-button @click=${close}>Done</ew-text-button>
       </div>
     `,

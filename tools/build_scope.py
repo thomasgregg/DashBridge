@@ -45,7 +45,8 @@ def select(root, requested="auto"):
         return ["phone", "car"]
     if requested in ROLES:
         return [requested]
-    return [role for role in ROLES if not current(root, role)]
+    candidates = ("single",) if (root / "firmware/sdkconfig.single").exists() else ("phone", "car")
+    return [role for role in candidates if not current(root, role)]
 
 
 if __name__ == "__main__":

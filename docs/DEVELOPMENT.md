@@ -1,5 +1,11 @@
 # DashBridge implementation notes
 
+For the current single-board branch, start with [SINGLE_BOARD.md](SINGLE_BOARD.md).
+The A/B transport description below documents the retained two-board architecture;
+the single-board target runs both endpoints with an internal queue and independent
+pairing windows. Automatic builds on this branch select only `single`; explicit
+`phone`, `car` and `both` builds remain available for development.
+
 ## Transport and state
 
 Board A is a BLE peripheral and GATT client of the iPhone's ANCS service. It solicits ANCS in its advertisement, requests bonding and encryption, discovers the three ANCS characteristics, subscribes to Data Source before Notification Source, and serializes attribute requests. Each request asks for application identifier, title, subtitle, body and date. It filters for `net.whatsapp.WhatsApp` and `net.whatsapp.WhatsAppSMB` after receiving attributes. Because Notification Source does not contain an app identifier, A necessarily receives attributes from other apps too, but does not forward them.

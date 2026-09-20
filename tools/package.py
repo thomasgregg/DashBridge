@@ -44,4 +44,4 @@ def package(roles):
 
 
 if __name__ == "__main__":
-    package(sys.argv[1:] or ["phone", "car"])
+    package(sys.argv[1:] or ["single"])

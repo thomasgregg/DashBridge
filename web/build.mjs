@@ -15,7 +15,7 @@ export async function prepareFirmware(repository, output) {
   }
   await mkdir(path.join(output, 'firmware'), { recursive: true });
   const result = { version: manifest.version };
-  for (const [role, label] of [['phone', 'A — iPhone'], ['car', 'B — Tesla']]) {
+  for (const [role, label] of [['single', 'single-board (experimental)']]) {
     const entry = manifest.images[role];
     if (entry.file !== `${role}-merged.bin` || entry.flash_address !== '0x0') {
       throw new Error(`Unexpected firmware layout for ${role}`);
@@ -89,7 +89,7 @@ async function main() {
     }
   }
   await writeFile(path.join(output, 'third-party-licenses.txt'), notices.join('\n'));
-  console.log(`Built DashBridge installer ${firmware.version}; both firmware images verified.`);
+  console.log(`Built DashBridge installer ${firmware.version}; single-board firmware verified.`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main();

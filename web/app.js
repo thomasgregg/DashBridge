@@ -2,45 +2,23 @@ import { successRenderer } from './install-success.js';
 
 const status = document.querySelector('#browser-status');
 const control = document.querySelector('#install-control');
-const description = document.querySelector('#board-description');
-const choices = [...document.querySelectorAll('input[name="board"]')];
 const supported = window.isSecureContext && 'serial' in navigator;
 let ready = false;
 
-function selectBoard() {
-  const choice = choices.find(input => input.checked);
-  const label = choice.value === 'phone' ? 'A' : 'B';
-  for (const board of document.querySelectorAll('.board-marker')) {
-    board.classList.toggle('is-selected', board.dataset.board === choice.value);
-  }
-  document.querySelector('.bridge-diagram').setAttribute('aria-label',
-    `iPhone connects to Board A, Board A is wired to Board B, and Board B connects to Tesla. Board ${label} selected.`);
-  description.textContent = label === 'A'
-    ? 'Receives notifications from your iPhone.'
-    : 'Sends notifications to your Tesla.';
-  // Give each selection a new element. A pending USB chooser keeps the old
-  // element and manifest, so changing the selector cannot change its firmware.
+function renderInstaller() {
   const installer = document.createElement('esp-web-install-button');
-  installer.setAttribute('manifest', choice.dataset.manifest);
-  installer.overrides = {
-    renderInstallSuccess: successRenderer(choice.value, (otherRole) => {
-      choices.find(input => input.value === otherRole).checked = true;
-      selectBoard();
-    }),
-  };
+  installer.setAttribute('manifest', control.dataset.manifest);
+  installer.overrides = { renderInstallSuccess: successRenderer('single') };
   const button = document.createElement('button');
   button.className = 'install';
   button.slot = 'activate';
-  button.textContent = `Install Board ${label}`;
-  button.setAttribute('aria-label', `Install Board ${label}`);
+  button.textContent = 'Install DashBridge';
   button.disabled = !ready;
   installer.append(button);
   control.replaceChildren(installer);
   control.hidden = !supported;
 }
-
-for (const choice of choices) choice.addEventListener('change', selectBoard);
-selectBoard();
+renderInstaller();
 
 async function start() {
   if (!supported) {
@@ -53,7 +31,7 @@ async function start() {
     await import('esp-web-tools/dist/install-dialog.js');
     await import('esp-web-tools/dist/install-button.js');
     ready = true;
-    selectBoard();
+    renderInstaller();
     status.textContent = 'Your browser supports USB installation.';
     status.classList.add('ready');
   } catch (error) {

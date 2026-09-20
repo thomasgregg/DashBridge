@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from build_scope import select, sources
+from build_scope import select, sources, current, ROLES
 
 
 class BuildScopeTest(unittest.TestCase):
@@ -50,21 +50,24 @@ class BuildScopeTest(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.write("firmware/" + path, "changed")
-                self.assertEqual(select(self.root), expected)
+                self.assertEqual([r for r in ROLES if not current(self.root, r)], expected)
+                self.assertEqual(select(self.root), ["single"] if "single" in expected else [])
                 self.write("firmware/" + path, "original")
 
     def test_new_and_deleted_sources(self):
         self.write("firmware/main/new.hpp", "new dependency")
-        self.assertEqual(select(self.root), ["phone", "car", "single"])
+        self.assertEqual(select(self.root), ["single"])
         (self.root / "firmware/main/new.hpp").unlink()
         (self.root / "firmware/main/car.cpp").unlink()
-        self.assertEqual(select(self.root), ["car", "single"])
+        self.assertEqual(select(self.root), ["single"])
 
     def test_corrupt_and_missing_artifacts(self):
         self.write("dist/car-merged.bin", "bad")
-        self.assertEqual(select(self.root), ["car"])
+        self.assertEqual(select(self.root), [])
         (self.root / "dist/phone-merged.bin").unlink()
-        self.assertEqual(select(self.root), ["phone", "car"])
+        self.assertEqual(select(self.root), [])
+        (self.root / "dist/single-merged.bin").unlink()
+        self.assertEqual(select(self.root), ["single"])
 
     def test_manual_selection_forces_only_requested_roles(self):
         self.assertEqual(select(self.root, "phone"), ["phone"])
