@@ -80,6 +80,9 @@ jobs:
         run: |
           . "$IDF_PATH/export.sh"
           bash tools/build.sh "$BOARD"
+          if [[ "$BOARD" == phone || "$BOARD" == car ]]; then
+            DASHBRIDGE_BUILD_ROLE="$BOARD" python tools/test_call_config.py
+          fi
           if [[ "$BOARD" == car || "$BOARD" == single ]]; then
             DASHBRIDGE_BUILD_ROLE="$BOARD" python tools/test_sdp.py
             python tools/test_sdp_attributes.py

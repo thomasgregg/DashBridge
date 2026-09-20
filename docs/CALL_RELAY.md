@@ -36,7 +36,7 @@ Implemented for hardware testing:
 - A Tesla-facing HFP audio gateway alongside the existing MAP message server.
 - iPhone call/network/battery indicators, incoming caller number when available,
   and a one-call list shown to the car.
-- Answer, reject/end and DTMF forwarded to the iPhone. Success is returned only
+- Answer, reject/end, explicit-number dialing and DTMF forwarded to the iPhone. Success is returned only
   after an iPhone AT result. A command times out without being retried; a timed-out
   phone connection is reset so a late result cannot acknowledge a newer command.
 - Bidirectional **8 kHz, 16-bit mono call audio**, using the pinned SDK's internal
@@ -49,7 +49,8 @@ Implemented for hardware testing:
 Not implemented in this milestone:
 
 - Music (A2DP), media controls/metadata (AVRCP), contacts/history (PBAP).
-- Dialing or redialing from the Tesla. Start an outgoing test call on the iPhone.
+- Redial, memory dialing and VoIP-specific dialing. Start the first outgoing
+  test call on the iPhone before trying the Tesla dial pad.
 - Siri, volume synchronization, call waiting/conferences or multiple active calls.
 - Wideband speech, custom noise reduction, message replies or configurable apps.
 
@@ -107,7 +108,8 @@ supply and long-term automotive installation are separate work.
    shows incoming PCM packets on both boards. End using the Tesla.
 7. Repeat but reject the incoming call. Then start an ordinary outgoing call on
    the iPhone, select DashBridge A as its audio route if needed, and check both
-   directions and end-call from the Tesla. Do not use an emergency number.
+   directions and end-call from the Tesla. Then try one explicit number from the
+   Tesla dial pad. Check that it calls only once. Do not use an emergency number.
 8. During a test call, disconnect one inter-board link at a time. Verify no stale
    speech plays on reconnection, no call repeats, and the phone remains usable.
    Loss of the control heartbeat requests audio disconnection on A; automatic

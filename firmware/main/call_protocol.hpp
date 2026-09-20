@@ -50,12 +50,22 @@ inline bool decode_state(const std::string &body, const std::string &number, Sta
     return true;
 }
 inline bool command_allowed(const State &s, const std::string &command, const std::string &arg) {
-    if (!s.linked || !s.generation || s.held) return false;
+    if (!s.linked || s.held) return false;
+    if (command == "dial") {
+        if (s.call || s.setup || arg.empty() || !number_valid(arg)) return false;
+        bool digit = false;
+        for (size_t i = 0; i < arg.size(); ++i) {
+            if (arg[i] == '+' && i != 0) return false;
+            if (arg[i] >= '0' && arg[i] <= '9') digit = true;
+        }
+        return digit;
+    }
+    if (!s.generation) return false;
     if (command == "answer") return s.setup == 1 && !s.call && arg.empty();
     if (command == "hangup") return (s.call || s.setup) && arg.empty();
     if (command == "dtmf") return s.call && arg.size() == 1 &&
         ((arg[0] >= '0' && arg[0] <= '9') || arg[0] == '*' || arg[0] == '#' || (arg[0] >= 'A' && arg[0] <= 'D'));
-    return false; // No redial, dial, call waiting or arbitrary AT forwarding in the first milestone.
+    return false; // No redial, call waiting or arbitrary AT forwarding in the first milestone.
 }
 struct CommandGate {
     uint32_t boot = 0, last = 0;

@@ -27,6 +27,10 @@ static unsigned reconnect_delay = 5000;
 static bool dirty = true, connecting = false, peer_saved = false;
 static esp_bd_addr_t peer = {};
 static std::string previous_snapshot, previous_number;
+#if CONFIG_BRIDGE_PHONE
+static bool command_fault = false;
+static int64_t phone_ready_at = 0;
+#endif
 static uint32_t token() { uint32_t n; do { n = esp_random(); } while (!n); return n; }
 static bool peer_live() { return other_boot && last_peer && now() - last_peer < 3000; }
 bool relay_calls_ready() { return self.linked; }
@@ -107,8 +111,10 @@ static void phone_hfp(esp_hf_client_cb_event_t e, esp_hf_client_cb_param_t *p) {
     Guard guard;
     switch (e) {
     case ESP_HF_CLIENT_CONNECTION_STATE_EVT:
-        if (p->conn_stat.state == ESP_HF_CLIENT_CONNECTION_STATE_SLC_CONNECTED)
+        if (p->conn_stat.state == ESP_HF_CLIENT_CONNECTION_STATE_SLC_CONNECTED) {
+            command_fault = false; phone_ready_at = now();
             set_connected(true, p->conn_stat.remote_bda);
+        }
         else if (p->conn_stat.state == ESP_HF_CLIENT_CONNECTION_STATE_DISCONNECTED) {
             if (pending) reply(pending, pending_peer, false);
             pending = 0; set_connected(false, p->conn_stat.remote_bda);
@@ -145,12 +151,13 @@ static void receive_command(const WireMessage &m) {
     if (!peer_live() || m.session != other_boot || !calls::decimal(m.notice.date, destination) || destination != boot)
         return;
     if (!commands.accept(m.session, m.notice.id)) return; // Never replay a control operation.
-    if (pending || !calls::decimal(m.notice.subtitle, generation) || generation != self.generation ||
+    if (pending || command_fault || !other.linked || now() - phone_ready_at < 1000 || !calls::decimal(m.notice.subtitle, generation) || generation != self.generation ||
         !calls::command_allowed(self, m.notice.title, m.notice.body)) {
         reply(m.notice.id, m.session, false); return;
     }
     esp_err_t error = ESP_ERR_NOT_SUPPORTED;
-    if (m.notice.title == "answer") error = esp_hf_client_answer_call();
+    if (m.notice.title == "dial") error = esp_hf_client_dial(m.notice.body.c_str());
+    else if (m.notice.title == "answer") error = esp_hf_client_answer_call();
     else if (m.notice.title == "hangup") error = esp_hf_client_reject_call();
     else if (m.notice.title == "dtmf") error = esp_hf_client_send_dtmf(m.notice.body[0]);
     if (error == ESP_OK) {
@@ -240,7 +247,13 @@ static void car_hfp(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
     case ESP_HF_ATA_RESPONSE_EVT: request("answer"); break;
     case ESP_HF_CHUP_RESPONSE_EVT: request("hangup"); break;
     case ESP_HF_VTS_RESPONSE_EVT: request("dtmf", p->vts_rep.code ? p->vts_rep.code : ""); break;
-    case ESP_HF_DIAL_EVT: result(false); break;
+    case ESP_HF_DIAL_EVT:
+        if (p->out_call.type == ESP_HF_DIAL_NUM && p->out_call.num_or_loc) {
+            std::string number = p->out_call.num_or_loc;
+            if (!number.empty() && number.back() == ';') number.pop_back();
+            request("dial", number);
+        } else result(false); // Explicitly reject redial and memory/VoIP dialing.
+        break;
     case ESP_HF_BVRA_RESPONSE_EVT: result(false); break;
     case ESP_HF_UNAT_RESPONSE_EVT: esp_hf_ag_unknown_at_send(p->unat_rep.remote_addr, nullptr); break;
     default: break;
@@ -267,6 +280,9 @@ void relay_receive(const WireMessage &m) {
         }
         other_sequence = m.notice.id; other = decoded; last_peer = now();
         call_audio_set(self.audio, other.audio);
+#if CONFIG_BRIDGE_PHONE
+        if (!other.linked && self.audio) esp_hf_client_disconnect_audio(peer);
+#endif
 #if CONFIG_BRIDGE_CAR
         apply_phone_state();
 #endif
@@ -305,6 +321,7 @@ void relay_poll() {
         reply(pending, pending_peer, false);
         // AT responses have no request ID. Reset the SLC after timeout so a late
         // result cannot acknowledge the next command. Never retry call actions.
+        command_fault = true;
         esp_hf_client_disconnect(peer);
 #else
         result(false);

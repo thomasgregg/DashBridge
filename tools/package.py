@@ -19,6 +19,9 @@ def package(roles):
     manifest_path = destination / "manifest.json"
     manifest = (json.loads(manifest_path.read_text())
                 if manifest_path.exists() and roles != ["single"] else {"images": {}})
+    if set(roles) <= {"phone", "car"}:
+        manifest["images"] = {key: value for key, value in manifest["images"].items()
+                              if key in ("phone", "car")}
     for role in roles:
         if role not in ROLES:
             raise SystemExit("Roles must be phone, car or single")

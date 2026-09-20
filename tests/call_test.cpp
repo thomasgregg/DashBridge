@@ -20,6 +20,12 @@ int main() {
     assert(!command_allowed(a, "dtmf", "12"));
     a.held = 1; assert(!command_allowed(a, "hangup", ""));
     a.held = 0; a.linked = 0; assert(!command_allowed(a, "hangup", ""));
+    State idle; idle.linked = 1;
+    assert(command_allowed(idle, "dial", "+491234"));
+    for (const auto &invalid : {"", "+", "+49+12", "123;ATD456", "123\r\n", "123;"})
+        assert(!command_allowed(idle, "dial", invalid));
+    assert(!command_allowed(idle, "redial", ""));
+    idle.setup = 1; assert(!command_allowed(idle, "dial", "123"));
     CommandGate gate; gate.reset(10);
     assert(!gate.accept(9, 1)); assert(!gate.accept(10, 0)); assert(gate.accept(10, 5));
     assert(!gate.accept(10, 5)); assert(!gate.accept(10, 4)); assert(gate.accept(10, 6));

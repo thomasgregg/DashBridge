@@ -2,68 +2,49 @@
 
 # DashBridge
 
-> **Development branch: two-board call relay.** This branch adds the first call
-> milestone on top of the working notification code. Read the
-> [call-relay wiring and test guide](docs/CALL_RELAY.md). It has not been tested
-> with two physical boards yet. Music and contacts are still missing.
-> The public installer and the v0.1.4 rollback release remain available.
+**Your iPhone notifications, on your Tesla dashboard.**
 
-The following describes the preserved single-board prototype on `main`.
+DashBridge receives iPhone notifications over Bluetooth, filters WhatsApp and
+presents them through the Tesla's message interface. No SMS forwarding, server
+or WhatsApp account login is involved.
 
-**Your iPhone notifications, on your Tesla dashboard. One ESP32.**
+> **Two-board call relay — development branch.** Notifications have worked on the
+> earlier single-board prototype. This branch adds a headset/phone proxy so calls
+> can pass through DashBridge too. The new call relay is not hardware-validated.
+> Music and contact syncing are not implemented yet.
 
-DashBridge is a single-board Bluetooth bridge. It receives iPhone
-notifications over Bluetooth Low Energy, filters WhatsApp notifications,
-and presents them through the Tesla's Bluetooth message interface.
-No SMS forwarding, WhatsApp account login, server, or second board is needed
-by this design.
+[Wiring and first call test](docs/CALL_RELAY.md) · [Working notification prototype](https://github.com/thomasgregg/DashBridge/tree/main) · [Original two-board release](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4) · [MIT license](LICENSE)
 
-> **Experimental single-board prototype.** Both Bluetooth connections and a
-> real WhatsApp notification have worked on hardware. Keeping the iPhone as
-> the Tesla’s active priority phone is still unresolved. Calls, music passthrough and replies are not implemented.
-> The Tesla may use DashBridge as its active phone, affecting the iPhone's normal
-> call connection.
+## Why two boards again?
 
-[Setup and testing](docs/SINGLE_BOARD.md) · [Two-board release](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4) · [MIT license](LICENSE)
-
-## How it works
+The single-board prototype delivered a real WhatsApp notification to the Tesla,
+but occupied its active phone connection. A message-only experiment also displaced
+the iPhone. The new approach makes DashBridge the active phone and relays iPhone
+calls through it.
 
 ```text
-iPhone ── Bluetooth LE ── ESP32 ── Bluetooth Classic ── Tesla
-                         DashBridge
+iPhone ← Bluetooth → Board A ← wired data + audio → Board B ← Bluetooth → Tesla
 ```
 
-One original ESP32-WROOM-32 with 4 MB flash runs both Bluetooth services.
-Notifications pass through an internal queue; no jumper wires are needed.
-The board filters WhatsApp and WhatsApp Business notifications and preserves
-normal iPhone notifications without creating an extra SMS or iMessage.
-It receives the text iOS makes available, subject to notification settings.
+Board A is the iPhone's headset and notification receiver. Board B presents the
+phone and messages to the Tesla. The pinned ESP32 Bluetooth stack cannot run its
+hands-free and audio-gateway roles simultaneously, so each board handles one role.
 
-## Get started
+## First milestone
 
-Use the [single-board setup guide](docs/SINGLE_BOARD.md). There is one image,
-`single-merged.bin`, and both devices pair with **DashBridge**. USB console
-commands open iPhone and Tesla pairing separately and report both connections.
+The source includes call state, answer/reject/end controls, explicit-number dialing, DTMF, narrowband audio
+in both directions and reconnection attempts. It preserves the working ANCS and
+Tesla message-service fixes. The [call-relay guide](docs/CALL_RELAY.md) explains the
+five wires, pairing and the parked-car tests.
 
-The [online installer](https://thomasgregg.github.io/DashBridge/) serves the
-experimental single-board firmware. The earlier two-board installer and firmware
-remain available in the [v0.1.4 release](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4).
+This is a **one-call prototype**. Start the first outgoing test call on the iPhone.
+Music, media controls, contacts, Siri, redial and multiparty calls remain work
+for later milestones. A successful build is not evidence of working call audio.
 
-## Current status
-
-- Two-board v0.1.4: the user confirmed **DashBridge test** appeared on the Tesla.
-- Single-board: internal routing, pairing isolation and protocol host tests pass.
-- Single-board hardware: both notification connections report ready together;
-  the Tesla test message appeared. Version 0.2.1-dev fixes an ANCS flag check
-  that could discard new WhatsApp notifications. The user confirmed real
-  WhatsApp delivery after installing it; iPhone pairing used Settings directly.
-- Keeping the iPhone as the Tesla priority phone is a firm requirement. The
-  current phone-style bridge does not meet it. An isolated [message-only test](https://thomasgregg.github.io/DashBridge/message-only/)
-  checks coexistence; success has not been established.
-- Outgoing replies, audio/call relay and configurable app selection are not implemented.
-
-A successful build is not evidence that the phone and car work together.
-See [validation history](docs/VALIDATION.md) for the original two-board work.
+The [public installer](https://thomasgregg.github.io/DashBridge/) still serves the
+single-board notification prototype. The relay is developed separately, and
+[v0.1.4](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4) remains an
+unchanged rollback point for the original two-board design.
 
 ## Develop
 
@@ -72,13 +53,11 @@ With ESP-IDF v5.5.1 activated:
 ```sh
 bash tools/test.sh
 python3 tools/test_build_scope.py
-bash tools/build.sh single
+bash tools/build.sh both
 ```
 
-Build only `single` for this prototype. The old A/B images are preserved in
-[v0.1.4](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4);
-its source tag, firmware checksums, installer archive and rollback guide
-remain available independently of this branch.
+`bash tools/build.sh` rebuilds only stale A/B images. Use `phone` or `car` to build
+one explicitly. Documentation and installer changes do not require firmware builds.
 
 ## License
 
