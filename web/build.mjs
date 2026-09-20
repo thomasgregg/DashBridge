@@ -74,6 +74,9 @@ async function main() {
   await writeFile(path.join(output, '.nojekyll'), '');
   // Distribute notices alongside the bundled code.
   const notices = [];
+  for (const file of ['LICENSE', 'third_party/README.md', 'third_party/ESP-IDF-LICENSE', 'third_party/ESP32-controller-LICENSE']) {
+    notices.push(`\n=== DashBridge firmware / ${file} ===\n${await readFile(path.join(root, file), 'utf8')}`);
+  }
   const lock = JSON.parse(await readFile(path.join(root, 'web/package-lock.json'), 'utf8'));
   for (const [name, pkg] of Object.entries(lock.packages)) {
     if (!name || pkg.dev) continue;

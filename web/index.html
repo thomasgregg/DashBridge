@@ -4,64 +4,50 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f7f4">
-  <meta name="description" content="Install DashBridge on your two ESP32 boards directly from your browser. Choose your board, connect by USB, and install.">
+  <meta name="description" content="Install DashBridge firmware on an ESP32 board over USB. Select Board A for iPhone or Board B for Tesla.">
   <title>Install DashBridge</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="{{css}}">
   <script type="module" src="{{app}}"></script>
 </head>
 <body>
-  <a class="skip" href="#boards">Skip to board selection</a>
   <header class="header wrap">
     <a class="brand" href="./" aria-label="DashBridge installer home"><img src="./favicon.svg" width="33" height="33" alt="">DashBridge</a>
     <a class="repo-link" href="https://github.com/thomasgregg/DashBridge">GitHub <span aria-hidden="true">↗</span></a>
   </header>
   <main class="wrap">
-    <section class="hero" aria-labelledby="title">
-      <p class="eyebrow">WEB INSTALLER <span>v{{version}} · Experimental</span></p>
-      <h1 id="title">Two boards. Ready to bridge.</h1>
-      <p class="intro">Plug one board into your computer by USB.<br>Choose its role below. We’ll handle the rest.</p>
+    <div class="hero">
+      <h1>Install DashBridge</h1>
+      <p>Connect one board with a USB data cable.<br>Select A or B, then install.</p>
+    </div>
+    <section class="installer" aria-label="Firmware installer">
+      <fieldset>
+        <legend>Board</legend>
+        <div class="selector">
+          <label><input type="radio" name="board" value="phone" data-manifest="{{phone}}" checked><span>A <span class="role">iPhone</span></span></label>
+          <label><input type="radio" name="board" value="car" data-manifest="{{car}}"><span>B <span class="role">Tesla</span></span></label>
+        </div>
+      </fieldset>
+      <p id="board-description">Board A receives notifications from your iPhone.</p>
+      <div id="install-control"><button class="install" disabled>Loading installer…</button></div>
+      <p id="browser-status" role="status" aria-live="polite">Checking browser…</p>
+      <noscript><p class="notice">Enable JavaScript, or use the <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#load-the-firmware">manual setup guide</a>.</p></noscript>
+      <div class="panel-footer"><span>ESP32-WROOM-32 · 4 MB</span><span>v{{version}} · Experimental</span></div>
     </section>
-    <section id="boards" aria-label="Choose the board to install">
-      <p id="browser-status" class="browser-status" role="status" aria-live="polite">Loading the USB installer…</p>
-      <noscript><p class="notice">Enable JavaScript to install, or follow the <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#load-the-firmware">manual setup guide</a>.</p></noscript>
-      <div class="board-grid">
-        <article class="board-card phone">
-          <div class="card-top"><span class="board-letter">A</span><svg aria-hidden="true" viewBox="0 0 32 40"><rect x="5" y="2" width="22" height="36" rx="5"/><path d="M13 7h6m-5 26h4"/></svg></div>
-          <h2>For your iPhone.</h2>
-          <p>Receives your WhatsApp notifications.</p>
-          <esp-web-install-button manifest="{{phone}}">
-            <button class="install" slot="activate" disabled>Install Board A <span aria-hidden="true">↗</span></button>
-            <span slot="unsupported">Use Chrome or Edge on a computer.</span>
-            <span slot="not-allowed">Open this page over HTTPS.</span>
-          </esp-web-install-button>
-        </article>
-        <article class="board-card car">
-          <div class="card-top"><span class="board-letter">B</span><svg aria-hidden="true" viewBox="0 0 44 40"><path d="m7 15 4-9h22l4 9m-30 0h30l3 7v10H4V22zM9 32v5m26-5v5M10 23h6m12 0h6"/></svg></div>
-          <h2>For your Tesla.</h2>
-          <p>Brings them to your car’s screen.</p>
-          <esp-web-install-button manifest="{{car}}">
-            <button class="install" slot="activate" disabled>Install Board B <span aria-hidden="true">↗</span></button>
-            <span slot="unsupported">Use Chrome or Edge on a computer.</span>
-            <span slot="not-allowed">Open this page over HTTPS.</span>
-          </esp-web-install-button>
-        </article>
-      </div>
-      <p class="fine-print">ESP32-WROOM-32 · 4 MB · USB data cable · One board at a time.<br>Installation replaces the board’s software and clears its saved pairings.</p>
-    </section>
-    <div class="next"><p>Installed? Start with the Board B test.</p><a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#test-1-tesla-with-board-b-alone">Pair &amp; connect your boards <span aria-hidden="true">→</span></a></div>
+    <p class="fine-print">Installation erases the selected board, including saved pairings.</p>
+    <div class="next"><p>After installation</p><a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#test-1-tesla-with-board-b-alone">Set up Bluetooth and wiring <span aria-hidden="true">→</span></a></div>
     <details class="help">
-      <summary>Need help?</summary>
+      <summary>Help</summary>
       <div class="help-content">
-        <h3>Which browser?</h3><p>Use Chrome or Edge on a Mac, Windows PC or Linux computer. iPhone, iPad and Safari don’t support this USB installation flow.</p>
-        <h3>How do I install?</h3><p>Connect one board with a USB data cable. Click its matching install button, choose the USB serial port, then choose Install and confirm. Keep it connected until the success message appears. Close the dialog, unplug it and label it A or B before installing the other board. The two boards look identical, so the page cannot identify their roles automatically.</p>
-        <h3>No board in the list?</h3><p>Try a different data cable or USB port and close other apps using the board. A USB driver may be needed: <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a> or <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">CH340</a>, depending on your board’s USB chip.</p>
-        <h3>Connection failed?</h3><p>Hold BOOT as you start the installation, then release it once the chip is detected or installation begins. If needed, press EN/reset and try again. Use original ESP32-WROOM-32 boards; S2, S3 and C3 are incompatible.</p>
-        <h3>What works so far?</h3><p>This is experimental firmware. Physical iPhone and Tesla compatibility and reliable reconnection still need testing. Calls, music passthrough and WhatsApp replies are not supported. A successful installation confirms the firmware was written, not that it works with your car. <a href="https://github.com/thomasgregg/DashBridge#current-boundaries">Current limitations</a> · <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md">Full setup guide</a></p>
+        <h2>Which browser?</h2><p>Use Chrome or Edge on a Mac, Windows PC or Linux computer. iPhone, iPad and Safari don’t support USB installation.</p>
+        <h2>Installing both boards</h2><p>Connect only one board at a time. Select A for the iPhone board or B for the Tesla board. Click Install, choose its USB port, and confirm. Wait for the success message, close the dialog and unplug the board. Label it A or B, then repeat with the other board. Start the Bluetooth setup with Board B.</p>
+        <h2>No board in the USB list?</h2><p>Try a different data cable or USB port and close other apps using the board. Some boards need a USB driver: <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a> or <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">CH340</a>, depending on the USB chip.</p>
+        <h2>Connection failed?</h2><p>Hold BOOT as you start installation. Release it once the chip is detected or installation begins. If needed, press EN/reset and try again. This firmware requires an original ESP32-WROOM-32; S2, S3 and C3 boards are incompatible.</p>
+        <h2>Prototype status</h2><p>The firmware has not been tested on physical boards with an iPhone and Tesla yet. Reconnection also needs testing. Calls, music passthrough and WhatsApp replies are not supported. <a href="https://github.com/thomasgregg/DashBridge#current-boundaries">Known limitations</a> · <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md">Setup guide</a></p>
       </div>
     </details>
-    <p class="prototype">Hardware testing is still pending. Follow the setup guide for your first parked-car test.</p>
+    <p class="prototype">Experimental firmware. Hardware testing is still pending.</p>
   </main>
-  <footer class="wrap footer"><span>Open source. Local by design.</span><nav aria-label="Footer"><a href="./firmware/checksums.json">Firmware</a><a href="./third-party-licenses.txt">Notices</a><a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools ↗</a></nav></footer>
+  <footer class="wrap footer"><span>MIT licensed</span><nav aria-label="Footer"><a href="./firmware/checksums.json">Firmware details</a><a href="./third-party-licenses.txt">Notices</a><a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a></nav></footer>
 </body>
 </html>

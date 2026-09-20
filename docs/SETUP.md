@@ -15,7 +15,7 @@ The prebuilt merged images are `dist/car-merged.bin` for B and `dist/phone-merge
 **[Open the DashBridge web installer →](https://thomasgregg.github.io/DashBridge/)** in **Chrome or Edge on a computer** (not iPhone, iPad or Safari).
 
 1. Connect only the board being programmed with a USB **data** cable. Close any serial monitor first.
-2. Choose **Install Board A** for the iPhone board or **Install Board B** for the Tesla board.
+2. Select **A — iPhone** or **B — Tesla**, then click the install button.
 3. Select that board’s USB serial port, then choose **Install** and confirm. The page selects the firmware and flash address automatically.
 4. Keep the board connected until installation finishes. Close the installer dialog, unplug the board and label it **A** or **B** before connecting the other one.
 
