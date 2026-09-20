@@ -1,0 +1,53 @@
+name: Hardware test report
+description: Share a successful or unsuccessful DashBridge device test.
+title: "[Hardware] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing DashBridge. Negative results help too. Please remove private message content, credentials, and pairing keys from anything you share.
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware revision
+      description: Commit SHA or the image SHA-256 from dist/manifest.json.
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware and software
+      description: ESP32 board/chip, USB power arrangement, Tesla model/year/software, and iPhone model/iOS version where relevant.
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Test stage
+      options:
+        - Board B alone — Tesla pairing and test message
+        - Board A — iPhone pairing and ANCS access
+        - Both boards — real WhatsApp notification
+        - Reconnection, locked phone, or power cycle
+        - Phone-key coexistence
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps and expected result
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Observed result
+      description: Describe what appeared on the car and phone, including anything that did not work.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant serial status output
+      description: Use 115200 baud. Remove personal information before posting.
+      render: text

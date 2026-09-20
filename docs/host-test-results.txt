@@ -1,0 +1,6 @@
+PASS UART fragmentation, checksum recovery, UTF-8 boundary
+PASS ANCS fragmented attributes, wrong UID and oversize rejection
+PASS WhatsApp filtering, duplicate/update handling, session clearing and bounds
+PASS MAP listing, XML escaping, MTU continuation, bMessage byte length, local read status, unsupported reply rejection
+PASS OBEX framing and minimum peer MTU for notification events
+PASS 10,000 deterministic malformed-input cases (run with sanitizers)

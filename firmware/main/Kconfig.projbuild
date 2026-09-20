@@ -1,0 +1,10 @@
+menu "DashBridge"
+choice BRIDGE_ROLE
+    prompt "Board role"
+    default BRIDGE_CAR
+config BRIDGE_CAR
+    bool "Board B: Tesla test receiver"
+config BRIDGE_PHONE
+    bool "Board A: iPhone notifications"
+endchoice
+endmenu

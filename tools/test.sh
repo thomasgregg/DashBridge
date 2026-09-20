@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+project_dir="$(cd "$(dirname "$0")/.." && pwd)"
+mkdir -p "$project_dir/build/tests"
+"${CXX:-clang++}" -std=c++17 -Wall -Wextra -Werror -g -fsanitize=address,undefined \
+  -I "$project_dir/firmware/components/bridge_core/include" \
+  "$project_dir/firmware/components/bridge_core/bridge_core.cpp" \
+  "$project_dir/tests/core_test.cpp" -o "$project_dir/build/tests/core_test"
+"$project_dir/build/tests/core_test"

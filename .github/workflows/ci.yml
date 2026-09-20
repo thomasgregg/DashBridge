@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    name: Host protocol tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test with address and undefined-behavior sanitizers
+        run: bash tools/test.sh
+
+  firmware:
+    name: ESP32 firmware builds
+    runs-on: ubuntu-24.04
+    container: espressif/idf:v5.5.1
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and package both board roles
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          bash tools/build.sh
+      - name: Preserve experimental firmware
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dashbridge-experimental-firmware
+          path: |
+            dist/phone-merged.bin
+            dist/car-merged.bin
+            dist/manifest.json
+          if-no-files-found: error
+          retention-days: 14
