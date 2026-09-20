@@ -50,3 +50,8 @@ bash tools/build.sh
 To compile one role, pass `phone` or `car`. `tools/package.py` uses IDF's generated flash layout to merge images and records SHA-256 checksums. Source checksums make it possible to detect whether a packaged image predates a source edit.
 
 `tools/test.sh` runs the platform-independent core with AddressSanitizer and UndefinedBehaviorSanitizer using Clang. Host tests do not exercise the ESP32 Bluetooth stack, concurrency or iPhone/Tesla behavior. Record physical results separately rather than promoting a build pass into a compatibility claim.
+
+After building, `python tools/test_sdp.py` checks the production MAP service
+record against the activated SDK's actual SDP argument validator. It also checks
+that excluding the service name's NUL terminator reproduces the original startup
+failure. A host C++ compiler is required; no board is accessed.

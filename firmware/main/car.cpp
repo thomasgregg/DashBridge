@@ -83,7 +83,8 @@ static void record() {
     esp_bluetooth_sdp_record_t r = {};
     r.mas.hdr.type = ESP_SDP_TYPE_MAP_MAS;
     r.mas.hdr.service_name = const_cast<char *>("DashBridge Inbox");
-    r.mas.hdr.service_name_length = strlen(r.mas.hdr.service_name);
+    // ESP-IDF's SDP API requires the terminating NUL in this length.
+    r.mas.hdr.service_name_length = strlen(r.mas.hdr.service_name) + 1;
     r.mas.hdr.rfcomm_channel_number = channel_number;
     r.mas.hdr.l2cap_psm = -1;
     r.mas.hdr.profile_version = 0x0100;

@@ -28,13 +28,31 @@ Both roles compiled and linked successfully with ESP-IDF v5.5.1 for the original
 
 These are application sizes, excluding bootloader and merged-image padding. `dist/manifest.json` records merged-image sizes, checksums and source-file checksums. Flashing was not attempted because the boards were not connected.
 
-## Hardware tests: NOT RUN
+## First hardware report and startup fix
 
-No ESP32, iPhone or Tesla was connected to this development session. The following remain unverified:
+The first user-provided USB logs confirm that A reaches its startup message.
+After installing B, the board repeatedly aborts in `runtime::record()` with
+`Invalid server name!` and `ESP_ERR_INVALID_ARG` from `esp_sdp_create_record`.
+The submitted SDP service-name length excluded the terminating NUL, which
+ESP-IDF v5.5.1 explicitly requires. Version 0.1.1 includes that byte.
+
+A host check exercised the actual `record()` construction against the pinned
+SDK's `esp_sdp_record_integrity_check`: the corrected record passes, and reducing
+its name length by one reproduces the validation failure. Protocol sanitizer
+tests also pass. This verifies the reported argument error, not Bluetooth radio
+operation; the corrected image still needs a hardware retest.
+
+The pictured board has only an RST button. BOOT-based pairing and test-message
+controls cannot be used on that board without an alternative input. Before any
+pairing is saved, restarting opens the two-minute pairing window automatically.
+
+## Hardware compatibility: UNVERIFIED
+
+The user is testing an ESP32 with a Tesla; no hardware is connected to the build/test process. The following remain unverified:
 
 | Test | Result |
 |---|---|
-| Both boards boot and stay within available RAM | Not run |
+| Both boards boot and stay within available RAM | A startup observed; B startup fix awaiting retest |
 | Tesla discovers B and enables message sync | Not run |
 | B's standalone test message appears on Tesla | Not run |
 | iPhone pairs with A and grants ANCS access | Not run |

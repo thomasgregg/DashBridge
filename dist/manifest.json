@@ -3,7 +3,7 @@
     "car": {
       "file": "car-merged.bin",
       "flash_address": "0x0",
-      "sha256": "80c80ca995cb28621498cbbda9c7d6625d2456f8e02214722f6d2493e4f27534",
+      "sha256": "60e5bc4a599f11937974f8a1fa1e9fae7af79817db91a377d8df6d7668286ec8",
       "bytes": 1135312,
       "source_sha256": {
         "firmware/CMakeLists.txt": "fff5ef4f647a948a372bf33787c02eb89db926e9d9c4d382bfcf901a1158dd07",
@@ -12,7 +12,7 @@
         "firmware/components/bridge_core/include/bridge_core.hpp": "72c508786d657bb7ae05afd68db123935751421183be1034b925c6c6cce311af",
         "firmware/main/CMakeLists.txt": "d74743180682c41bdfe4dedda5207a6d7406a78494d5797085ac7e7c6aa60a86",
         "firmware/main/Kconfig.projbuild": "74d5d6cd3fc0ca52402587a375d932c308146c636cb6a26e0da751f890a39360",
-        "firmware/main/car.cpp": "0d4c380ed2fa37042d1a3878857cd6d12011a59bdefe9ff1e64e2de8c737bb9c",
+        "firmware/main/car.cpp": "9ad50c23aded9e1e6f66846e8cccb5c12fa942edfff8acb2c337ea48f6c5d68b",
         "firmware/main/main.cpp": "447c7ce713bbd1a30fab2d7eb5e190739f04cb626b0175440a0b9cc71862b9c6",
         "firmware/main/phone.cpp": "e058c0bf0feb92b380e6d20b035eb687bedf67add6869aee786ae45651ceef2f",
         "firmware/main/runtime.hpp": "9302b45f8b3aa19790564cfea089e3cf0b456c89c03662c79adc9ce0f13aa0a0",
@@ -26,7 +26,7 @@
     "phone": {
       "file": "phone-merged.bin",
       "flash_address": "0x0",
-      "sha256": "55e6ef43f825e96e2b234c6c33f48ca6519c185486fc7a6d28fccc500b604300",
+      "sha256": "8e23325745ec3379af09f23328a36bf183df3a89185dfd7500ccc9fe7e119f88",
       "bytes": 1126912,
       "source_sha256": {
         "firmware/CMakeLists.txt": "fff5ef4f647a948a372bf33787c02eb89db926e9d9c4d382bfcf901a1158dd07",
@@ -35,7 +35,7 @@
         "firmware/components/bridge_core/include/bridge_core.hpp": "72c508786d657bb7ae05afd68db123935751421183be1034b925c6c6cce311af",
         "firmware/main/CMakeLists.txt": "d74743180682c41bdfe4dedda5207a6d7406a78494d5797085ac7e7c6aa60a86",
         "firmware/main/Kconfig.projbuild": "74d5d6cd3fc0ca52402587a375d932c308146c636cb6a26e0da751f890a39360",
-        "firmware/main/car.cpp": "0d4c380ed2fa37042d1a3878857cd6d12011a59bdefe9ff1e64e2de8c737bb9c",
+        "firmware/main/car.cpp": "9ad50c23aded9e1e6f66846e8cccb5c12fa942edfff8acb2c337ea48f6c5d68b",
         "firmware/main/main.cpp": "447c7ce713bbd1a30fab2d7eb5e190739f04cb626b0175440a0b9cc71862b9c6",
         "firmware/main/phone.cpp": "e058c0bf0feb92b380e6d20b035eb687bedf67add6869aee786ae45651ceef2f",
         "firmware/main/runtime.hpp": "9302b45f8b3aa19790564cfea089e3cf0b456c89c03662c79adc9ce0f13aa0a0",
@@ -48,7 +48,7 @@
     }
   },
   "project": "DashBridge prototype",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "target": "esp32",
   "flash_size": "4MB",
   "esp_idf": "v5.5.1",
