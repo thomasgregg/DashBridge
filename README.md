@@ -151,7 +151,7 @@ For the first call test, have someone call the iPhone. Answer on the Tesla and c
 
 ### Earlier versions
 
-The [v0.1.4 release](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4) preserves the original two-board notification design, firmware and installer. The [single-board prototype](https://github.com/thomasgregg/DashBridge/tree/single-board) is also retained. The default installer now serves the two-board call relay alpha.
+The [v0.1.4 release](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4) preserves the original two-board notification design, firmware and installer. The [single-board prototype](https://github.com/thomasgregg/DashBridge/tree/archive/single-board) and [message-only experiment](https://github.com/thomasgregg/DashBridge/tree/archive/message-only) are retained as archive tags. The default installer now serves the two-board call relay alpha.
 
 ## Build from source
 

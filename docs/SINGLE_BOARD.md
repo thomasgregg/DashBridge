@@ -1,6 +1,7 @@
 # Single-board prototype
 
-Firmware: **0.2.1-dev**. [Online installer](https://thomasgregg.github.io/DashBridge/).
+Archived firmware: **0.2.1-dev**, preserved at [archive/single-board](https://github.com/thomasgregg/DashBridge/tree/archive/single-board).
+The [online installer](https://thomasgregg.github.io/DashBridge/) now serves the current two-board firmware; the instructions below describe the archived prototype.
 The permanent two-board snapshot is [v0.1.4](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4).
 
 ## What changed
@@ -62,7 +63,7 @@ without reconnecting DashBridge. The iPhone must remain the priority device,
 with normal calls and music. Making DashBridge the priority phone does not meet
 that requirement. Version 0.2.1-dev advertises HFP and MAP and still competes
 with the iPhone; successful notification delivery does not establish coexistence.
-An [isolated message-only experiment](https://github.com/thomasgregg/DashBridge/blob/message-only/docs/MESSAGE_ONLY.md)
+An [isolated message-only experiment](https://github.com/thomasgregg/DashBridge/blob/archive/message-only/docs/MESSAGE_ONLY.md)
 tests this separately, without replacing the regular installer.
 
 ### Setup steps
@@ -124,7 +125,7 @@ and `python tools/test_sdp_attributes.py` with the pinned SDK active.
 
 The single-board installer is built with `npm ci --prefix web` then
 `npm run build --prefix web`. Serve `_site` over localhost or HTTPS using
-Chrome/Edge. GitHub Pages serves this experimental single-board installer.
+Chrome/Edge. The public GitHub Pages installer now serves the two-board firmware.
 The preserved v0.1.4 release includes the earlier two-board installer.
 
 ## Roll back

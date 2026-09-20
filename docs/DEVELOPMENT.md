@@ -1,10 +1,10 @@
 # DashBridge implementation notes
 
-For the current single-board branch, start with [SINGLE_BOARD.md](SINGLE_BOARD.md).
-The A/B transport description below documents the retained two-board architecture;
-the single-board target runs both endpoints with an internal queue and independent
-pairing windows. Automatic builds on this branch select only `single`; explicit
-`phone`, `car` and `both` builds remain available for development.
+For the current two-board call relay, start with [CALL_RELAY.md](CALL_RELAY.md).
+The notes below describe the earlier notification-only implementation, before
+call and audio relaying were added. The single-board prototype is preserved at
+[archive/single-board](https://github.com/thomasgregg/DashBridge/tree/archive/single-board),
+with its historical notes in [SINGLE_BOARD.md](SINGLE_BOARD.md).
 
 ## Transport and state
 
