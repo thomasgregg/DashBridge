@@ -16,11 +16,35 @@
     <a class="repo-link" href="https://github.com/thomasgregg/DashBridge">GitHub <span aria-hidden="true">↗</span></a>
   </header>
   <main class="wrap">
+    <div class="workspace">
     <div class="hero">
-      <h1>Install DashBridge</h1>
-      <p>Connect one board with a USB data cable.<br>Select A or B, then install.</p>
+      <p class="eyebrow">USB INSTALLER <span>01 / SETUP</span></p>
+      <h1>Install<br> DashBridge</h1>
+      <p>Connect one ESP32 board by USB.<br>Select A or B to install its firmware.</p>
+      <div class="bridge-diagram" aria-label="iPhone connects to Board A, Board A is wired to Board B, and Board B connects to Tesla">
+        <svg viewBox="0 0 400 170" fill="none" aria-hidden="true">
+          <defs><linearGradient id="signal" x1="0" x2="400" gradientUnits="userSpaceOnUse"><stop stop-color="#79e4c7"/><stop offset="1" stop-color="#52b6e6"/></linearGradient></defs>
+          <path d="M53 78h78m134 0h76" stroke="url(#signal)" stroke-width="1.5" stroke-dasharray="3 6"/>
+          <rect x="8" y="34" width="45" height="87" rx="9" fill="#153b44" stroke="#739ba2" stroke-width="1.5"/>
+          <path d="M24 42h13m-12 70h11" stroke="#739ba2" stroke-linecap="round"/>
+          <rect x="17" y="61" width="27" height="25" rx="7" fill="#79e4c7"/><path d="m22 85 0 6 7-6" fill="#79e4c7"/><path d="M23 69h14m-14 7h9" stroke="#153b44" stroke-width="1.5" stroke-linecap="round"/>
+          <rect x="114" y="20" width="159" height="117" rx="18" fill="#11323d" stroke="#3b5d66"/>
+          <path d="M167 67h52m-52 10h52m-52 10h52" stroke="#79e4c7" stroke-width="1.4"/>
+          <g stroke="#79e4c7"><rect x="132" y="40" width="42" height="71" rx="7" fill="#1d4650"/><rect x="213" y="40" width="42" height="71" rx="7" fill="#1d4650"/><rect x="142" y="55" width="22" height="23" rx="3" fill="#112f39"/><rect x="223" y="55" width="22" height="23" rx="3" fill="#112f39"/></g>
+          <path d="M145 91h16m-16 5h16m65-5h16m-16 5h16" stroke="#5e8990" stroke-linecap="round"/>
+          <text x="153" y="127" text-anchor="middle" fill="#a6c5cb" font-size="10" font-family="sans-serif">A</text><text x="234" y="127" text-anchor="middle" fill="#a6c5cb" font-size="10" font-family="sans-serif">B</text>
+          <path d="m322 71 8-21c2-5 5-6 9-6h30c4 0 7 1 9 6l8 21m-64 0h64l7 12v22h-78V83z" fill="#173c48" stroke="#739ba2" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="m335 51-6 18h51l-6-18z" fill="#315762"/>
+          <path d="M325 85h13m31 0h13m-34 10h14" stroke="#79e4c7" stroke-width="2" stroke-linecap="round"/>
+          <path d="M320 106v9h10v-9m47 0v9h10v-9" fill="#739ba2"/>
+          <text x="30" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">iPhone</text><text x="194" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">DashBridge</text><text x="354" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">Tesla</text>
+        </svg>
+      </div>
+      <div class="hero-note"><span></span> Original ESP32-WROOM-32 · 4 MB</div>
     </div>
+    <div class="install-side">
     <section class="installer" aria-label="Firmware installer">
+      <div class="panel-heading"><h2>Choose your board</h2><span>v{{version}}</span></div>
       <fieldset>
         <legend>Board</legend>
         <div class="selector">
@@ -32,10 +56,12 @@
       <div id="install-control"><button class="install" disabled>Loading installer…</button></div>
       <p id="browser-status" role="status" aria-live="polite">Checking browser…</p>
       <noscript><p class="notice">Enable JavaScript, or use the <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#load-the-firmware">manual setup guide</a>.</p></noscript>
-      <div class="panel-footer"><span>ESP32-WROOM-32 · 4 MB</span><span>v{{version}} · Experimental</span></div>
+      <div class="panel-footer"><span class="usb-symbol" aria-hidden="true">↳</span><span>Connect only one board at a time.<br>Use a cable that supports data.</span></div>
     </section>
-    <p class="fine-print">Installation erases the selected board, including saved pairings.</p>
-    <div class="next"><p>After installation</p><a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#test-1-tesla-with-board-b-alone">Set up Bluetooth and wiring <span aria-hidden="true">→</span></a></div>
+    <p class="fine-print">Installation erases the selected board,<br class="desktop-break"> including saved pairings.</p>
+    </div>
+    </div>
+    <div class="next"><p><span class="step-label">02</span> After installation</p><a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#test-1-tesla-with-board-b-alone">Set up Bluetooth and wiring <span aria-hidden="true">→</span></a></div>
     <details class="help">
       <summary>Help</summary>
       <div class="help-content">

@@ -19,6 +19,7 @@ function selectBoard() {
   button.className = 'install';
   button.slot = 'activate';
   button.textContent = `Install Board ${label}`;
+  button.setAttribute('aria-label', `Install Board ${label}`);
   button.disabled = !ready;
   installer.append(button);
   control.replaceChildren(installer);
