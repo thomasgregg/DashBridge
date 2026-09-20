@@ -136,6 +136,7 @@ Host tests cover malformed/fragmented messages, command eligibility and replay
 rejection, audio frame corruption/recovery, buffering, and the existing ANCS/MAP
 regressions. CI compiles both actual ESP32 targets and tests the Tesla SDP patch.
 Bluetooth timing, speech quality and car/phone interoperability require hardware.
+See the [recorded build and test results](CALL_RELAY_VALIDATION.md).
 
 SDK references: [HFP client API](https://docs.espressif.com/projects/esp-idf/en/v5.5.1/esp32/api-reference/bluetooth/esp_hf_client.html),
 [pinned HFP role/codec options](https://github.com/espressif/esp-idf/blob/v5.5.1/components/bt/host/bluedroid/Kconfig.in),
