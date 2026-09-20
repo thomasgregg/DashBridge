@@ -3,7 +3,7 @@
   <desc id="desc">Open the DashBridge browser installer.</desc>
   <rect width="258" height="52" rx="11" fill="#176c59"/>
   <g fill="none" stroke="#79e4c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M218 26h17m-6-6 6 6-6 6"/>
+    <path d="M226 16v17m-6-6 6 6 6-6M216 34v5h20v-5"/>
   </g>
   <text x="22" y="33" fill="#ffffff" font-family="Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" font-size="20" font-weight="600">Install DashBridge</text>
 </svg>
