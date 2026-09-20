@@ -65,3 +65,31 @@ passed both ESP32 builds, host protocol tests, call configuration checks and the
 Tesla SDP tests. Packaged images were checked against their source and binary
 checksums before publication. This diagnostic build has not yet been tested on
 the physical board.
+
+
+## Tesla-initiated reconnect experiment
+
+The subsequent diagnostic log shows outgoing attempts 5 and 6 failing, while a
+manual Tesla connection at 20:56:08 reaches HFP ready in under a second. MAP is
+ready at 20:56:09; at 20:56:14 the Tesla retrieves the test message and acknowledges
+the event. The saved bond remains valid throughout. The user also confirms that
+the iPhone reconnects while they remain seated: leaving and returning is not an
+acceptable substitute for the same stationary power-cycle test.
+
+Board B now leaves its incoming HFP service available instead of initiating HFP
+connections. The pinned SDK closes its incoming HFP servers during an outgoing
+open (`bta_ag_start_open`); interference with the Tesla's own attempts is a
+hypothesis, not an established root cause. A retains its iPhone reconnect policy.
+Message notification connections and call audio setup remain enabled on B.
+
+The startup marker is `Tesla reconnect test 1: incoming-only`. `status` reports
+`Tesla reconnect: incoming-only` instead of an outgoing retry timer. Hardware
+validation of this experiment is pending; automatic reconnection is not yet fixed.
+
+After installing B and re-pairing once, verify a test notification, keep B as the
+priority device, and disconnect the iPhone's Tesla phone connection (leave Phone
+Key untouched). While still parked and seated, remove B's USB power for five
+seconds, restore it, and wait 90 seconds without manually connecting. Reopen the
+USB console and capture `status`. A successful result requires an automatic
+connection and another delivered test message. If it fails, capture that log
+before manually connecting, then capture the manual connection in the same log.
