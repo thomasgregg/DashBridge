@@ -79,6 +79,11 @@ jobs:
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
+          if [[ "$BOARD" == car || "$BOARD" == single ]]; then
+            python tools/test_sdp_attributes.py
+            python tools/test_acl_recovery.py
+            python tools/test_pairing_confirmation.py
+          fi
           bash tools/build.sh "$BOARD"
           if [[ "$BOARD" == phone || "$BOARD" == car ]]; then
             DASHBRIDGE_BUILD_ROLE="$BOARD" python tools/test_call_config.py

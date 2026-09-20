@@ -63,7 +63,12 @@ with tempfile.TemporaryDirectory() as temporary:
     assert original.replace(callback(original), callback(fixed)) == fixed
     harness = '#include <cassert>\n#include <cstdint>\n#include <cstring>\n'
     for name, text in [('original', original), ('fixed', fixed)]:
-        harness += f'namespace {name} {{\n' + stubs + callback(text) + '\n}\n'
+        body = callback(text)
+        if name == 'original':
+            # Make the SDK's intentional fallthrough explicit for GCC's host warnings.
+            # This C++ annotation does not change the original callback's behavior.
+            body = body.replace('        /* continue to next case */', '        [[fallthrough]];')
+        harness += f'namespace {name} {{\n' + stubs + body + '\n}\n'
     harness += r'''
 int main() {
  original::bta_dm_cb.p_sec_cback=original::receiver;
