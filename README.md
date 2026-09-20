@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="docs/assets/dashbridge-banner.svg" alt="DashBridge — Your messages. On your dashboard." width="100%" />
+  <img src="docs/assets/dashbridge-banner.svg" alt="DashBridge — WhatsApp notifications for your Tesla." width="100%" />
 </p>
 
 <p align="center">
   <a href="https://github.com/thomasgregg/DashBridge/actions/workflows/ci.yml"><img src="https://github.com/thomasgregg/DashBridge/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
-  <img src="https://img.shields.io/badge/status-experimental-f59e0b?style=flat-square" alt="Status: experimental" />
-  <img src="https://img.shields.io/badge/hardware-ESP32--WROOM--32-2563eb?style=flat-square" alt="Hardware: original ESP32-WROOM-32" />
-  <img src="https://img.shields.io/badge/ESP--IDF-v5.5.1-374151?style=flat-square" alt="ESP-IDF v5.5.1" />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-10b981?style=flat-square" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/status-experimental-7c7154?style=flat-square&labelColor=102c37" alt="Status: experimental" />
+  <img src="https://img.shields.io/badge/hardware-ESP32--WROOM--32-176c59?style=flat-square&labelColor=102c37" alt="Hardware: original ESP32-WROOM-32" />
+  <img src="https://img.shields.io/badge/ESP--IDF-v5.5.1-3b5d66?style=flat-square&labelColor=102c37" alt="ESP-IDF v5.5.1" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-176c59?style=flat-square&labelColor=102c37" alt="License: MIT" /></a>
 </p>
 
 <p align="center">
