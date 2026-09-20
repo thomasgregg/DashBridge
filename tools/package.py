@@ -36,9 +36,9 @@ def package(roles):
             "file": output.name, "flash_address": "0x0", "sha256": sha256(output),
             "bytes": output.stat().st_size, "source_sha256": sources(ROOT, role),
             "sdkconfig_sha256": sha256(build / "sdkconfig"),
-            "hardware_tested": False, "version": "0.2.1-dev",
+            "hardware_tested": False, "version": "0.2.2-map-only",
         }
-    manifest.update({"project": "DashBridge prototype", "version": "0.2.1-dev",
+    manifest.update({"project": "DashBridge prototype", "version": "0.2.2-map-only",
                      "target": "esp32", "flash_size": "4MB", "esp_idf": "v5.5.1",
                      "esp_idf_commit": "fcae32885b0296b32044cb99ecbdc50d98dddb83"})
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

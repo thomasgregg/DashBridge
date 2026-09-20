@@ -3,7 +3,6 @@
 #if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
 #include "esp_bt_device.h"
 #include "esp_gap_bt_api.h"
-#include "esp_hf_ag_api.h"
 #include "esp_log.h"
 #include "esp_sdp_api.h"
 #include "esp_spp_api.h"
@@ -283,30 +282,7 @@ static void gap_cb(esp_bt_gap_cb_event_t e, esp_bt_gap_cb_param_t *p) {
             paired(Peer::car);
     }
 }
-static void hfp_cb(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
-    Guard g;
-    // Minimal truthful gateway for car discovery. This prototype has no phone service.
-    if (e == ESP_HF_CIND_RESPONSE_EVT)
-        esp_hf_ag_cind_response(p->cind_rep.remote_addr, esp_hf_call_status_t(0),
-                                esp_hf_call_setup_status_t(0), esp_hf_network_state_t(0), 0,
-                                esp_hf_roaming_status_t(0), 5, esp_hf_call_held_status_t(0));
-    else if (e == ESP_HF_COPS_RESPONSE_EVT)
-        esp_hf_ag_cops_response(p->cops_rep.remote_addr, const_cast<char *>("Notification prototype"));
-    else if (e == ESP_HF_CLCC_RESPONSE_EVT)
-        esp_hf_ag_clcc_response(p->clcc_rep.remote_addr, 0, esp_hf_current_call_direction_t(0),
-                                esp_hf_current_call_status_t(0), esp_hf_current_call_mode_t(0),
-                                esp_hf_current_call_mpty_type_t(0), nullptr, ESP_HF_CALL_ADDR_TYPE_UNKNOWN);
-    else if (e == ESP_HF_UNAT_RESPONSE_EVT)
-        esp_hf_ag_unknown_at_send(p->unat_rep.remote_addr, nullptr);
-    else if (e == ESP_HF_DIAL_EVT)
-        esp_hf_ag_cmee_send(p->out_call.remote_addr, ESP_HF_AT_RESPONSE_CODE_CME,
-                            ESP_HF_CME_OPERATION_NOT_SUPPORTED);
-    else if (e == ESP_HF_CNUM_RESPONSE_EVT)
-        esp_hf_ag_cnum_response(p->cnum_rep.remote_addr, nullptr, 129,
-                                ESP_HF_SUBSCRIBER_SERVICE_TYPE_UNKNOWN);
-    else if (e == ESP_HF_CONNECTION_STATE_EVT)
-        ESP_LOGI(tag, "Phone-profile state=%d (calls unavailable in prototype)", p->conn_stat.state);
-}
+
 void car_receive(const WireMessage &m) {
     last_phone = now();
     if (m.op == Op::reset) {
@@ -373,14 +349,12 @@ bool car_notifications_ready() { return server.handle && mas.notifications() && 
 void car_start() {
     ESP_ERROR_CHECK(esp_bt_gap_register_callback(gap_cb));
     #if CONFIG_BRIDGE_SINGLE
-    ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge"));
+    ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge Test"));
 #else
     ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge B"));
 #endif
     esp_bt_io_cap_t cap = ESP_BT_IO_CAP_NONE;
     ESP_ERROR_CHECK(esp_bt_gap_set_security_param(ESP_BT_SP_IOCAP_MODE, &cap, sizeof cap));
-    ESP_ERROR_CHECK(esp_hf_ag_register_callback(hfp_cb));
-    ESP_ERROR_CHECK(esp_hf_ag_init());
     ESP_ERROR_CHECK(esp_sdp_register_callback(sdp_cb));
     ESP_ERROR_CHECK(esp_sdp_init());
     ESP_ERROR_CHECK(esp_spp_register_callback(spp_cb));
@@ -389,10 +363,11 @@ void car_start() {
     cfg.tx_buffer_size = 0;
     ESP_ERROR_CHECK(esp_spp_enhanced_init(&cfg));
     esp_bt_cod_t cod = {};
-    cod.major = ESP_BT_COD_MAJOR_DEV_PHONE;
-    cod.minor = 3;
-    cod.service = ESP_BT_COD_SRVC_TELEPHONY | ESP_BT_COD_SRVC_OBJ_TRANSFER;
+    cod.major = ESP_BT_COD_MAJOR_DEV_UNCATEGORIZED;
+    cod.minor = 0;
+    cod.service = ESP_BT_COD_SRVC_OBJ_TRANSFER;
     ESP_ERROR_CHECK(esp_bt_gap_set_cod(cod, ESP_BT_SET_COD_ALL));
+    ESP_LOGI(tag, "Message-only experiment: no HFP or audio service; keep iPhone as Tesla priority device");
     ESP_ERROR_CHECK(esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE));
 }
 } // namespace runtime

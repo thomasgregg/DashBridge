@@ -205,7 +205,7 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         }
         interface_id = id;
         #if CONFIG_BRIDGE_SINGLE
-        ESP_ERROR_CHECK(esp_ble_gap_set_device_name("DashBridge"));
+        ESP_ERROR_CHECK(esp_ble_gap_set_device_name("DashBridge Test"));
 #else
         ESP_ERROR_CHECK(esp_ble_gap_set_device_name("DashBridge A"));
 #endif

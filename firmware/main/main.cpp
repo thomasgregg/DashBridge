@@ -126,7 +126,7 @@ extern "C" void app_main() {
     {
     Guard startup_guard;
 #if CONFIG_BRIDGE_SINGLE
-    ESP_LOGI("bridge", "DashBridge single-board prototype: iPhone BLE + Tesla Classic. No call/audio relay.");
+    ESP_LOGI("bridge", "DashBridge message-only experiment: iPhone BLE + Tesla MAP. No phone or audio profile.");
 #endif
 #if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
     if (esp_ble_get_bond_device_num() == 0) open_pairing(Peer::phone);

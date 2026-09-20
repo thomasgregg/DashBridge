@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_VER "0.2.1-dev")
+set(PROJECT_VER "0.2.2-map-only")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(dashbridge)
 if(CONFIG_BRIDGE_CAR OR CONFIG_BRIDGE_SINGLE)
