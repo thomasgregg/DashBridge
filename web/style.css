@@ -25,18 +25,15 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 .eyebrow { display: flex; align-items: center; justify-content: space-between; font-size: 10px !important; letter-spacing: 1.8px; color: #8de1d0 !important; font-weight: 600; margin: 0 0 34px !important; }
 .eyebrow span { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9px; letter-spacing: .5px; color: #7e9ea9; }
 h1 { font-size: clamp(40px, 4.9vw, 58px); letter-spacing: -2.3px; line-height: 1.02; margin: 0 0 24px; font-weight: 600; }
-.hero > p:not(.eyebrow) { color: #aac1c9; font-size: 14px; line-height: 1.75; margin: 0; }
 .bridge-diagram { margin: 28px -8px 22px; }
 .bridge-diagram svg { width: 100%; display: block; }
 .bridge-diagram .diagram-mobile { display: none; }
 .board-marker { opacity: .5; transition: opacity 160ms ease; }
 .board-marker.is-selected { opacity: 1; }
-.board-halo { fill: #79e4c714; stroke: #79e4c7; stroke-width: 1.5; opacity: 0; transition: opacity 160ms ease; }
-.board-marker.is-selected .board-halo { opacity: 1; }
 .board-marker.is-selected .board-body { fill: #2b635f; stroke-width: 2; }
 .board-marker.is-selected text { fill: #c1ffeb; font-weight: 700; }
 @media (prefers-reduced-motion: reduce) {
-  .board-marker, .board-halo { transition: none; }
+  .board-marker { transition: none; }
 }
 .install-side { display: flex; flex-direction: column; justify-content: center; padding: 43px 39px 34px; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 26px; }
@@ -95,7 +92,6 @@ esp-web-install-button { display: block; }
   .eyebrow { margin-bottom: 15px !important; font-size: 9px !important; }
   h1 { font-size: clamp(24px, 6.7vw, 32px); line-height: 1.15; letter-spacing: -.8px; margin-bottom: 10px; }
   h1 br { display: none; }
-  .hero > p:not(.eyebrow) { font-size: 12px; line-height: 1.65; }
   .bridge-diagram { margin: 16px auto 13px; max-width: 320px; }
   .bridge-diagram .diagram-desktop { display: none; }
   .bridge-diagram .diagram-mobile { display: block; }
