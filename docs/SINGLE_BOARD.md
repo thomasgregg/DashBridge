@@ -1,6 +1,6 @@
 # Single-board prototype
 
-Development branch: `single-board`. Firmware: **0.2.1-dev**.
+Firmware: **0.2.1-dev**. [Online installer](https://thomasgregg.github.io/DashBridge/).
 The permanent two-board snapshot is [v0.1.4](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4).
 
 ## What changed
@@ -59,7 +59,7 @@ sender names or group names. The [0.2.1-dev build and regression checks](https:/
 
 1. Save the v0.1.4 release or use its recovery guide before changing the board.
 2. Connect one original ESP32 by USB. Install `single-merged.bin` at address
-   `0x0`, or use this branch's built web installer. The merged install erases
+   `0x0`, or use the [online installer](https://thomasgregg.github.io/DashBridge/). The merged install erases
    saved pairings. RST is not a BOOT button; use the USB console commands below.
 3. Open **Logs & Console** at 115200 baud. Confirm `App version: 0.2.1-dev`
    and `DashBridge single-board prototype` appear without repeated restarts.
@@ -114,8 +114,8 @@ and `python tools/test_sdp_attributes.py` with the pinned SDK active.
 
 The single-board installer is built with `npm ci --prefix web` then
 `npm run build --prefix web`. Serve `_site` over localhost or HTTPS using
-Chrome/Edge. The public default installer remains the two-board release
-until this branch is deliberately promoted.
+Chrome/Edge. GitHub Pages serves this experimental single-board installer.
+The preserved v0.1.4 release includes the earlier two-board installer.
 
 ## Roll back
 

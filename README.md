@@ -4,7 +4,7 @@
 
 **Your iPhone notifications, on your Tesla dashboard. One ESP32.**
 
-This branch develops a single-board Bluetooth bridge. It receives iPhone
+DashBridge is a single-board Bluetooth bridge. It receives iPhone
 notifications over Bluetooth Low Energy, filters WhatsApp notifications,
 and presents them through the Tesla's Bluetooth message interface.
 No SMS forwarding, WhatsApp account login, server, or second board is needed
@@ -37,8 +37,9 @@ Use the [single-board setup guide](docs/SINGLE_BOARD.md). There is one image,
 `single-merged.bin`, and both devices pair with **DashBridge**. USB console
 commands open iPhone and Tesla pairing separately and report both connections.
 
-The public default installer still serves the preserved two-board release.
-This branch's installer is a separate preview until hardware testing passes.
+The [online installer](https://thomasgregg.github.io/DashBridge/) serves the
+experimental single-board firmware. The earlier two-board installer and firmware
+remain available in the [v0.1.4 release](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4).
 
 ## Current status
 
