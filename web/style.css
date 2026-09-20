@@ -23,7 +23,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 .workspace { display: grid; grid-template-columns: 1.06fr 1fr; border: 1px solid #d4ded5; border-radius: 22px; overflow: hidden; background: #fff; box-shadow: 0 18px 45px -25px #17362d30; }
 .hero { position: relative; padding: 42px 40px 33px; color: #f2f9f9; background-color: #102c37; background-image: radial-gradient(ellipse at 80% 100%, #1d53664d, transparent 65%), linear-gradient(#7694a007 1px, transparent 1px), linear-gradient(90deg, #7694a007 1px, transparent 1px); background-size: auto, 32px 32px, 32px 32px; }
 .eyebrow { display: flex; align-items: center; justify-content: space-between; font-size: 10px !important; letter-spacing: 1.8px; color: #8de1d0 !important; font-weight: 600; margin: 0 0 34px !important; }
-.eyebrow span { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9px; letter-spacing: .5px; color: #7e9ea9; }
 h1 { font-size: clamp(40px, 4.9vw, 58px); letter-spacing: -2.3px; line-height: 1.02; margin: 0 0 24px; font-weight: 600; }
 .bridge-diagram { margin: 28px -8px 22px; }
 .bridge-diagram svg { width: 100%; display: block; }
@@ -62,7 +61,6 @@ esp-web-install-button { display: block; }
 .fine-print { font-size: 10px; color: #7c887f; line-height: 1.8; margin: 21px 0 0; }
 .next { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 27px 0; margin-top: 10px; border-bottom: 1px solid var(--line); }
 .next p { display: flex; align-items: center; gap: 13px; font-size: 13px; color: var(--muted); margin: 0; }
-.step-label { color: #789587; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; }
 .next a { font-size: 13px; font-weight: 550; color: var(--green); text-decoration: none; }
 .next a:hover { text-decoration: underline; }
 .next a span { margin-left: 9px; }
@@ -103,6 +101,6 @@ esp-web-install-button { display: block; }
   .desktop-break { display: none; }
   .fine-print { margin-top: 17px; }
   .next { align-items: flex-start; flex-direction: column; gap: 11px; padding: 24px 0; }
-  .next a { margin-left: 27px; font-size: 12px; }
+  .next a { font-size: 12px; }
   .footer { flex-direction: column; gap: 13px; }
 }

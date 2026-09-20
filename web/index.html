@@ -18,7 +18,7 @@
   <main class="wrap">
     <div class="workspace">
     <div class="hero">
-      <p class="eyebrow">USB INSTALLER <span>01 / SETUP</span></p>
+      <p class="eyebrow">USB INSTALLER</p>
       <h1>Install<br> DashBridge</h1>
       <div class="bridge-diagram" role="img" aria-label="iPhone connects to Board A, Board A is wired to Board B, and Board B connects to Tesla">
         <svg class="diagram-desktop" viewBox="0 0 400 170" fill="none" aria-hidden="true">
@@ -86,19 +86,20 @@
       <div id="install-control"><button class="install" disabled>Loading installer…</button></div>
       <p id="browser-status" role="status" aria-live="polite">Checking browser…</p>
       <noscript><p class="notice">Enable JavaScript, or use the <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#load-the-firmware">manual setup guide</a>.</p></noscript>
-      <div class="panel-footer"><span class="usb-symbol" aria-hidden="true">↳</span><span>Original ESP32-WROOM-32 · 4 MB<br>One board at a time · USB data cable</span></div>
+      <div class="panel-footer"><span class="usb-symbol" aria-hidden="true">↳</span><span>Connect one board using a USB data cable.</span></div>
     </section>
     <p class="fine-print">Installation erases the selected board,<br class="desktop-break"> including saved pairings.</p>
     </div>
     </div>
-    <div class="next"><p><span class="step-label">02</span> After installation</p><a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#test-1-tesla-with-board-b-alone">Set up Bluetooth and wiring <span aria-hidden="true">→</span></a></div>
+    <div class="next"><p>After installation</p><a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#test-1-tesla-with-board-b-alone">Set up Bluetooth and wiring <span aria-hidden="true">→</span></a></div>
     <details class="help">
       <summary>Help</summary>
       <div class="help-content">
+        <h2>Compatible boards</h2><p>Use an original ESP32-WROOM-32 with 4 MB of flash memory. ESP32-S2, S3 and C3 boards are incompatible.</p>
         <h2>Which browser?</h2><p>Use Chrome or Edge on a Mac, Windows PC or Linux computer. iPhone, iPad and Safari don’t support USB installation.</p>
         <h2>Installing both boards</h2><p>Connect only one board at a time. Select A for the iPhone board or B for the Tesla board. Click Install, choose its USB port, and confirm. Wait for the success message, close the dialog and unplug the board. Label it A or B, then repeat with the other board. Start the Bluetooth setup with Board B.</p>
         <h2>No board in the USB list?</h2><p>Try a different data cable or USB port and close other apps using the board. Some boards need a USB driver: <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a> or <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">CH340</a>, depending on the USB chip.</p>
-        <h2>Connection failed?</h2><p>Hold BOOT as you start installation. Release it once the chip is detected or installation begins. If needed, press EN/reset and try again. This firmware requires an original ESP32-WROOM-32; S2, S3 and C3 boards are incompatible.</p>
+        <h2>Connection failed?</h2><p>Hold BOOT as you start installation. Release it once the chip is detected or installation begins. If needed, press EN/reset and try again.</p>
         <h2>Prototype status</h2><p>The firmware has not been tested on physical boards with an iPhone and Tesla yet. Reconnection also needs testing. Calls, music passthrough and WhatsApp replies are not supported. <a href="https://github.com/thomasgregg/DashBridge#current-boundaries">Known limitations</a> · <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md">Setup guide</a></p>
       </div>
     </details>
