@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="336" viewBox="0 0 1280 336" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="272" viewBox="0 0 1280 272" role="img" aria-labelledby="title desc">
   <title id="title">DashBridge — WhatsApp notifications for your Tesla.</title>
   <desc id="desc">The DashBridge bridge logo and iPhone-to-Tesla diagram, in the installer's dark teal and mint colours.</desc>
   <defs>
@@ -9,17 +9,17 @@
       <path d="M32 0H0V32" fill="none" stroke="#7694a0" stroke-opacity=".028"/>
     </pattern>
   </defs>
-  <rect width="1280" height="336" rx="24" fill="#102c37"/>
-  <rect width="1280" height="336" rx="24" fill="url(#glow)"/>
-  <rect width="1280" height="336" rx="24" fill="url(#grid)"/>
+  <rect width="1280" height="272" rx="24" fill="#102c37"/>
+  <rect width="1280" height="272" rx="24" fill="url(#glow)"/>
+  <rect width="1280" height="272" rx="24" fill="url(#grid)"/>
   <!-- Same mark as web/favicon.svg; same illustration as the installer. -->
-  <svg x="64" y="48" width="46" height="46" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#102b32"/><g fill="none" stroke="#79e4c7" stroke-width="4" stroke-linecap="round"><path d="M12 46h40M18 46V18c0 20 28 20 28 0v28M26 34v12m12-12v12"/></g></svg>
+  <svg x="64" y="25" width="46" height="46" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#102b32"/><g fill="none" stroke="#79e4c7" stroke-width="4" stroke-linecap="round"><path d="M12 46h40M18 46V18c0 20 28 20 28 0v28M26 34v12m12-12v12"/></g></svg>
   <g font-family="Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif">
-    <text x="129" y="77" font-size="13" font-weight="600" letter-spacing="2.5" fill="#8de1d0">LOCAL BLUETOOTH BRIDGE</text>
-    <text x="60" y="186" font-size="78" font-weight="600" letter-spacing="-3" fill="#f2f9f9">DashBridge</text>
-    <text x="64" y="234" font-size="25" fill="#aac1c9">WhatsApp notifications for your Tesla.</text>
+    <text x="129" y="56" font-size="20" font-weight="600" letter-spacing="2" fill="#8de1d0">LOCAL BLUETOOTH BRIDGE</text>
+    <text x="60" y="156" font-size="82" font-weight="600" letter-spacing="-3" fill="#f2f9f9">DashBridge</text>
+    <text x="64" y="211" font-size="24" fill="#aac1c9">WhatsApp notifications for your Tesla.</text>
   </g>
-  <svg x="752" y="84" width="456" height="194" viewBox="0 0 400 170" fill="none">
+  <svg x="658" y="29" width="568" height="218" viewBox="0 16 400 154" fill="none">
     <defs><linearGradient id="signal" x1="0" x2="400" gradientUnits="userSpaceOnUse"><stop stop-color="#79e4c7"/><stop offset="1" stop-color="#52b6e6"/></linearGradient></defs>
           <path d="M53 78h78m134 0h76" stroke="url(#signal)" stroke-width="1.5" stroke-dasharray="3 6"/>
           <rect x="8" y="34" width="45" height="87" rx="9" fill="#153b44" stroke="#739ba2" stroke-width="1.5"/>
@@ -29,11 +29,11 @@
           <path d="M167 67h52m-52 10h52m-52 10h52" stroke="#79e4c7" stroke-width="1.4"/>
           <g stroke="#79e4c7"><rect x="132" y="40" width="42" height="71" rx="7" fill="#1d4650"/><rect x="213" y="40" width="42" height="71" rx="7" fill="#1d4650"/><rect x="142" y="55" width="22" height="23" rx="3" fill="#112f39"/><rect x="223" y="55" width="22" height="23" rx="3" fill="#112f39"/></g>
           <path d="M145 91h16m-16 5h16m65-5h16m-16 5h16" stroke="#5e8990" stroke-linecap="round"/>
-          <text x="153" y="127" text-anchor="middle" fill="#a6c5cb" font-size="10" font-family="sans-serif">A</text><text x="234" y="127" text-anchor="middle" fill="#a6c5cb" font-size="10" font-family="sans-serif">B</text>
+          <text x="153" y="127" text-anchor="middle" fill="#a6c5cb" font-size="12" font-family="sans-serif">A</text><text x="234" y="127" text-anchor="middle" fill="#a6c5cb" font-size="12" font-family="sans-serif">B</text>
           <path d="m322 71 8-21c2-5 5-6 9-6h30c4 0 7 1 9 6l8 21m-64 0h64l7 12v22h-78V83z" fill="#173c48" stroke="#739ba2" stroke-width="1.5" stroke-linejoin="round"/>
           <path d="m335 51-6 18h51l-6-18z" fill="#315762"/>
           <path d="M325 85h13m31 0h13m-34 10h14" stroke="#79e4c7" stroke-width="2" stroke-linecap="round"/>
           <path d="M320 106v9h10v-9m47 0v9h10v-9" fill="#739ba2"/>
-          <text x="30" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">iPhone</text><text x="194" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">DashBridge</text><text x="354" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">Tesla</text>
+          <text x="30" y="157" text-anchor="middle" fill="#95b5bd" font-size="12" font-family="sans-serif">iPhone</text><text x="194" y="157" text-anchor="middle" fill="#95b5bd" font-size="12" font-family="sans-serif">DashBridge</text><text x="354" y="157" text-anchor="middle" fill="#95b5bd" font-size="12" font-family="sans-serif">Tesla</text>
   </svg>
 </svg>
