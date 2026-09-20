@@ -32,9 +32,9 @@ def prepare(bt_dir, output):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     expected = {
-        'sdp_server.c': '5e6c87536f3f3d39dca1eaa1c7cfb92da4ed295aacef790c8182c9c29f944e4e',
-        'sdp_utils.c': '65b747949a487c65dd1984b035f4e399ef481e7086d6eb81b39a2612cc367cbd',
-        'include/sdpint.h': '949e6b31d6f66c0dd093f3140bb7a7d39bb741f058bf846cd7dd14818b9312a4',
+        'sdp_server.c': '4b7070a6aebc4c14c381564b26d8971a09dbaf01676ba59ffc2ffdb7c33404c4',
+        'sdp_utils.c': '98e084029828a829f15987413eb8218fc9567de7365a95eebfb11f40ac80a5ed',
+        'include/sdpint.h': '068c59952ea85f38bedb7c403ef565d619ff94efbf313c5c9141b423e9a5bcd2',
     }
     sources = {}
     for name, digest in expected.items():
@@ -49,23 +49,9 @@ def prepare(bt_dir, output):
                           '#define     MAX_ATTR_PER_SEQ        16')
     (output / 'sdpint.h').write_text(header)
     utils = sources['sdp_utils.c']
-    start = utils.index('UINT8 *sdpu_extract_attr_seq (')
-    end = utils.index('\n}\n', start) + 3
-    parser = utils[start:end]
-    # Check capacity BEFORE writing. The old post-increment check rejected an
-    # exactly full list (Tesla MAP asks for 8, Device ID asks for 10 attributes).
-    parser = replace_once(parser,
-        '    for ( ; p < p_end_list ; ) {',
-        '    for ( ; p < p_end_list ; ) {\n'
-        '        if (p_seq->num_attr >= MAX_ATTR_PER_SEQ) {\n'
-        '            return (NULL);\n'
-        '        }')
-    parser = replace_once(parser,
-        '        if (++p_seq->num_attr >= MAX_ATTR_PER_SEQ) {\n'
-        '            return (NULL);\n'
-        '        }',
-        '        ++p_seq->num_attr;')
-    (output / 'sdp_utils.c').write_text(utils[:start] + parser + utils[end:])
+    # ESP-IDF 5.5.5 includes the pre-write capacity and packet-length checks.
+    # Keep its parser intact; only the shared attribute capacity changes above.
+    (output / 'sdp_utils.c').write_text(utils)
 
     server = sources['sdp_server.c']
     diagnostic = r'''    /* DashBridge: bounded discovery diagnostics, not message data. */
@@ -97,11 +83,11 @@ def prepare(bt_dir, output):
 def prepare_reconnect(bt_dir, output):
     root = Path(bt_dir) / 'host/bluedroid'
     expected = {
-        'stack/sdp/sdp_discovery.c': '979ece05b4cf2295a61cbaca08eb0b59f3131baf8b95729c8ad7a58e61eede44',
-        'bta/hf_ag/bta_ag_sdp.c': '2997cc3d26820ad5e76c9ebd21c2315489be5b568c093f47859577c060b2bf02',
-        'bta/hf_ag/bta_ag_act.c': '90ad7bf907c469a21b0d2b08fcd6e19978739f96f7209b279d4494838624e1b3',
-        'bta/hf_ag/bta_ag_rfc.c': '84a47d218f3e89c948da58fb16b0f2af89c332663e604301d3b1ebb396826e9e',
-        'stack/btm/btm_acl.c': '0d8ada1177223c0751cbda9215c90e70865dce4d3d8df3b97dbdb78ae9369f40',
+        'stack/sdp/sdp_discovery.c': 'c5c8b9f56b8c617546c0e880609e0fe84a79d4b0cc0f8b76d790e273ef3c9503',
+        'bta/hf_ag/bta_ag_sdp.c': '7821c98f476db997aff042b5ffb495dcc4e7ff49c154c5704efd895123498559',
+        'bta/hf_ag/bta_ag_act.c': '34f04299a74440e424ba93b7b2891c7a2fe1c768c860be57e6676cc2e7bb2b3d',
+        'bta/hf_ag/bta_ag_rfc.c': '23f71e22203c407528555adc092f9271b8d1e94ffe3878ef2c11ebdbb7f1cdbe',
+        'stack/btm/btm_acl.c': '11c87074c048843816854da0eb4fff8cd8246fbb384dfbb5a7ec88262bf4cb70',
     }
     sources = {}
     for name, digest in expected.items():
@@ -187,12 +173,12 @@ def prepare_reconnect(bt_dir, output):
 def prepare_connection_trace(bt_dir, output):
     root = Path(bt_dir) / 'host/bluedroid'
     expected = {
-        'main/bte_main.c': '17a3420f783c5fe8bf7b1f0598ab2c0c836315eee1a8365fbb7d35a50c1a9d84',
-        'stack/btu/btu_hcif.c': 'c71211a2ee18dd019105f418ca0f8d7b06856b50d05a41875d0815cbb85b116f',
-        'stack/l2cap/l2c_main.c': '4b9f998bb32f35f1a8e3aa59cf535df7006863e0ca3172165afe9a3797649e8a',
-        'stack/l2cap/l2c_utils.c': '7eba40f7a32af8ec861558109c3bb7931973e72ea9b85f01387ce0c43db9a56d',
-        'stack/l2cap/l2c_csm.c': 'a2ddc4d4d0fd366b3881311132b677972f187ef9b7bddb846e7597da3091ba8b',
-        'stack/sdp/sdp_main.c': '35145fda2f3a242ceb82582549a5c1e009e15dcdd6c69f76ff6a163fef5a7e10',
+        'main/bte_main.c': '38b7e3da74118acabb6ff74f675426d3b38d41dd8b19b22f80755a2cd48cb49f',
+        'stack/btu/btu_hcif.c': 'e243f4057198dbdf8d86411367526620a589c2fe508f090a375afff6226bc0a7',
+        'stack/l2cap/l2c_main.c': '7a292d3bd880511f6186909798906b0406cfa5d8fb77680efef7861c7186009c',
+        'stack/l2cap/l2c_utils.c': '32fd538865359113f2ee65e5e2b850a4e0aaba6c670f06500b932d0a47ba9e75',
+        'stack/l2cap/l2c_csm.c': '3b4db70f1da51dbe04281ca9cf76328de44cc5399dfb8ac6e11a72710b722950',
+        'stack/sdp/sdp_main.c': '8345434e4c2f6cc4e17d494aa5bc06235c9e8dc5160e912aaa1d1219e16d289e',
     }
     sources = {}
     for name, digest in expected.items():
