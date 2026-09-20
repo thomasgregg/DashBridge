@@ -47,3 +47,22 @@ test('upstream dialogs without a custom success hook retain their original scree
 test('dependency structure changes require review rather than silently losing the hook', () => {
   assert.throws(() => patchInstallDialog(original.replace('_renderInstall() {', '_renderInstallChanged() {')), /needs review/);
 });
+
+
+test('downloading logs saves the text without resetting the connected board', () => {
+  const handler = patched.match(/@click=\$\{\(\) => \{\s*(textDownload[\s\S]*?)\}\}/)[1];
+  let resets = 0;
+  const downloads = [];
+  const console = { logs: () => 'connection failed\n', reset: () => { resets++; } };
+  new Function('textDownload', handler).call(
+    { shadowRoot: { querySelector: () => console } },
+    (text, filename) => downloads.push({ text, filename }),
+  );
+  assert.deepEqual(downloads, [{ text: 'connection failed\n', filename: 'esp-web-tools-logs.txt' }]);
+  assert.equal(resets, 0);
+  assert.ok(patched.includes('await this.shadowRoot.querySelector("ewt-console").reset();'));
+});
+
+test('upstream log-download changes require review', () => {
+  assert.throws(() => patchInstallDialog(original.replace('textDownload(', 'otherDownload(')), /log-download hook needs review/);
+});

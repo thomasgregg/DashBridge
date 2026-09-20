@@ -18,6 +18,13 @@ export function patchInstallDialog(source) {
     }
     source = source.replace(marker, marker + guard);
   }
+  // Saving evidence must not reboot the board being diagnosed.
+  const downloadAndReset = `textDownload(this.shadowRoot.querySelector("ewt-console").logs(), \`esp-web-tools-logs.txt\`);
+            this.shadowRoot.querySelector("ewt-console").reset();`;
+  if (source.split(downloadAndReset).length !== 2) {
+    throw new Error('ESP Web Tools log-download hook needs review');
+  }
+  source = source.replace(downloadAndReset, downloadAndReset.split('\n')[0]);
   return source;
 }
 
