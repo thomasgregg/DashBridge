@@ -58,7 +58,27 @@ Pass `phone` (A) or `car` (B) to force one board, or `both` to force both.
 Phone implementation/configuration changes affect A; car implementation,
 configuration and SDP patches affect B; shared firmware changes affect both.
 New or deleted source files and missing/corrupt binaries also mark an image stale.
-Force a build after changing build tooling or the SDK environment.
+Build/packaging tool changes also mark images stale. Force a build after changing
+the SDK environment; only the pinned SDK is supported.
+
+### Firmware versions
+
+`firmware/version.txt` is the single release-version source. Each board appends
+a deterministic 12-character build ID derived from its relevant source and
+build-tool checksums, for example `0.3.1-alpha+0123456789ab`. A B-only source edit
+changes B's ID without rebuilding or relabelling A. Documentation and web-only
+edits change neither ID. Identical source inputs retain the same ID.
+
+CMake embeds that exact identifier into ESP-IDF's application descriptor.
+Packaging checks the actual binary's version before writing its manifest; the
+website build checks it again. The selected board's complete identifier appears
+on the page, in the install dialog, after installation, and in the board's logs.
+The page must never strip the prerelease suffix or substitute a global version
+for the selected board's version. Change the release-version file for a new
+release; ordinary development builds receive new IDs automatically. The complete
+identifier must fit ESP-IDF's 31-byte version field.
+
+### Publishing builds
 
 CI uses the same selection and skips compilation when the checked-in images
 already match their sources. README and website changes do not trigger firmware

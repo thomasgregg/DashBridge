@@ -8,6 +8,7 @@
 #include "esp_heap_caps.h"
 #include "freertos/task.h"
 #include "esp_system.h"
+#include "esp_app_desc.h"
 #include "nvs_flash.h"
 #include "runtime.hpp"
 #include "sdkconfig.h"
@@ -59,6 +60,7 @@ static void open_pairing() {
 #endif
 }
 static void status() {
+    ESP_LOGI("status", "Firmware: %s", esp_app_get_description()->version);
 #if CONFIG_BRIDGE_CALL_RELAY
     relay_status();
 #endif

@@ -19,6 +19,7 @@ fi
 cd "$project_dir/firmware"
 for role in "${roles[@]}"; do
   idf.py -B "$project_dir/build/$role" \
+    -D "DASHBRIDGE_ROLE=$role" \
     -D "SDKCONFIG=$project_dir/build/$role/sdkconfig" \
     -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.$role" build
 done
