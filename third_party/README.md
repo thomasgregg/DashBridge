@@ -9,3 +9,5 @@ The prebuilt prototype uses [ESP-IDF v5.5.1](https://github.com/espressif/esp-id
 - [Complete upstream component tree](https://github.com/espressif/esp-idf/tree/v5.5.1/components): component-level notices and licenses remain applicable.
 
 The copies in this directory are root notices, not an exhaustive software bill of materials. Protocol references and the ANCS example consulted during development are listed in [sources and provenance](../docs/SOURCES.md).
+
+The separate [Board B SDK comparison](https://thomasgregg.github.io/DashBridge/idf-5.5.5/) uses [ESP-IDF v5.5.5](https://github.com/espressif/esp-idf/tree/b774170ff46c393eeb5e495ea37936038d3f4f4f), including ESP32 controller revision [`b4b7c54b1eab6a844789b69e56322ef5736eddc8`](https://github.com/espressif/esp32-bt-lib/tree/b4b7c54b1eab6a844789b69e56322ef5736eddc8). Both root license files were compared against those checkouts and are unchanged. Component-level notices for [that SDK tree](https://github.com/espressif/esp-idf/tree/v5.5.5/components) apply to this image.

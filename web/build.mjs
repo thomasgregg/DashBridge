@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import { prepareComparison, comparisonPage } from './comparison.mjs';
 import { installDialogPatch } from './install-dialog-patch.mjs';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, cp, rm, readdir } from 'node:fs/promises';
@@ -78,6 +79,7 @@ async function main() {
   for (const [key, value] of Object.entries({ ...firmware, app: `./${path.relative(output, path.resolve(root, 'web', app))}` })) {
     html = html.replaceAll(`{{${key}}}`, value);
   }
+  const pageTemplate = await readFile(path.join(root, 'web/index.html'), 'utf8');
   const css = await readFile(path.join(root, 'web/style.css'));
   const cssName = `style-${digest(css).slice(0, 16)}.css`;
   await writeFile(path.join(output, 'assets', cssName), css);
@@ -110,6 +112,13 @@ async function main() {
     }
   }
   await writeFile(path.join(output, 'third-party-licenses.txt'), notices.join('\n'));
+  const comparison = await prepareComparison(root, output);
+  let comparisonHtml = comparisonPage(pageTemplate, comparison);
+  comparisonHtml = comparisonHtml.replaceAll('{{app}}', `../${path.relative(output, path.resolve(root, 'web', app))}`)
+    .replaceAll('{{css}}', `../assets/${cssName}`);
+  if (/\{\{.+?\}\}/.test(comparisonHtml)) throw new Error('Unresolved comparison placeholder');
+  await writeFile(path.join(output, 'idf-5.5.5/index.html'), comparisonHtml);
+  await cp(path.join(root, 'web/favicon.svg'), path.join(output, 'idf-5.5.5/favicon.svg'));
   console.log(`Built DashBridge installer ${firmware.version}; both firmware images verified.`);
 }
 

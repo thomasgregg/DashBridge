@@ -25,7 +25,12 @@ function selectBoard() {
   installer.setAttribute('manifest', choice.dataset.manifest);
   installer.overrides = {
     renderInstallSuccess: successRenderer(choice.value, (otherRole) => {
-      choices.find(input => input.value === otherRole).checked = true;
+      const other = choices.find(input => input.value === otherRole);
+      if (!other && choice.dataset.otherInstaller) {
+        window.location.assign(choice.dataset.otherInstaller);
+        return;
+      }
+      other.checked = true;
       selectBoard();
     }, choice.dataset.version),
   };

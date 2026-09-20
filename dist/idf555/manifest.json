@@ -1,0 +1,49 @@
+{
+  "images": {
+    "car": {
+      "file": "car-merged.bin",
+      "flash_address": "0x0",
+      "sha256": "2ae77511583212bd624ab31be3adf2345466b16860f0312fefe9eaec63eff4d4",
+      "bytes": 1135872,
+      "source_sha256": {
+        "firmware/CMakeLists.txt": "15d96a8bb6614901d79880532b33e9144a0e4507907690a8928c7a98e1faedb1",
+        "firmware/components/bridge_core/CMakeLists.txt": "49ee6986d910f8b0f798656296d141a713181ccfbe1a3c6967751a36399d4b76",
+        "firmware/components/bridge_core/bridge_core.cpp": "0e48ac7e76a249d335e0c4c7bf2ace54358b1bddea4a9b9d819ae00a5b754c78",
+        "firmware/components/bridge_core/include/bridge_core.hpp": "ab4bb00dcfed99dcef451161eb281bed060ae0d8567f01f9844beda1e9d8a06d",
+        "firmware/main/CMakeLists.txt": "7cc5a54f64f8f64855c94f4854f13252d88cfd3b716f4159e797532f4f81bf26",
+        "firmware/main/Kconfig.projbuild": "8fcbf88388e91b47576c25cc1998cd80481d32cae4cc588eb924d3f618fe3b69",
+        "firmware/main/call_audio.cpp": "06cc0f0457ad657aeb247505de48a59328fdc9085e03910b7462a2b93ccd39fe",
+        "firmware/main/call_protocol.hpp": "e6fda78df71938d41436ad8d7061be7cd7c266a77144b7cf8e4aadce6f8729cd",
+        "firmware/main/call_relay.cpp": "e4b37d98a62a38d4dac7e9f90cdd828cf2f0e141c32aac62e188c370f6475c81",
+        "firmware/main/call_relay.hpp": "4c57f395b733cd0009ce58ccf3682a5c6b1c751521b3dac60a9ed0ee98b82037",
+        "firmware/main/car.cpp": "b42db70475498e4a0a99617af06b0e5c7de782ecf5465fefc93248064ea6bb66",
+        "firmware/main/console_commands.hpp": "e4bec16205847906f1a9d786d1b091b79258815935b928e80edd5ee84085e20e",
+        "firmware/main/local_bridge.hpp": "9b4362de45da099f4972875e47f59161dec2e20f62b7f3bffc4277f338f31978",
+        "firmware/main/main.cpp": "96d920b61865e89d60b1f42b392a3d8a96de508e0f9d1d4e2571076353d0c1ad",
+        "firmware/main/runtime.hpp": "c30a6d2703719828d9fe2d4072026fc97c73d476913fa64caf486ff24c96d80a",
+        "firmware/sdkconfig.car": "c14306d73c506e9dcf4232d1e0388b32b09837d7f00246ac52ca74c5da3af3ba",
+        "firmware/sdkconfig.defaults": "78a27956a9990558aad3155cfc844b200a7773148c69e54c22885ff9554b58c6",
+        "firmware/sdp_diagnostics/CMakeLists.txt": "95aedc2a5e4ff16af0de63aaea9a3dafd5dae93c36ee65b60e6c92eb8278c0e1",
+        "firmware/sdp_diagnostics/connection_trace.h": "d046c4d7f741db6faa205835d1fb842e8ec3dc6f43b67b6791f1730235a351ae",
+        "firmware/sdp_diagnostics/patch.py": "05e83a7a8203bff987043adcc78a7160672bbb1f41610be2293e094fa5b8b22d",
+        "firmware/version.txt": "458b1223742b8accc1cf66f26da501c8015493519fe302be6599bb259a8c6ff1",
+        "tools/build.sh": "6a55f8a10a52b44c6dd0cb5ff7ec8328cf7c4d9ebe2586b8acb8835b52fff475",
+        "tools/build_scope.py": "700295f55c39cfb13c6e6d554f48ac7013d1585dd6b192c932b390ca0e671a1d",
+        "tools/package.py": "a1969c53500a533fd28575c18a2c1cd966dc6bb769503eb3931012a309a3f5b6"
+      },
+      "sdkconfig_sha256": "dce8074346e71ff922b85436cf5df2edf40205e67b42725ceb0c979d63c1f242",
+      "hardware_tested": false,
+      "version": "0.3.2-alpha+09201b74ad2c",
+      "esp_idf": "v5.5.5",
+      "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f"
+    }
+  },
+  "project": "DashBridge prototype",
+  "version": "0.3.2-alpha",
+  "target": "esp32",
+  "flash_size": "4MB",
+  "esp_idf": "v5.5.5",
+  "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f",
+  "source_commit": "1ad155f47486f87fc797c8234978f2894f8ad96f",
+  "build_url": "https://github.com/thomasgregg/DashBridge/actions/runs/35535394007"
+}
