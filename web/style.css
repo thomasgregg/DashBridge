@@ -4,6 +4,7 @@
   background: #f3f5f2;
   font-synthesis: none;
   --green: #126856;
+  --control-background: #176c59;
   --control-hover: #10513f;
   --muted: #586c6e;
   --line: #dce4de;
@@ -46,16 +47,17 @@ legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-pat
 .selector input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .selector label > span { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 15px 10px; border-radius: 6px; border: 1px solid transparent; font-size: 16px; font-weight: 650; color: #65756d; }
 .selector .role { font-weight: 450; font-size: 13px; }
-.selector input:checked + span { background: white; color: #125e4e; }
+.selector input:checked + span { background: var(--control-background); color: #fff; }
 .selector input:focus-visible + span { outline: 2px solid #188575; outline-offset: -2px; }
+.selector input:checked:focus-visible + span { outline-color: #8de1d0; }
 #board-description { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 23px 0 28px; min-height: 23px; text-wrap: pretty; }
 esp-web-install-button { display: block; }
-.install { width: 100%; border: 1px solid #176353; background: #176c59; color: #fff; border-radius: 9px; padding: 17px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 5px #173b2510; }
+.install { width: 100%; border: 1px solid #176353; background: var(--control-background); color: #fff; border-radius: 9px; padding: 17px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 5px #173b2510; }
 .install::after { content: '↓'; float: right; font-size: 19px; line-height: 17px; font-weight: 400; }
 .selector label > span, .install { transition: background-color 160ms ease, color 160ms ease; }
 @media (hover: hover) and (pointer: fine) {
-  .selector label:hover > span { background: #e4eee7; color: var(--control-hover); }
-  .selector label:hover > input:checked + span { background: #edf5f0; }
+  .selector label:hover > input:not(:checked) + span { background: #e4eee7; color: var(--control-hover); }
+  .selector label:hover > input:checked + span { background: var(--control-hover); }
   .install:hover:not(:disabled) { background: var(--control-hover); }
 }
 @media (prefers-reduced-motion: reduce) {
