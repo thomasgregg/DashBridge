@@ -47,7 +47,24 @@ Use the pinned ESP-IDF release in the README and its supported compiler. The hel
 bash tools/build.sh
 ```
 
-To compile one role, pass `phone` or `car`. `tools/package.py` uses IDF's generated flash layout to merge images and records SHA-256 checksums. Source checksums make it possible to detect whether a packaged image predates a source edit.
+The default builds only images whose relevant source checksums have changed.
+Pass `phone` (A) or `car` (B) to force one board, or `both` to force both.
+Phone implementation/configuration changes affect A; car implementation,
+configuration and SDP patches affect B; shared firmware changes affect both.
+New or deleted source files and missing/corrupt binaries also mark an image stale.
+Force a build after changing build tooling or the SDK environment.
+
+CI uses the same selection and skips compilation when the checked-in images
+already match their sources. README and website changes do not trigger firmware
+CI. The installer deploys when its web files or packaged firmware change, not
+when firmware source alone changes.
+
+Each CI board job produces `dashbridge-firmware-phone` or
+`dashbridge-firmware-car`. When publishing an artifact, copy its binary and only
+that board's `images` entry from its manifest; keep the other board's entry.
+Do not overwrite one board's new entry with the other job's older manifest.
+
+ `tools/package.py` uses IDF's generated flash layout to merge images and records SHA-256 checksums. Source checksums make it possible to detect whether a packaged image predates a source edit.
 
 `tools/test.sh` runs the platform-independent core with AddressSanitizer and UndefinedBehaviorSanitizer using Clang. Host tests do not exercise the ESP32 Bluetooth stack, concurrency or iPhone/Tesla behavior. Record physical results separately rather than promoting a build pass into a compatibility claim.
 

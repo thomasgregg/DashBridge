@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from build_scope import sources
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -30,14 +31,9 @@ def package(roles):
         for offset, filename in sorted(layout["flash_files"].items(), key=lambda x: int(x[0], 0)):
             command.extend((offset, str(build / filename)))
         subprocess.run(command, check=True)
-        sources = {str(p.relative_to(ROOT)): sha256(p)
-                   for p in sorted((ROOT / "firmware").rglob("*"))
-                   if p.is_file() and (p.suffix in (".cpp", ".hpp", ".txt", ".py")
-                                       or p.name.startswith("sdkconfig.")
-                                       or p.name == "Kconfig.projbuild")}
         manifest["images"][role] = {
             "file": output.name, "flash_address": "0x0", "sha256": sha256(output),
-            "bytes": output.stat().st_size, "source_sha256": sources,
+            "bytes": output.stat().st_size, "source_sha256": sources(ROOT, role),
             "sdkconfig_sha256": sha256(build / "sdkconfig"),
             "hardware_tested": False,
         }

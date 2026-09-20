@@ -3,8 +3,24 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - 'firmware/**'
+      - 'tools/**'
+      - 'tests/**'
+      - '.github/workflows/ci.yml'
   pull_request:
+    paths:
+      - 'firmware/**'
+      - 'tools/**'
+      - 'tests/**'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
+    inputs:
+      board:
+        description: 'Build stale images, or force a specific board'
+        type: choice
+        default: auto
+        options: [auto, phone, car, both]
 
 permissions:
   contents: read
@@ -14,6 +30,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  scope:
+    name: Select firmware to build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      roles: ${{ steps.select.outputs.roles }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: select
+        env:
+          BOARD: ${{ inputs.board || 'auto' }}
+        run: python3 tools/build_scope.py "$BOARD" --github-output "$GITHUB_OUTPUT"
+
   host-tests:
     name: Host protocol tests
     runs-on: ubuntu-24.04
@@ -23,10 +54,18 @@ jobs:
         with:
           persist-credentials: false
       - name: Test with address and undefined-behavior sanitizers
-        run: bash tools/test.sh
+        run: |
+          bash tools/test.sh
+          python3 tools/test_build_scope.py
 
   firmware:
-    name: ESP32 firmware builds
+    name: ESP32 — ${{ matrix.board }}
+    needs: scope
+    if: needs.scope.outputs.roles != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        board: ${{ fromJSON(needs.scope.outputs.roles) }}
     runs-on: ubuntu-24.04
     container: espressif/idf:v5.5.1
     timeout-minutes: 30
@@ -34,20 +73,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build and package both board roles
+      - name: Build and package selected board
+        env:
+          BOARD: ${{ matrix.board }}
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
-          bash tools/build.sh
-          python tools/test_sdp.py
-          python tools/test_sdp_attributes.py
+          bash tools/build.sh "$BOARD"
+          if [[ "$BOARD" == car ]]; then
+            python tools/test_sdp.py
+            python tools/test_sdp_attributes.py
+          fi
       - name: Preserve experimental firmware
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dashbridge-experimental-firmware
+          name: dashbridge-firmware-${{ matrix.board }}
           path: |
-            dist/phone-merged.bin
-            dist/car-merged.bin
+            dist/${{ matrix.board }}-merged.bin
             dist/manifest.json
           if-no-files-found: error
           retention-days: 14
