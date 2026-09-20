@@ -1,6 +1,6 @@
 # Single-board prototype
 
-Development branch: `single-board`. Firmware: **0.2.0-dev**.
+Development branch: `single-board`. Firmware: **0.2.1-dev**.
 The permanent two-board snapshot is [v0.1.4](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4).
 
 ## What changed
@@ -28,18 +28,40 @@ This is an experimental build, not an established replacement for v0.1.4.
 The earlier two-board B firmware displayed a test message on the user's
 Tesla. That result does **not** establish that this combined build works.
 
-### Verification recorded on 20 September 2026
+### Initial 0.2.0-dev build verification
 
 - [ESP-IDF v5.5.1 build and protocol tests](https://github.com/thomasgregg/DashBridge/actions/runs/35521656978) passed, including the Tesla service-discovery regression checks.
 - The merged image is 1,153,904 bytes; the application has 29% of its flash partition remaining. This does not measure runtime RAM.
 - Installer tests passed (8/8); desktop and 390 px mobile previews were checked with no horizontal overflow.
-- Simultaneous iPhone/Tesla connections, runtime memory, real WhatsApp delivery and reconnection remain **untested on hardware**.
+
+### Hardware report and notification fix — 20 September 2026
+
+The user confirmed that the single-board test notification appeared on the Tesla.
+The uploaded log then showed both ANCS and Tesla notification connections ready
+at the same time, with 109,916 bytes of free internal RAM (minimum 106,908).
+After a restart, both connections returned to ready; long-term reconnection
+without a BLE setup app remains unverified.
+
+A new WhatsApp notification appeared on the iPhone but not on the Tesla.
+The firmware incorrectly interpreted ANCS flag `0x10` (NegativeAction, such as
+Dismiss) as PreExisting. Apple's [ANCS flag table](https://developer.apple.com/library/archive/documentation/CoreBluetooth/Reference/AppleNotificationCenterServiceSpecification/Appendix/Appendix.html)
+defines PreExisting as `0x04`. This can silently discard fresh notifications
+with a dismissal action and allow old ones without that action through the gate.
+The old log has no event flags, so it cannot prove which flags this particular
+message carried.
+
+Version 0.2.1-dev corrects that gate and adds a regression test for fresh
+notifications with action flags and old notifications with and without actions.
+It also logs event flags and forwarding/filter decisions without message text,
+sender names or group names. The [0.2.1-dev build and regression checks](https://github.com/thomasgregg/DashBridge/actions/runs/35522683948) passed. The new regression also fails when the original incorrect flag is restored. Real WhatsApp delivery still needs a hardware retest.
+
+### Setup steps
 
 1. Save the v0.1.4 release or use its recovery guide before changing the board.
 2. Connect one original ESP32 by USB. Install `single-merged.bin` at address
    `0x0`, or use this branch's built web installer. The merged install erases
    saved pairings. RST is not a BOOT button; use the USB console commands below.
-3. Open **Logs & Console** at 115200 baud. Confirm `App version: 0.2.0-dev`
+3. Open **Logs & Console** at 115200 baud. Confirm `App version: 0.2.1-dev`
    and `DashBridge single-board prototype` appear without repeated restarts.
 4. Enter `pair car`. Forget the old **DashBridge B** pairing on the Tesla,
    then pair **DashBridge** and enable **Sync Messages**. Do not remove the
