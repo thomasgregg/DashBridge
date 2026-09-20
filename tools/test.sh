@@ -15,3 +15,4 @@ mkdir -p "$project_dir/build/tests"
 
 python3 "$project_dir/tools/test_reconnect.py"
 python3 "$project_dir/tools/test_sdp_trace.py"
+python3 "$project_dir/tools/test_connection_trace.py"

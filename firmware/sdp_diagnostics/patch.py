@@ -91,6 +91,7 @@ def prepare(bt_dir, output):
             f'SDP_TRACE_WARNING ("DashBridge SDP rejected: {reason}\\n");\n        {call}')
     (output / 'sdp_server.c').write_text(server)
     prepare_reconnect(bt_dir, output)
+    prepare_connection_trace(bt_dir, output)
 
 
 def prepare_reconnect(bt_dir, output):
@@ -179,6 +180,91 @@ def prepare_reconnect(bt_dir, output):
         '        return;\n'
         '    }\n\n'
         '    /* Process supported features only */')
+    for name, source in sources.items():
+        (output / name).write_text(source)
+
+
+def prepare_connection_trace(bt_dir, output):
+    root = Path(bt_dir) / 'host/bluedroid'
+    expected = {
+        'main/bte_main.c': '17a3420f783c5fe8bf7b1f0598ab2c0c836315eee1a8365fbb7d35a50c1a9d84',
+        'stack/btu/btu_hcif.c': 'c71211a2ee18dd019105f418ca0f8d7b06856b50d05a41875d0815cbb85b116f',
+        'stack/l2cap/l2c_main.c': '4b9f998bb32f35f1a8e3aa59cf535df7006863e0ca3172165afe9a3797649e8a',
+        'stack/l2cap/l2c_utils.c': '7eba40f7a32af8ec861558109c3bb7931973e72ea9b85f01387ce0c43db9a56d',
+        'stack/l2cap/l2c_csm.c': 'a2ddc4d4d0fd366b3881311132b677972f187ef9b7bddb846e7597da3091ba8b',
+        'stack/sdp/sdp_main.c': '35145fda2f3a242ceb82582549a5c1e009e15dcdd6c69f76ff6a163fef5a7e10',
+    }
+    sources = {}
+    for name, digest in expected.items():
+        data = (root / name).read_bytes()
+        if hashlib.sha256(data).hexdigest() != digest:
+            raise RuntimeError(f'Review connection trace for changed SDK source: {name}')
+        sources[Path(name).name] = data.decode()
+    (output / 'connection_trace.h').write_bytes(Path(__file__).with_name('connection_trace.h').read_bytes())
+    for name in sources:
+        sources[name] = '#include "connection_trace.h"\n' + sources[name]
+
+    sources['bte_main.c'] = replace_once(sources['bte_main.c'],
+        '        hci->transmit_downward(event, p_msg);',
+        '        if ((event & BT_EVT_MASK) == BT_EVT_TO_LM_HCI_ACL)\n'
+        '            db_l2cap_signal("TX-controller", p_msg->data + p_msg->offset, p_msg->len);\n'
+        '        hci->transmit_downward(event, p_msg);')
+    hci = sources['btu_hcif.c']
+    hci = replace_once(hci,
+        'void btu_hcif_process_event (UNUSED_ATTR UINT8 controller_id, BT_HDR *p_msg)\n{',
+        'void btu_hcif_process_event (UNUSED_ATTR UINT8 controller_id, BT_HDR *p_msg)\n{\n'
+        '    db_hci_event(p_msg->data + p_msg->offset, p_msg->len);')
+    marker = '    assert (p_buf->layer_specific == HCI_CMD_BUF_TYPE_METADATA);'
+    start = hci.index('void btu_hcif_send_cmd (')
+    end = hci.index('\n}\n', start) + 3
+    body = replace_once(hci[start:end], marker,
+        '    db_hci_command(p_buf->data + p_buf->offset, p_buf->len, -1);\n' + marker)
+    hci = hci[:start] + body + hci[end:]
+    for kind, trace in [
+        ('complete', 'db_hci_event(hack->response->data + hack->response->offset, hack->response->len);'),
+        ('status', 'db_hci_command(hack->command->data + hack->command->offset, hack->command->len, hack->status);'),
+    ]:
+        marker = (f'static void btu_hcif_command_{kind}_evt_on_task(BT_HDR *event)\n{{\n'
+                  f'    command_{kind}_hack_t *hack = (command_{kind}_hack_t *)&event->data[0];')
+        hci = replace_once(hci, marker, marker + '\n    ' + trace)
+    sources['btu_hcif.c'] = hci
+    sources['l2c_main.c'] = replace_once(sources['l2c_main.c'],
+        'void l2c_rcv_acl_data (BT_HDR *p_msg)\n{',
+        'void l2c_rcv_acl_data (BT_HDR *p_msg)\n{\n'
+        '    db_l2cap_signal("RX", p_msg->data + p_msg->offset, p_msg->len);')
+    utils = sources['l2c_utils.c']
+    import re
+    pattern = r'(?m)^(\s*)l2c_link_check_send_pkts \(([^\n]*), (p_buf2?)\);'
+    def trace_send(m):
+        return (m[1] + f'db_l2cap_signal("TX-queued", {m[3]}->data + {m[3]}->offset, {m[3]}->len);\n'
+                + m[0])
+    utils, count = re.subn(pattern, trace_send, utils)
+    if count != 21:
+        raise RuntimeError(f'Review L2CAP send trace coverage: {count}')
+    sources['l2c_utils.c'] = utils
+    sources['l2c_csm.c'] = replace_once(sources['l2c_csm.c'],
+        'void l2c_csm_execute (tL2C_CCB *p_ccb, UINT16 event, void *p_data)\n{',
+        'void l2c_csm_execute (tL2C_CCB *p_ccb, UINT16 event, void *p_data)\n{\n'
+        '    /* Open-channel data/audio traffic is deliberately not traced. */\n'
+        '    if (p_ccb->chnl_state != CST_OPEN)\n'
+        '        DB_TRACE("L2CAP state=%u event=%u cid=0x%x remote=0x%x handle=0x%x",\n'
+        '                 p_ccb->chnl_state, event, p_ccb->local_cid, p_ccb->remote_cid,\n'
+        '                 p_ccb->p_lcb ? p_ccb->p_lcb->handle : 0xffff);')
+    sdp = sources['sdp_main.c']
+    for signature, line in [
+        ('static void sdp_connect_cfm (UINT16 l2cap_cid, UINT16 result)',
+         'DB_TRACE("SDP connect-confirm cid=0x%x result=0x%x", l2cap_cid, result);'),
+        ('static void sdp_config_cfm (UINT16 l2cap_cid, tL2CAP_CFG_INFO *p_cfg)',
+         'DB_TRACE("SDP config-confirm cid=0x%x result=0x%x", l2cap_cid, p_cfg->result);'),
+        ('static void sdp_disconnect_ind (UINT16 l2cap_cid, BOOLEAN ack_needed)',
+         'DB_TRACE("SDP remote-disconnect cid=0x%x ack=%u", l2cap_cid, ack_needed);'),
+        ('void sdp_disconnect (tCONN_CB *p_ccb, UINT16 reason)',
+         'DB_TRACE("SDP local-disconnect cid=0x%x state=%u reason=0x%x", p_ccb->connection_id, p_ccb->con_state, reason);'),
+        ('void sdp_conn_timeout (tCONN_CB *p_ccb)',
+         'DB_TRACE("SDP timeout cid=0x%x state=%u", p_ccb->connection_id, p_ccb->con_state);'),
+    ]:
+        sdp = replace_once(sdp, signature + '\n{', signature + '\n{\n    ' + line)
+    sources['sdp_main.c'] = sdp
     for name, source in sources.items():
         (output / name).write_text(source)
 

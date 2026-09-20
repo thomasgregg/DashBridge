@@ -380,6 +380,7 @@ void car_poll() {
 }
 bool car_notifications_ready() { return server.handle && mas.notifications() && mns_state >= 3; }
 void car_start() {
+    ESP_LOGI(tag, "Connection trace v1: HCI/authentication/encryption, L2CAP queue/controller/RX, SDP/HFP; keys and message payloads excluded");
     ESP_ERROR_CHECK(esp_bt_gap_register_callback(gap_cb));
     #if CONFIG_BRIDGE_SINGLE
     ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge"));

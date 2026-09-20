@@ -167,3 +167,44 @@ the compiler log contains no warnings/errors. A's versioned image
 the ACL correction changes only B. All 13 installer tests pass, including
 selection-specific version display and rejection of incorrectly labelled
 binaries. The corrected B image still requires a physical reconnect test.
+
+### Hardware result and complete connection trace
+
+The next hardware log retains `bonded=1` through repeated failed outgoing
+attempts. After the 21:50:05 reset, outgoing discovery fails with
+`SDP_CONN_FAILED` (`0xfff1`) at 21:50:19. A Tesla-initiated HFP connection succeeds
+at 21:50:21, followed by MAP notifications ready at 21:50:22. This verifies bond
+preservation and incoming recovery in this test, not automatic reconnection.
+
+Connection trace v1 adds the missing stages in one Board B build:
+
+- Controller command requests, command status and completion callbacks, and
+  incoming connection, feature, role, authentication, encryption and disconnect
+  events. A local Disconnect command can now be distinguished from a remote
+  termination. Command acceptance is not mistaken for completed authentication.
+- Classic L2CAP signaling at queue submission, controller handoff and receive,
+  with handles, command IDs, connection/configuration responses and parameters.
+- Channel setup states/events, SDP connection/configuration outcomes, timeout
+  and local/remote disconnect paths, alongside the existing SDP/HFP trace.
+- Existing firmware identity, retry state, stored bond state, and MAP readiness.
+
+Positive allowlists exclude link keys, PINs/passkeys, remote names, vendor/LE
+payloads, security channels, arbitrary echo data and message/audio channels.
+Packet lengths are checked and hex output is capped. Malformed-input sanitizer
+tests cover all command opcodes, all event IDs, redaction, multi-command
+signaling and unchanged input buffers. SDK source hashes and exact insertion
+markers guard all hooks; the original Bluetooth control flow is retained.
+Only B's image changes. This is diagnostic instrumentation, not a verified
+reconnect fix, and no connection, authentication or retry policy is changed.
+
+For a useful comparison, keep USB logging open after installation and pairing.
+With B selected as Tesla's priority phone, disconnect the iPhone's Tesla phone
+connection (keep iPhone Bluetooth/Phone Key enabled), reset B, and wait 90 seconds.
+If it fails, press Connect for B on the Tesla **without resetting B**, then send
+`test` after notifications become ready. Download that one complete log. Do not
+repeat erase/re-pair cycles in an attempt to fix a failed automatic connection.
+USB power-cycle and phone-takeover recovery remain separate acceptance tests
+once the initial failure has been explained. ESP32-side HCI traces cannot reveal
+Tesla's private decision-making or radio Link Manager packets; if the trace
+ends in a remote termination without a protocol error, report that limit rather
+than claim another firmware guess is a proven fix.
