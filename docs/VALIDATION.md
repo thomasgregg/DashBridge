@@ -42,6 +42,13 @@ its name length by one reproduces the validation failure. Protocol sanitizer
 tests also pass. This verifies the reported argument error, not Bluetooth radio
 operation; the corrected image still needs a hardware retest.
 
+The v0.1.1 hardware retest reaches `MAP service record status=0`, connects to
+the Tesla's phone profile, and no longer shows the original abort loop. Enabling
+Sync Messages does not persist: the board repeatedly returns SDP error 0x03
+before any MAP transport connection is logged. The exact rejected request is
+not present in that log. Version 0.1.2 adds bounded SDP request bytes and explicit
+rejection reasons for diagnosis; it does not claim to fix message sync.
+
 The pictured board has only an RST button. BOOT-based pairing and test-message
 controls cannot be used on that board without an alternative input. Before any
 pairing is saved, restarting opens the two-minute pairing window automatically.
@@ -52,8 +59,8 @@ The user is testing an ESP32 with a Tesla; no hardware is connected to the build
 
 | Test | Result |
 |---|---|
-| Both boards boot and stay within available RAM | A startup observed; B startup fix awaiting retest |
-| Tesla discovers B and enables message sync | Not run |
+| Both boards boot and stay within available RAM | A and B startup observed; sustained RAM/stability testing pending |
+| Tesla discovers B and enables message sync | B discovered and phone profile connects; Sync Messages reverts off |
 | B's standalone test message appears on Tesla | Not run |
 | iPhone pairs with A and grants ANCS access | Not run |
 | New WhatsApp content reaches Tesla end to end | Not run |

@@ -3,10 +3,10 @@
     "car": {
       "file": "car-merged.bin",
       "flash_address": "0x0",
-      "sha256": "60e5bc4a599f11937974f8a1fa1e9fae7af79817db91a377d8df6d7668286ec8",
-      "bytes": 1135312,
+      "sha256": "869d86c7eab1554300dbdad54d18f49be748a29ef310ee0eced1ce926891e3bb",
+      "bytes": 1135984,
       "source_sha256": {
-        "firmware/CMakeLists.txt": "fff5ef4f647a948a372bf33787c02eb89db926e9d9c4d382bfcf901a1158dd07",
+        "firmware/CMakeLists.txt": "04e0ec0e0f4474253eb7a87cec2b2fbeac1b45d4d775374fc549eee26ce7b7ab",
         "firmware/components/bridge_core/CMakeLists.txt": "49ee6986d910f8b0f798656296d141a713181ccfbe1a3c6967751a36399d4b76",
         "firmware/components/bridge_core/bridge_core.cpp": "c245e05f9843e9b490be1306e73ac38287e117a365c8a12d69d0498a28fa4c0a",
         "firmware/components/bridge_core/include/bridge_core.hpp": "72c508786d657bb7ae05afd68db123935751421183be1034b925c6c6cce311af",
@@ -18,7 +18,8 @@
         "firmware/main/runtime.hpp": "9302b45f8b3aa19790564cfea089e3cf0b456c89c03662c79adc9ce0f13aa0a0",
         "firmware/sdkconfig.car": "a876bd1b6bfc8a00d09138917237dc8803870c86ac697b34841e8ad982cba192",
         "firmware/sdkconfig.defaults": "78a27956a9990558aad3155cfc844b200a7773148c69e54c22885ff9554b58c6",
-        "firmware/sdkconfig.phone": "f57c61cbce9c54cd3bfdaf32e85f7c31204c7a6b606f788099e95ce16c5c918f"
+        "firmware/sdkconfig.phone": "f57c61cbce9c54cd3bfdaf32e85f7c31204c7a6b606f788099e95ce16c5c918f",
+        "firmware/sdp_diagnostics/CMakeLists.txt": "739231bc25fdb20e2d9f93c0b53c469535001db5448e01d7652dc8a5676a42d5"
       },
       "sdkconfig_sha256": "9aaeb19a87a7e5a74af0cf349e0ae294aa46aa24443a259259432f2801ee34ab",
       "hardware_tested": false
@@ -26,10 +27,10 @@
     "phone": {
       "file": "phone-merged.bin",
       "flash_address": "0x0",
-      "sha256": "8e23325745ec3379af09f23328a36bf183df3a89185dfd7500ccc9fe7e119f88",
+      "sha256": "d16b375b0642062e5d9313d91ee90f51a3faa96ca0469d0545b4a764aab6b017",
       "bytes": 1126912,
       "source_sha256": {
-        "firmware/CMakeLists.txt": "fff5ef4f647a948a372bf33787c02eb89db926e9d9c4d382bfcf901a1158dd07",
+        "firmware/CMakeLists.txt": "04e0ec0e0f4474253eb7a87cec2b2fbeac1b45d4d775374fc549eee26ce7b7ab",
         "firmware/components/bridge_core/CMakeLists.txt": "49ee6986d910f8b0f798656296d141a713181ccfbe1a3c6967751a36399d4b76",
         "firmware/components/bridge_core/bridge_core.cpp": "c245e05f9843e9b490be1306e73ac38287e117a365c8a12d69d0498a28fa4c0a",
         "firmware/components/bridge_core/include/bridge_core.hpp": "72c508786d657bb7ae05afd68db123935751421183be1034b925c6c6cce311af",
@@ -41,14 +42,15 @@
         "firmware/main/runtime.hpp": "9302b45f8b3aa19790564cfea089e3cf0b456c89c03662c79adc9ce0f13aa0a0",
         "firmware/sdkconfig.car": "a876bd1b6bfc8a00d09138917237dc8803870c86ac697b34841e8ad982cba192",
         "firmware/sdkconfig.defaults": "78a27956a9990558aad3155cfc844b200a7773148c69e54c22885ff9554b58c6",
-        "firmware/sdkconfig.phone": "f57c61cbce9c54cd3bfdaf32e85f7c31204c7a6b606f788099e95ce16c5c918f"
+        "firmware/sdkconfig.phone": "f57c61cbce9c54cd3bfdaf32e85f7c31204c7a6b606f788099e95ce16c5c918f",
+        "firmware/sdp_diagnostics/CMakeLists.txt": "739231bc25fdb20e2d9f93c0b53c469535001db5448e01d7652dc8a5676a42d5"
       },
       "sdkconfig_sha256": "21dc7006a02ba084a70a41550c50cdcc916658b2f062f1ed70405d6088e7fb8c",
       "hardware_tested": false
     }
   },
   "project": "DashBridge prototype",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "target": "esp32",
   "flash_size": "4MB",
   "esp_idf": "v5.5.1",

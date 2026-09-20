@@ -55,3 +55,13 @@ After building, `python tools/test_sdp.py` checks the production MAP service
 record against the activated SDK's actual SDP argument validator. It also checks
 that excluding the service name's NUL terminator reproduces the original startup
 failure. A host C++ compiler is required; no board is accessed.
+
+## Service-discovery diagnostics
+
+Board B's build uses `firmware/sdp_diagnostics/CMakeLists.txt` to instrument a
+build-local copy of ESP-IDF's SDP server. The SDK source remains untouched.
+A source checksum makes SDK changes fail configuration until reviewed. Version
+0.1.2 logs the first 96 bytes of each incoming SDP request and labels invalid
+request branches. These are service-discovery requests, not WhatsApp contents.
+The request handling and responses remain unchanged. This diagnostic build is
+intended to identify why Tesla turns Sync Messages back off before opening MAP.
