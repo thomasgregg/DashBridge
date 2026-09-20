@@ -208,3 +208,12 @@ once the initial failure has been explained. ESP32-side HCI traces cannot reveal
 Tesla's private decision-making or radio Link Manager packets; if the trace
 ends in a remote termination without a protocol error, report that limit rather
 than claim another firmware guess is a proven fix.
+
+The combined trace image is `0.3.1-alpha+d460f0158324`, built in
+[CI run 35534205008](https://github.com/thomasgregg/DashBridge/actions/runs/35534205008).
+Only Board B was compiled. Host sanitizer tests, the actual ESP32 build, HFP
+configuration, captured Tesla SDP queries and bond-preservation regression all
+passed. The compiler log contains no warnings/errors. Packaged source hashes,
+embedded version, binary SHA-256 and every diagnostic marker were checked;
+A's binary remains byte-for-byte unchanged. All 13 installer tests pass. No
+hardware reconnection result is claimed for this image yet.
