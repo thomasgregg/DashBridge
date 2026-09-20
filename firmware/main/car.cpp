@@ -271,6 +271,13 @@ static void spp_cb(esp_spp_cb_event_t e, esp_spp_cb_param_t *p) {
 }
 static void gap_cb(esp_bt_gap_cb_event_t e, esp_bt_gap_cb_param_t *p) {
     Guard g;
+    if (e == ESP_BT_GAP_ACL_CONN_CMPL_STAT_EVT) {
+        ESP_LOGI(tag, "Bluetooth link opened: status=%d handle=0x%x bonded=%d",
+                 p->acl_conn_cmpl_stat.stat, p->acl_conn_cmpl_stat.handle, known(p->acl_conn_cmpl_stat.bda));
+    } else if (e == ESP_BT_GAP_ACL_DISCONN_CMPL_STAT_EVT) {
+        ESP_LOGW(tag, "Bluetooth link closed: reason=0x%02x handle=0x%x bonded=%d",
+                 p->acl_disconn_cmpl_stat.reason, p->acl_disconn_cmpl_stat.handle, known(p->acl_disconn_cmpl_stat.bda));
+    }
     if (e == ESP_BT_GAP_CFM_REQ_EVT)
         esp_bt_gap_ssp_confirm_reply(p->cfm_req.bda, pairing_allowed(Peer::car) || known(p->cfm_req.bda));
     if (e == ESP_BT_GAP_PIN_REQ_EVT) {

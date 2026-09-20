@@ -25,6 +25,8 @@ static uint32_t pending_peer = 0;
 static int64_t last_peer = 0, last_snapshot = 0, pending_deadline = 0, next_connect = 0, next_audio = 0;
 static unsigned reconnect_delay = 5000;
 static bool dirty = true, connecting = false, peer_saved = false;
+static unsigned reconnect_attempts = 0;
+static esp_err_t last_connect_result = ESP_OK;
 static esp_bd_addr_t peer = {};
 static std::string previous_snapshot, previous_number;
 #if CONFIG_BRIDGE_PHONE
@@ -59,20 +61,31 @@ static bool known(const uint8_t *bda) {
     return false;
 }
 static void save_peer(const uint8_t *address) {
+    const bool changed = !peer_saved || memcmp(peer, address, 6);
     memcpy(peer, address, 6); peer_saved = true;
     nvs_handle_t handle;
-    if (nvs_open("callrelay", NVS_READWRITE, &handle) == ESP_OK) {
-        if (nvs_set_blob(handle, "peer", peer, sizeof peer) == ESP_OK) nvs_commit(handle);
+    auto error = nvs_open("callrelay", NVS_READWRITE, &handle);
+    if (error == ESP_OK) {
+        error = nvs_set_blob(handle, "peer", peer, sizeof peer);
+        if (error == ESP_OK) error = nvs_commit(handle);
         nvs_close(handle);
     }
+    if (error != ESP_OK) ESP_LOGE("calls", "Reconnect peer could not be saved: %s", esp_err_to_name(error));
+    else if (changed) ESP_LOGI("calls", "Reconnect peer saved; bonded=%d", known(peer));
 }
 static void load_peer() {
     nvs_handle_t handle;
-    if (nvs_open("callrelay", NVS_READONLY, &handle) == ESP_OK) {
-        size_t size = sizeof peer;
-        peer_saved = nvs_get_blob(handle, "peer", peer, &size) == ESP_OK && size == sizeof peer && known(peer);
+    auto error = nvs_open("callrelay", NVS_READONLY, &handle);
+    size_t size = sizeof peer;
+    if (error == ESP_OK) {
+        error = nvs_get_blob(handle, "peer", peer, &size);
         nvs_close(handle);
     }
+    const bool valid = error == ESP_OK && size == sizeof peer;
+    const bool bonded = valid && known(peer);
+    peer_saved = valid && bonded;
+    ESP_LOGI("calls", "Reconnect diagnostics 1: stored=%d bonded=%d bonds=%d read=%s; auto reconnect=%s",
+             valid, bonded, esp_bt_gap_get_bond_device_num(), esp_err_to_name(error), peer_saved ? "enabled" : "disabled");
 }
 static void set_audio(bool active) {
     if (active != bool(self.audio)) self.audio = active ? token() : 0;
@@ -86,6 +99,7 @@ static void set_connected(bool connected, const uint8_t *address) {
     } else {
         self = {}; call_audio_set(0, 0);
         next_connect = now() + reconnect_delay;
+        ESP_LOGI("calls", "Reconnect retry scheduled in %u ms", reconnect_delay);
         reconnect_delay = std::min(60000u, reconnect_delay * 2);
     }
     dirty = true;
@@ -111,6 +125,8 @@ static void phone_hfp(esp_hf_client_cb_event_t e, esp_hf_client_cb_param_t *p) {
     Guard guard;
     switch (e) {
     case ESP_HF_CLIENT_CONNECTION_STATE_EVT:
+        ESP_LOGI("calls", "iPhone HFP state=%d (0=disconnected, 1=connecting, 2=connected, 3=ready, 4=disconnecting); target=%d",
+                 p->conn_stat.state, !memcmp(peer, p->conn_stat.remote_bda, 6));
         if (p->conn_stat.state == ESP_HF_CLIENT_CONNECTION_STATE_SLC_CONNECTED) {
             command_fault = false; phone_ready_at = now();
             set_connected(true, p->conn_stat.remote_bda);
@@ -206,6 +222,8 @@ static void car_hfp(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
     auto s = effective();
     switch (e) {
     case ESP_HF_CONNECTION_STATE_EVT:
+        ESP_LOGI("calls", "Tesla HFP state=%d (0=disconnected, 1=connecting, 2=connected, 3=ready, 4=disconnecting); target=%d",
+                 p->conn_stat.state, !memcmp(peer, p->conn_stat.remote_bda, 6));
         if (p->conn_stat.state == ESP_HF_CONNECTION_STATE_SLC_CONNECTED) {
             set_connected(true, p->conn_stat.remote_bda);
             previous_snapshot.clear(); previous_number.clear();
@@ -331,14 +349,19 @@ void relay_poll() {
     }
     if (dirty || now() - last_snapshot >= 1000) snapshot();
     if (!self.linked && peer_saved && !connecting && now() >= next_connect) {
+        ++reconnect_attempts;
+        ESP_LOGI("calls", "Starting outgoing HFP reconnect attempt %u; bonded=%d", reconnect_attempts, known(peer));
 #if CONFIG_BRIDGE_PHONE
         auto error = esp_hf_client_connect(peer);
 #else
         auto error = esp_hf_ag_slc_connect(peer);
 #endif
+        last_connect_result = error;
+        ESP_LOGI("calls", "Outgoing HFP reconnect request: %s; waiting up to 20 seconds", esp_err_to_name(error));
         connecting = error == ESP_OK; next_connect = now() + 20000;
     }
     if (connecting && now() >= next_connect) {
+        ESP_LOGW("calls", "Outgoing HFP reconnect timed out; canceling, retry in %u ms", reconnect_delay);
 #if CONFIG_BRIDGE_PHONE
         esp_hf_client_disconnect(peer);
 #else
@@ -367,6 +390,9 @@ void relay_poll() {
 void relay_status() {
     ESP_LOGI("calls", "Call profile: %s; other board: %s; one-call prototype", self.linked ? "ready" : "not ready",
              peer_live() ? (other.linked ? "ready" : "phone profile not ready") : "not connected");
+    ESP_LOGI("calls", "Reconnect: saved=%d in_progress=%d attempts=%u last_request=%s retry_in_ms=%lld",
+             peer_saved, connecting, reconnect_attempts, esp_err_to_name(last_connect_result),
+             (long long)((!self.linked && peer_saved) ? std::max<int64_t>(0, next_connect - now()) : 0));
     call_audio_status();
 }
 void relay_start() {
