@@ -122,8 +122,8 @@ The [`dist/`](dist/) directory contains the prebuilt prototype images:
 
 | Board | Firmware | Bluetooth name |
 | :--- | :--- | :--- |
-| **B — Tesla** | [`car-merged.bin`](dist/car-merged.bin) | `DashBridge B` |
 | **A — iPhone** | [`phone-merged.bin`](dist/phone-merged.bin) | `DashBridge A` |
+| **B — Tesla** | [`car-merged.bin`](dist/car-merged.bin) | `DashBridge B` |
 
 The [manifest](dist/manifest.json) records image and source checksums. These are experimental builds, not a hardware-validated release.
 
