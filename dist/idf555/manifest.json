@@ -3,8 +3,8 @@
     "car": {
       "file": "car-merged.bin",
       "flash_address": "0x0",
-      "sha256": "2ae77511583212bd624ab31be3adf2345466b16860f0312fefe9eaec63eff4d4",
-      "bytes": 1135872,
+      "sha256": "57a54432615916e95bf8061235540f3f7ba4cffbe2bf3c83f665f8be19cdd41f",
+      "bytes": 1135920,
       "source_sha256": {
         "firmware/CMakeLists.txt": "15d96a8bb6614901d79880532b33e9144a0e4507907690a8928c7a98e1faedb1",
         "firmware/components/bridge_core/CMakeLists.txt": "49ee6986d910f8b0f798656296d141a713181ccfbe1a3c6967751a36399d4b76",
@@ -23,9 +23,9 @@
         "firmware/main/runtime.hpp": "c30a6d2703719828d9fe2d4072026fc97c73d476913fa64caf486ff24c96d80a",
         "firmware/sdkconfig.car": "c14306d73c506e9dcf4232d1e0388b32b09837d7f00246ac52ca74c5da3af3ba",
         "firmware/sdkconfig.defaults": "78a27956a9990558aad3155cfc844b200a7773148c69e54c22885ff9554b58c6",
-        "firmware/sdp_diagnostics/CMakeLists.txt": "95aedc2a5e4ff16af0de63aaea9a3dafd5dae93c36ee65b60e6c92eb8278c0e1",
+        "firmware/sdp_diagnostics/CMakeLists.txt": "2c4c33d674b75365e7e4838db9f629f4b2b0956f65d526d907615aa88f20e1ec",
         "firmware/sdp_diagnostics/connection_trace.h": "d046c4d7f741db6faa205835d1fb842e8ec3dc6f43b67b6791f1730235a351ae",
-        "firmware/sdp_diagnostics/patch.py": "05e83a7a8203bff987043adcc78a7160672bbb1f41610be2293e094fa5b8b22d",
+        "firmware/sdp_diagnostics/patch.py": "d6fac1995e8850f7ee41ae3519a07a785623684b2f5dcb52c2e07762a06eb1ef",
         "firmware/version.txt": "458b1223742b8accc1cf66f26da501c8015493519fe302be6599bb259a8c6ff1",
         "tools/build.sh": "6a55f8a10a52b44c6dd0cb5ff7ec8328cf7c4d9ebe2586b8acb8835b52fff475",
         "tools/build_scope.py": "700295f55c39cfb13c6e6d554f48ac7013d1585dd6b192c932b390ca0e671a1d",
@@ -33,7 +33,7 @@
       },
       "sdkconfig_sha256": "dce8074346e71ff922b85436cf5df2edf40205e67b42725ceb0c979d63c1f242",
       "hardware_tested": false,
-      "version": "0.3.2-alpha+09201b74ad2c",
+      "version": "0.3.2-alpha+ce9b10554353",
       "esp_idf": "v5.5.5",
       "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f"
     }
@@ -44,6 +44,6 @@
   "flash_size": "4MB",
   "esp_idf": "v5.5.5",
   "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f",
-  "source_commit": "1ad155f47486f87fc797c8234978f2894f8ad96f",
-  "build_url": "https://github.com/thomasgregg/DashBridge/actions/runs/35535394007"
+  "source_commit": "ff42cb06b67e67deca35ed4cf79465494a9f107d",
+  "build_url": "https://github.com/thomasgregg/DashBridge/actions/runs/35536264157"
 }

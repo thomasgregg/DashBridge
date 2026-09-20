@@ -28,3 +28,11 @@ Download the successful Board B artifact from the workflow run. With the exact b
 ## Build verification — 2026-09-20
 
 [CI run 35535394007](https://github.com/thomasgregg/DashBridge/actions/runs/35535394007) passed for source commit `1ad155f47486f87fc797c8234978f2894f8ad96f`. Only Board B was compiled. The firmware is `0.3.2-alpha+09201b74ad2c`, SHA-256 `2ae77511583212bd624ab31be3adf2345466b16860f0312fefe9eaec63eff4d4`, 1,135,872 bytes. No compiler warnings or errors appeared in the build log. Host sanitizers, the actual SDK parser and bond-recovery callback tests, SDP record checks, and generated HFP/audio configuration checks passed. The installer passed 17 automated checks and browser loading/layout verification. Automatic reconnection is not yet hardware-verified.
+
+## Pairing timeout correction
+
+The first hardware trial of `0.3.2-alpha+09201b74ad2c` reached SSP confirmation at 22:32:16, then timed out at 22:32:46 (0x22). No confirmation reply was sent until after timeout. The upstream BTA callback defers confirmation when the remote name is empty; the trace shows its additional name request also waiting until the connection fails.
+
+Forward SSP confirmation immediately to the existing security callback, carrying the original address, numeric value, IO capabilities, authentication requirements and Just Works flag. An empty display name stays empty. Do not auto-grant or change the callback's acceptance policy. The new guarded `bta_dm_act.c` replacement is the 14th translation unit. A regression test executes the original callback to reproduce the missing-name stall and the patched callback to verify immediate delivery, preserved fields, no lookup, absent-callback rejection and unchanged passkey notification behavior. Hardware pairing and reconnection remain to be tested.
+
+[Pairing-fix CI run 35536264157](https://github.com/thomasgregg/DashBridge/actions/runs/35536264157) passed for source commit `ff42cb06b67e67deca35ed4cf79465494a9f107d`. The updated image is `0.3.2-alpha+ce9b10554353`, SHA-256 `57a54432615916e95bf8061235540f3f7ba4cffbe2bf3c83f665f8be19cdd41f`. Full ESP32 compilation, host tests, SDK pairing/parser/bond regressions and HFP/SDP configuration checks passed; hardware confirmation is pending. It replaces the initial comparison image at the same URL.
