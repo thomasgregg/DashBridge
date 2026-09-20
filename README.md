@@ -119,7 +119,7 @@ Power both boards over USB. Do **not** connect their 5V, VIN, or 3V3 pins togeth
 
 ### 1. Install from your browser
 
-**[Open the DashBridge installer →](https://thomasgregg.github.io/DashBridge/)**
+[![Install DashBridge](docs/assets/install-button.svg)](https://thomasgregg.github.io/DashBridge/)
 
 Use **Chrome or Edge on a computer**. Connect one board with a USB data cable, select **A — iPhone** or **B — Tesla**, click **Install**, and select its USB port. The page selects the correct firmware and settings for you. Repeat for the other board. Installation clears the selected board’s saved pairings.
 
