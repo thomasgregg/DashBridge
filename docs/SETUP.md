@@ -12,7 +12,16 @@ Label the boards **A — iPhone** and **B — Tesla**. Leave them disconnected f
 
 The prebuilt merged images are `dist/car-merged.bin` for B and `dist/phone-merged.bin` for A. Each includes the bootloader, partition table and application. They are for a 4 MB original ESP32, not a different ESP32 family. Flashing a merged image also removes previous pairing stored on that board.
 
-One route is Espressif's [browser flashing tool](https://espressif.github.io/esptool-js/) in a desktop browser supporting Web Serial, such as Chrome. Connect only the board being programmed, choose its USB serial port, select the appropriate merged file at **address `0x0`**, and program it. Close any serial monitor first. If connection fails, hold BOOT while starting the connection and release it once the chip is detected. Use 115200 baud if a faster speed is unreliable. Press EN/reset after programming.
+**[Open the DashBridge web installer →](https://thomasgregg.github.io/DashBridge/)** in **Chrome or Edge on a computer** (not iPhone, iPad or Safari).
+
+1. Connect only the board being programmed with a USB **data** cable. Close any serial monitor first.
+2. Choose **Install Board A** for the iPhone board or **Install Board B** for the Tesla board.
+3. Select that board’s USB serial port, then choose **Install** and confirm. The page selects the firmware and flash address automatically.
+4. Keep the board connected until installation finishes. Close the installer dialog, unplug the board and label it **A** or **B** before connecting the other one.
+
+If connection fails, hold BOOT while starting installation and release it once the chip is detected or installation begins. Press EN/reset after programming if the board does not restart. Start the parked-car test below with **B alone**, before wiring the two boards together.
+
+For manual browser flashing, Espressif’s [browser flashing tool](https://espressif.github.io/esptool-js/) also accepts the merged files at **address `0x0`**. Use 115200 baud if a faster speed is unreliable.
 
 Alternatively, from the project folder, with Python and `esptool==4.12.0` installed:
 

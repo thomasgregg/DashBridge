@@ -1,0 +1,18 @@
+{
+  "name": "dashbridge-installer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test build.test.mjs"
+  },
+  "dependencies": {
+    "esp-web-tools": "10.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "overrides": {
+    "@material/web": "2.2.0"
+  }
+}

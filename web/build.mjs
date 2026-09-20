@@ -1,0 +1,90 @@
+import { build } from 'esbuild';
+import { createHash } from 'node:crypto';
+import { readFile, writeFile, mkdir, cp, rm, readdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const root = fileURLToPath(new URL('../', import.meta.url));
+const digest = (data) => createHash('sha256').update(data).digest('hex');
+
+export async function prepareFirmware(repository, output) {
+  const manifest = JSON.parse(await readFile(path.join(repository, 'dist/manifest.json'), 'utf8'));
+  if (manifest.target !== 'esp32' || manifest.flash_size !== '4MB') {
+    throw new Error('Installer only supports original ESP32 with 4 MB flash');
+  }
+  await mkdir(path.join(output, 'firmware'), { recursive: true });
+  const result = { version: manifest.version };
+  for (const [role, label] of [['phone', 'A — iPhone'], ['car', 'B — Tesla']]) {
+    const entry = manifest.images[role];
+    if (entry.file !== `${role}-merged.bin` || entry.flash_address !== '0x0') {
+      throw new Error(`Unexpected firmware layout for ${role}`);
+    }
+    const data = await readFile(path.join(repository, 'dist', entry.file));
+    if (digest(data) !== entry.sha256 || data.length !== entry.bytes) {
+      throw new Error(`Firmware checksum or size mismatch: ${role}`);
+    }
+    // Merged images must contain the original ESP32 bootloader at 0x1000.
+    if (data[0x1000] !== 0xe9 || data.readUInt16LE(0x100c) !== 0) {
+      throw new Error(`Unexpected ESP32 bootloader: ${role}`);
+    }
+    for (const [source, expected] of Object.entries(entry.source_sha256)) {
+      if (digest(await readFile(path.join(repository, source))) !== expected) {
+        throw new Error(`Rebuild firmware before publishing: ${source}`);
+      }
+    }
+    const name = `${role}-${entry.sha256.slice(0, 16)}`;
+    await writeFile(path.join(output, 'firmware', `${name}.bin`), data);
+    await writeFile(path.join(output, 'firmware', `${name}.json`), JSON.stringify({
+      name: `DashBridge ${label}`,
+      version: manifest.version,
+      new_install_prompt_erase: false,
+      new_install_improv_wait_time: 0,
+      builds: [{ chipFamily: 'ESP32', parts: [{ path: `${name}.bin`, offset: 0 }] }],
+    }, null, 2) + '\n');
+    result[role] = `./firmware/${name}.json`;
+  }
+  return result;
+}
+
+async function main() {
+  const output = path.join(root, '_site');
+  await rm(output, { recursive: true, force: true });
+  await mkdir(output, { recursive: true });
+  const firmware = await prepareFirmware(root, output);
+  const bundle = await build({
+    absWorkingDir: path.join(root, 'web'),
+    entryPoints: ['app.js'], bundle: true, splitting: true, format: 'esm',
+    outdir: path.join(output, 'assets'), entryNames: '[name]-[hash]',
+    chunkNames: '[name]-[hash]', minify: true, metafile: true, target: 'es2022',
+    legalComments: 'linked',
+  });
+  const app = Object.entries(bundle.metafile.outputs).find(([, info]) => info.entryPoint === 'app.js')[0];
+  let html = await readFile(path.join(root, 'web/index.html'), 'utf8');
+  for (const [key, value] of Object.entries({ ...firmware, app: `./${path.relative(output, path.resolve(root, 'web', app))}` })) {
+    html = html.replaceAll(`{{${key}}}`, value);
+  }
+  const css = await readFile(path.join(root, 'web/style.css'));
+  const cssName = `style-${digest(css).slice(0, 16)}.css`;
+  await writeFile(path.join(output, 'assets', cssName), css);
+  html = html.replaceAll('{{css}}', `./assets/${cssName}`);
+  if (/\{\{.+?\}\}/.test(html)) throw new Error('Unresolved HTML placeholder');
+  await writeFile(path.join(output, 'index.html'), html);
+  await cp(path.join(root, 'web/favicon.svg'), path.join(output, 'favicon.svg'));
+  await cp(path.join(root, 'dist/manifest.json'), path.join(output, 'firmware/checksums.json'));
+  await writeFile(path.join(output, '.nojekyll'), '');
+  // Distribute notices alongside the bundled code.
+  const notices = [];
+  const lock = JSON.parse(await readFile(path.join(root, 'web/package-lock.json'), 'utf8'));
+  for (const [name, pkg] of Object.entries(lock.packages)) {
+    if (!name || pkg.dev) continue;
+    const dir = path.join(root, 'web', name);
+    const files = await readdir(dir);
+    for (const file of files.filter((f) => /^(license|notice|copyright)/i.test(f))) {
+      notices.push(`\n=== ${name} / ${file} ===\n${await readFile(path.join(dir, file), 'utf8')}`);
+    }
+  }
+  await writeFile(path.join(output, 'third-party-licenses.txt'), notices.join('\n'));
+  console.log(`Built DashBridge installer ${firmware.version}; both firmware images verified.`);
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) await main();
