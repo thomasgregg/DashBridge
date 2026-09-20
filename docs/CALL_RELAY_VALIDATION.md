@@ -125,3 +125,11 @@ wait 90 seconds with B selected as Tesla's priority device and the iPhone's
 Tesla phone connection disconnected. If automatic reconnect fails, manually
 connect once and download the same log. This is evidence collection, not a
 verified reconnection fix.
+
+Source `784b004` passed [CI run 35532043580](https://github.com/thomasgregg/DashBridge/actions/runs/35532043580):
+both ESP32 builds, role/configuration checks, host protocol and reconnect tests,
+the captured Tesla SDP query tests, and the bounded packet-trace tests. The
+build log contains no compiler warnings/errors. The packaged B image contains
+all new diagnostic markers; A contains no added SDK packet tracing. Both images
+match their source hashes and binary checksums, and all 11 installer tests pass.
+The diagnostic firmware has not yet been tested on the physical board.
