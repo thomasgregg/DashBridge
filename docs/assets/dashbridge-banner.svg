@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="384" viewBox="0 0 1280 384" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="336" viewBox="0 0 1280 336" role="img" aria-labelledby="title desc">
   <title id="title">DashBridge — Your messages. On your dashboard.</title>
-  <desc id="desc">A dark navy banner with the DashBridge wordmark, a cyan bridge symbol, and a diagram connecting a phone to two small boards and a dashboard. Local Bluetooth. Two ESP32 boards. No SMS forwarding.</desc>
+  <desc id="desc">A dark navy banner with the DashBridge wordmark, a cyan bridge symbol, and a diagram connecting a phone to two small boards and a car.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop stop-color="#091425"/><stop offset="1" stop-color="#122941"/>
@@ -12,24 +12,14 @@
       <path d="M32 0H0V32" fill="none" stroke="#c6e5ff" stroke-opacity=".035"/>
     </pattern>
   </defs>
-  <rect width="1280" height="384" rx="24" fill="url(#bg)"/>
-  <rect width="1280" height="384" rx="24" fill="url(#grid)"/>
-  <path d="M0 360H1280" stroke="#38bdf8" stroke-opacity=".08"/>
+  <rect width="1280" height="336" rx="24" fill="url(#bg)"/>
+  <rect width="1280" height="336" rx="24" fill="url(#grid)"/>
   <g transform="translate(64 58)" fill="none" stroke="url(#accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
     <path d="M0 35H60M9 35V3M51 35V3M9 7C17 29 43 29 51 7M21 24V35M39 24V35"/>
   </g>
   <text x="142" y="87" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="700" letter-spacing="3" fill="#92b3cf">LOCAL BLUETOOTH BRIDGE</text>
   <text x="60" y="186" font-family="Arial,Helvetica,sans-serif" font-size="76" font-weight="700" letter-spacing="-3" fill="#f3f8ff">DashBridge</text>
   <text x="64" y="233" font-family="Arial,Helvetica,sans-serif" font-size="27" fill="#b8cbde">Your messages. On your dashboard.</text>
-  <g font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="700" letter-spacing=".5">
-    <rect x="64" y="287" width="168" height="36" rx="18" fill="#18334a" stroke="#294860"/>
-    <circle cx="82" cy="305" r="4" fill="#6ee7d7"/>
-    <text x="95" y="310" fill="#d4eaf5">LOCAL BY DESIGN</text>
-    <rect x="244" y="287" width="180" height="36" rx="18" fill="#18334a" stroke="#294860"/>
-    <text x="262" y="310" fill="#d4eaf5">TWO ESP32 BOARDS</text>
-    <rect x="436" y="287" width="192" height="36" rx="18" fill="#18334a" stroke="#294860"/>
-    <text x="454" y="310" fill="#d4eaf5">NO SMS FORWARDING</text>
-  </g>
   <g transform="translate(724 87)">
     <path d="M61 98H147M251 98H337" stroke="#38bdf8" stroke-width="3" stroke-dasharray="5 8" stroke-linecap="round"/>
     <rect x="0" y="39" width="61" height="116" rx="13" fill="#102439" stroke="#7facc9" stroke-width="2"/>
@@ -50,17 +40,23 @@
       <text x="38" y="141" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="700" fill="#8bb9d4">A</text>
       <text x="92" y="141" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="700" fill="#8bb9d4">B</text>
     </g>
-    <g transform="translate(337 59)">
-      <rect width="132" height="79" rx="10" fill="#0c1e30" stroke="#7facc9" stroke-width="2"/>
-      <rect x="10" y="11" width="112" height="57" rx="4" fill="#1b3850"/>
-      <rect x="21" y="23" width="90" height="32" rx="5" fill="#24495e"/>
-      <rect x="29" y="32" width="13" height="12" rx="3" fill="url(#accent)"/>
-      <path d="M51 33H99M51 42H85M57 90H77M67 79V90" stroke="#9fd4e5" stroke-width="2" stroke-linecap="round"/>
+    <g transform="translate(337 33)" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Front view: curved roof, windshield, mirrors, lights, and wheels. -->
+      <rect x="10" y="106" width="20" height="29" rx="6" fill="#081724" stroke="#7facc9" stroke-width="2"/>
+      <rect x="102" y="106" width="20" height="29" rx="6" fill="#081724" stroke="#7facc9" stroke-width="2"/>
+      <path d="M18 62H7Q2 62 2 68V74H15M114 62H125Q130 62 130 68V74H117" fill="#1b3850" stroke="#7facc9" stroke-width="2"/>
+      <path d="M11 77L23 40Q27 29 39 26Q66 20 93 26Q105 29 109 40L121 77Q128 83 128 95V113Q128 121 119 121H13Q4 121 4 113V95Q4 83 11 77Z" fill="#102439" stroke="#7facc9" stroke-width="2"/>
+      <path d="M23 69L33 42Q35 36 43 34Q66 30 89 34Q97 36 99 42L109 69Q66 62 23 69Z" fill="#24495e" stroke="#527e9a" stroke-width="1.5"/>
+      <path d="M40 40Q57 36 75 38" fill="none" stroke="#9fd4e5" stroke-opacity=".45" stroke-width="2"/>
+      <path d="M18 79Q66 72 114 79" fill="none" stroke="#32566f" stroke-width="1.5"/>
+      <path d="M16 87L42 90L38 97H17Z" fill="url(#accent)"/>
+      <path d="M116 87L90 90L94 97H115Z" fill="url(#accent)"/>
+      <path d="M45 107H87M21 113H111" fill="none" stroke="#527e9a" stroke-width="2"/>
     </g>
     <g font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" letter-spacing="1.2" fill="#88abc6" text-anchor="middle">
       <text x="30" y="194">PHONE</text>
       <text x="195" y="194">BRIDGE</text>
-      <text x="403" y="194">DASHBOARD</text>
+      <text x="403" y="194">CAR</text>
     </g>
   </g>
 </svg>
