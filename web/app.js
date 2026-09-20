@@ -10,6 +10,7 @@ let ready = false;
 function selectBoard() {
   const choice = choices.find(input => input.checked);
   const label = choice.value === 'phone' ? 'A' : 'B';
+  document.querySelector('#firmware-version').textContent = `v${choice.dataset.version}`;
   for (const board of document.querySelectorAll('.board-marker')) {
     board.classList.toggle('is-selected', board.dataset.board === choice.value);
   }
@@ -26,7 +27,7 @@ function selectBoard() {
     renderInstallSuccess: successRenderer(choice.value, (otherRole) => {
       choices.find(input => input.value === otherRole).checked = true;
       selectBoard();
-    }),
+    }, choice.dataset.version),
   };
   const button = document.createElement('button');
   button.className = 'install';

@@ -74,12 +74,12 @@
     </div>
     <div class="install-side">
     <section class="installer" aria-label="Firmware installer">
-      <div class="panel-heading"><h2>Choose your board</h2><span>v{{displayVersion}}</span></div>
+      <div class="panel-heading"><h2>Choose your board</h2><span id="firmware-version" aria-live="polite">v{{phoneVersion}}</span></div>
       <fieldset>
         <legend>Board</legend>
         <div class="selector">
-          <label><input type="radio" name="board" value="phone" data-manifest="{{phone}}" checked><span>A <span class="role">iPhone</span></span></label>
-          <label><input type="radio" name="board" value="car" data-manifest="{{car}}"><span>B <span class="role">Tesla</span></span></label>
+          <label><input type="radio" name="board" value="phone" data-manifest="{{phone}}" data-version="{{phoneVersion}}" checked><span>A <span class="role">iPhone</span></span></label>
+          <label><input type="radio" name="board" value="car" data-manifest="{{car}}" data-version="{{carVersion}}"><span>B <span class="role">Tesla</span></span></label>
         </div>
       </fieldset>
       <p id="board-description">Receives iPhone calls and notifications.</p>

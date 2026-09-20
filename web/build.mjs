@@ -14,12 +14,12 @@ export async function prepareFirmware(repository, output) {
     throw new Error('Installer only supports original ESP32 with 4 MB flash');
   }
   await mkdir(path.join(output, 'firmware'), { recursive: true });
-  const result = { version: manifest.version, displayVersion: manifest.version.split('-')[0] };
+  const release = (await readFile(path.join(repository, 'firmware/version.txt'), 'utf8')).trim();
+  if (manifest.version !== release) throw new Error('Manifest release differs from firmware/version.txt');
+  const result = { version: release };
   for (const [role, label] of [['phone', 'A — iPhone'], ['car', 'B — Tesla']]) {
     const entry = manifest.images[role];
-    if (!entry || entry.version !== manifest.version) {
-      throw new Error(`Missing or mismatched firmware version for ${role}`);
-    }
+    if (!entry) throw new Error(`Missing firmware image for ${role}`);
     if (entry.file !== `${role}-merged.bin` || entry.flash_address !== '0x0') {
       throw new Error(`Unexpected firmware layout for ${role}`);
     }
@@ -36,16 +36,26 @@ export async function prepareFirmware(repository, output) {
         throw new Error(`Rebuild firmware before publishing: ${source}`);
       }
     }
+    const sourceIdentity = JSON.stringify(Object.fromEntries(Object.entries(entry.source_sha256)
+      .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)));
+    const expectedVersion = `${release}+${digest(sourceIdentity).slice(0, 12)}`;
+    if (entry.version !== expectedVersion) throw new Error(`Mismatched firmware version for ${role}`);
+    if (data.length < 0x10050 || data[0x10000] !== 0xe9 || data.readUInt32LE(0x10020) !== 0xabcd5432) {
+      throw new Error(`Missing ESP32 application descriptor for ${role}`);
+    }
+    const embeddedVersion = data.subarray(0x10030, 0x10050).toString('ascii').split('\0')[0];
+    if (embeddedVersion !== entry.version) throw new Error(`Embedded firmware version mismatch for ${role}`);
     const name = `${role}-${entry.sha256.slice(0, 16)}`;
     await writeFile(path.join(output, 'firmware', `${name}.bin`), data);
     await writeFile(path.join(output, 'firmware', `${name}.json`), JSON.stringify({
       name: `DashBridge ${label}`,
-      version: manifest.version,
+      version: entry.version,
       new_install_prompt_erase: false,
       new_install_improv_wait_time: 0,
       builds: [{ chipFamily: 'ESP32', parts: [{ path: `${name}.bin`, offset: 0 }] }],
     }, null, 2) + '\n');
     result[role] = `./firmware/${name}.json`;
+    result[`${role}Version`] = entry.version;
   }
   return result;
 }

@@ -157,3 +157,13 @@ This targets unintended bond loss and the resulting manual-connect failure;
 it does not establish the cause of Tesla terminating the original outgoing
 connection or guarantee automatic reconnection. The already-deleted pairing
 will need to be recreated after installing the corrected B image.
+
+The corrected B image is `0.3.1-alpha+3421de5e2b6e`, built and tested in
+[CI run 35532949574](https://github.com/thomasgregg/DashBridge/actions/runs/35532949574).
+Its source hashes, embedded version and packaged checksum were verified, and
+the compiler log contains no warnings/errors. A's versioned image
+`0.3.1-alpha+c7b2850b78fe` is reused from
+[CI run 35532642060](https://github.com/thomasgregg/DashBridge/actions/runs/35532642060);
+the ACL correction changes only B. All 13 installer tests pass, including
+selection-specific version display and rejection of incorrectly labelled
+binaries. The corrected B image still requires a physical reconnect test.

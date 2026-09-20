@@ -1,6 +1,6 @@
 import { html } from 'lit';
 
-export function successRenderer(role, onSelectOther) {
+export function successRenderer(role, onSelectOther, version) {
   const phone = role === 'phone';
   const board = phone ? 'A' : 'B';
   const other = phone ? 'B' : 'A';
@@ -10,7 +10,7 @@ export function successRenderer(role, onSelectOther) {
     `Board ${board} installed`,
     html`
       <div slot="content" style="max-width:420px;line-height:1.6">
-        <p style="margin:0 0 18px">Firmware installation is complete.</p>
+        <p style="margin:0 0 18px">Firmware ${version} installed.</p>
         <ol style="padding-left:22px;margin:0 0 18px">
           <li>Label this board <strong>${board} — ${phone ? 'iPhone' : 'Tesla'}</strong>.</li>
           <li>Close this window before unplugging the board.</li>
