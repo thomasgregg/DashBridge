@@ -100,6 +100,7 @@ def prepare_reconnect(bt_dir, output):
         'bta/hf_ag/bta_ag_sdp.c': '2997cc3d26820ad5e76c9ebd21c2315489be5b568c093f47859577c060b2bf02',
         'bta/hf_ag/bta_ag_act.c': '90ad7bf907c469a21b0d2b08fcd6e19978739f96f7209b279d4494838624e1b3',
         'bta/hf_ag/bta_ag_rfc.c': '84a47d218f3e89c948da58fb16b0f2af89c332663e604301d3b1ebb396826e9e',
+        'stack/btm/btm_acl.c': '0d8ada1177223c0751cbda9215c90e70865dce4d3d8df3b97dbdb78ae9369f40',
     }
     sources = {}
     for name, digest in expected.items():
@@ -167,6 +168,17 @@ def prepare_reconnect(bt_dir, output):
         '                       p_scb->peer_scn, p_scb->cli_sec_mask);\n'
         '    if (RFCOMM_CreateConnection(bta_ag_uuid[p_scb->conn_service], p_scb->peer_scn,')
     sources['bta_ag_rfc.c'] = rfc
+    # A failed feature read for a vanished controller handle is not evidence
+    # of changed peer capabilities. Do not feed incomplete pages into the SC
+    # downgrade detector, or continue establishment on that dead connection.
+    # Successful feature reads and genuine downgrade checks are untouched.
+    sources['btm_acl.c'] = replace_once(sources['btm_acl.c'],
+        '    /* Process supported features only */',
+        '    if (status == HCI_ERR_NO_CONNECTION) {\n'
+        '        BTM_TRACE_WARNING("DashBridge: ignoring feature result for closed link; security state unchanged\\n");\n'
+        '        return;\n'
+        '    }\n\n'
+        '    /* Process supported features only */')
     for name, source in sources.items():
         (output / name).write_text(source)
 

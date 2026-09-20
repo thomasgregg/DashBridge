@@ -133,3 +133,27 @@ build log contains no compiler warnings/errors. The packaged B image contains
 all new diagnostic markers; A contains no added SDK packet tracing. Both images
 match their source hashes and binary checksums, and all 11 installer tests pass.
 The diagnostic firmware has not yet been tested on the physical board.
+
+### Pairing lost after a failed controller feature query
+
+The diagnostic build subsequently connected HFP and MAP at 21:31:49. After a
+reset at 21:32:05, its first outgoing reconnect encountered remote-feature
+query failures with HCI status `0x02` (unknown connection identifier). At
+21:32:13 the SDK logged `Remote Device downgraded security from SC, deleting Link Key`;
+the bond changed from present to absent. The user's subsequent manual Connect
+attempt at 21:33:40 failed with `bonded=0`.
+
+In the pinned SDK, `btm_read_remote_ext_features_failed` still processes partial
+feature pages and continues establishment after `HCI_ERR_NO_CONNECTION`.
+Processing those pages can feed missing Secure Connections feature bits into
+the existing downgrade detector. The Board B patch returns on that specific
+failed-query status, without processing capabilities or continuing connection
+establishment on the invalid handle. It does not modify successful feature
+handling, the downgrade detector, authentication or encryption requirements.
+An executable regression test compares the original and patched callback,
+including repeated late events, missing handles and another error status.
+
+This targets unintended bond loss and the resulting manual-connect failure;
+it does not establish the cause of Tesla terminating the original outgoing
+connection or guarantee automatic reconnection. The already-deleted pairing
+will need to be recreated after installing the corrected B image.
