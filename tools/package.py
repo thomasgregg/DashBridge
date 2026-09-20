@@ -32,7 +32,7 @@ def package(roles):
         subprocess.run(command, check=True)
         sources = {str(p.relative_to(ROOT)): sha256(p)
                    for p in sorted((ROOT / "firmware").rglob("*"))
-                   if p.is_file() and (p.suffix in (".cpp", ".hpp", ".txt")
+                   if p.is_file() and (p.suffix in (".cpp", ".hpp", ".txt", ".py")
                                        or p.name.startswith("sdkconfig.")
                                        or p.name == "Kconfig.projbuild")}
         manifest["images"][role] = {
@@ -41,7 +41,7 @@ def package(roles):
             "sdkconfig_sha256": sha256(build / "sdkconfig"),
             "hardware_tested": False,
         }
-    manifest.update({"project": "DashBridge prototype", "version": "0.1.2",
+    manifest.update({"project": "DashBridge prototype", "version": "0.1.3",
                      "target": "esp32", "flash_size": "4MB", "esp_idf": "v5.5.1",
                      "esp_idf_commit": "fcae32885b0296b32044cb99ecbdc50d98dddb83"})
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

@@ -49,6 +49,15 @@ before any MAP transport connection is logged. The exact rejected request is
 not present in that log. Version 0.1.2 adds bounded SDP request bytes and explicit
 rejection reasons for diagnosis; it does not claim to fix message sync.
 
+The v0.1.2 hardware log identifies `BAD_ATTR_LIST`: Tesla requests 8 attributes
+for MAP and 10 for Device ID; the phone-profile request has 7 and succeeds.
+Replaying those packets through the pinned SDK reproduces the rejection: its
+8-entry array is checked after incrementing the count, rejecting even exactly
+8 entries. Version 0.1.3 uses a 16-entry capacity and checks before writing.
+Host replay tests accept all three captured requests, accept exactly 16 entries,
+reject 17 and 32 without sanitizer findings, and preserve range requests.
+Tesla message sync and message delivery still require a physical retest.
+
 The pictured board has only an RST button. BOOT-based pairing and test-message
 controls cannot be used on that board without an alternative input. Before any
 pairing is saved, restarting opens the two-minute pairing window automatically.

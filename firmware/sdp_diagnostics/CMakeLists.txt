@@ -1,51 +1,28 @@
-# Instrument a build-local copy, leaving the installed SDK untouched.
-# Only SDP discovery metadata is logged; message traffic is not handled here.
 idf_component_get_property(bt_dir bt COMPONENT_DIR)
 idf_component_get_property(bt_lib bt COMPONENT_LIB)
-set(original "${bt_dir}/host/bluedroid/stack/sdp/sdp_server.c")
-file(SHA256 "${original}" source_hash)
-if(NOT source_hash STREQUAL "5e6c87536f3f3d39dca1eaa1c7cfb92da4ed295aacef790c8182c9c29f944e4e")
-    message(FATAL_ERROR "Review SDP diagnostics for this ESP-IDF source version")
+set(patch_script "${CMAKE_CURRENT_LIST_DIR}/patch.py")
+set(patched_dir "${CMAKE_BINARY_DIR}/dashbridge_sdp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${patch_script}")
+execute_process(COMMAND "${PYTHON}" "${patch_script}" "${bt_dir}" "${patched_dir}"
+    RESULT_VARIABLE result)
+if(NOT result EQUAL 0)
+    message(FATAL_ERROR "Failed to prepare the pinned SDP compatibility patch")
 endif()
-file(READ "${original}" source)
-set(diagnostics [=[
-    /* DashBridge: bounded service-discovery diagnostics, not message data. */
-    {
-        static const char hex[] = "0123456789abcdef";
-        char dump[96 * 2 + 1];
-        UINT16 length = p_msg->len < 96 ? p_msg->len : 96;
-        for (UINT16 i = 0; i < length; ++i) {
-            dump[i * 2] = hex[p_req[i] >> 4];
-            dump[i * 2 + 1] = hex[p_req[i] & 15];
-        }
-        dump[length * 2] = 0;
-        SDP_TRACE_WARNING ("DashBridge SDP request cid=0x%x bytes=%u data=%s\n",
-                           p_ccb->connection_id, p_msg->len, dump);
-    }
-
-]=])
-string(REPLACE "    /* Start inactivity timer */"
-    "${diagnostics}    /* Start inactivity timer */" source "${source}")
-foreach(reason BAD_PDU BAD_UUID_LIST BAD_MAX_RECORDS_LIST BAD_ATTR_LIST)
-    set(call "sdpu_build_n_send_error (p_ccb, trans_num, SDP_INVALID_REQ_SYNTAX, SDP_TEXT_${reason});")
-    string(REPLACE "${call}"
-        "SDP_TRACE_WARNING (\"DashBridge SDP rejected: ${reason}\\n\");\n        ${call}"
-        source "${source}")
-endforeach()
-set(patched "${CMAKE_BINARY_DIR}/dashbridge_sdp_server.c")
-file(WRITE "${patched}" "${source}")
+# All Bluetooth source files must use the same SDP structure layout.
+target_include_directories(${bt_lib} BEFORE PRIVATE "${patched_dir}")
 get_target_property(bt_sources ${bt_lib} SOURCES)
-set(found FALSE)
+set(replaced 0)
 set(updated_sources "")
 foreach(item IN LISTS bt_sources)
-    if(item MATCHES "(^|/)sdp/sdp_server\\.c$")
-        list(APPEND updated_sources "${patched}")
-        set(found TRUE)
+    if(item MATCHES "(^|/)sdp/(sdp_server|sdp_utils)\\.c$")
+        get_filename_component(filename "${item}" NAME)
+        list(APPEND updated_sources "${patched_dir}/${filename}")
+        math(EXPR replaced "${replaced} + 1")
     else()
         list(APPEND updated_sources "${item}")
     endif()
 endforeach()
-if(NOT found)
-    message(FATAL_ERROR "Could not locate SDP source in the Bluetooth target")
+if(NOT replaced EQUAL 2)
+    message(FATAL_ERROR "Could not locate both SDP sources in Bluetooth target")
 endif()
 set_property(TARGET ${bt_lib} PROPERTY SOURCES "${updated_sources}")

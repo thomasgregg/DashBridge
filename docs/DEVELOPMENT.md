@@ -63,5 +63,15 @@ build-local copy of ESP-IDF's SDP server. The SDK source remains untouched.
 A source checksum makes SDK changes fail configuration until reviewed. Version
 0.1.2 logs the first 96 bytes of each incoming SDP request and labels invalid
 request branches. These are service-discovery requests, not WhatsApp contents.
-The request handling and responses remain unchanged. This diagnostic build is
-intended to identify why Tesla turns Sync Messages back off before opening MAP.
+Version 0.1.3 also applies a pinned compatibility patch through `patch.py`: the
+attribute-list capacity increases from 8 to 16 and the capacity check runs before
+writing each entry. The original post-increment check rejected a valid list of
+exactly 8 attributes. All Bluetooth source files use the same patched internal
+header so the structure layout stays consistent. The SDK installation remains
+unchanged, and every patched upstream file is checksum-guarded.
+
+`python tools/test_sdp_attributes.py` replays the captured Tesla HFP (7 fields),
+MAP (8 fields), and Device ID (10 fields) requests through both the original and
+patched parsers. It reproduces the two original rejections and verifies the
+fixed parser, exact capacity, oversized-list rejection and attribute ranges
+under address and undefined-behavior sanitizers. Run with `IDF_PATH` set.
