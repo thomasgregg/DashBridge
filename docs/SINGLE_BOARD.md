@@ -53,7 +53,17 @@ message carried.
 Version 0.2.1-dev corrects that gate and adds a regression test for fresh
 notifications with action flags and old notifications with and without actions.
 It also logs event flags and forwarding/filter decisions without message text,
-sender names or group names. The [0.2.1-dev build and regression checks](https://github.com/thomasgregg/DashBridge/actions/runs/35522683948) passed. The new regression also fails when the original incorrect flag is restored. Real WhatsApp delivery still needs a hardware retest.
+sender names or group names. The [0.2.1-dev build and regression checks](https://github.com/thomasgregg/DashBridge/actions/runs/35522683948) passed. The new regression also fails when the original incorrect flag is restored. The user subsequently confirmed that a real WhatsApp message appeared on the Tesla. The iPhone was paired directly through Settings, with no nRF Connect app.
+
+### Priority-phone requirement
+
+The next power-cycle test returned the Tesla to the iPhone as its active phone,
+without reconnecting DashBridge. The iPhone must remain the priority device,
+with normal calls and music. Making DashBridge the priority phone does not meet
+that requirement. Version 0.2.1-dev advertises HFP and MAP and still competes
+with the iPhone; successful notification delivery does not establish coexistence.
+An [isolated message-only experiment](https://github.com/thomasgregg/DashBridge/blob/message-only/docs/MESSAGE_ONLY.md)
+tests this separately, without replacing the regular installer.
 
 ### Setup steps
 

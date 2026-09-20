@@ -11,8 +11,8 @@ No SMS forwarding, WhatsApp account login, server, or second board is needed
 by this design.
 
 > **Experimental single-board prototype.** Both Bluetooth connections and a
-> Tesla test notification have worked on hardware. Real WhatsApp delivery is
-> still being debugged. Calls, music passthrough and replies are not implemented.
+> real WhatsApp notification have worked on hardware. Keeping the iPhone as
+> the Tesla’s active priority phone is still unresolved. Calls, music passthrough and replies are not implemented.
 > The Tesla may use DashBridge as its active phone, affecting the iPhone's normal
 > call connection.
 
@@ -47,7 +47,11 @@ remain available in the [v0.1.4 release](https://github.com/thomasgregg/DashBrid
 - Single-board: internal routing, pairing isolation and protocol host tests pass.
 - Single-board hardware: both notification connections report ready together;
   the Tesla test message appeared. Version 0.2.1-dev fixes an ANCS flag check
-  that could discard new WhatsApp notifications. Real delivery needs a retest.
+  that could discard new WhatsApp notifications. The user confirmed real
+  WhatsApp delivery after installing it; iPhone pairing used Settings directly.
+- Keeping the iPhone as the Tesla priority phone is a firm requirement. The
+  current phone-style bridge does not meet it. An isolated [message-only test](https://thomasgregg.github.io/DashBridge/message-only/)
+  checks coexistence; success has not been established.
 - Outgoing replies, audio/call relay and configurable app selection are not implemented.
 
 A successful build is not evidence that the phone and car work together.
