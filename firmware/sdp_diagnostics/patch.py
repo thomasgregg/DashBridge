@@ -78,6 +78,7 @@ def prepare(bt_dir, output):
     (output / 'sdp_server.c').write_text(server)
     prepare_reconnect(bt_dir, output)
     prepare_connection_trace(bt_dir, output)
+    prepare_pairing_confirmation(bt_dir, output)
 
 
 def prepare_reconnect(bt_dir, output):
@@ -253,6 +254,36 @@ def prepare_connection_trace(bt_dir, output):
     sources['sdp_main.c'] = sdp
     for name, source in sources.items():
         (output / name).write_text(source)
+
+
+def prepare_pairing_confirmation(bt_dir, output):
+    source = Path(bt_dir) / 'host/bluedroid/bta/dm/bta_dm_act.c'
+    data = source.read_bytes()
+    if hashlib.sha256(data).hexdigest() != 'e94afa727c15ea246671568c34088af25155b90be3eec21c30ccbbd1766f945c':
+        raise RuntimeError('Review pairing confirmation for changed SDK source')
+    text = data.decode()
+    start = text.index('static UINT8 bta_dm_sp_cback (tBTM_SP_EVT event, tBTM_SP_EVT_DATA *p_data)\n{')
+    end = text.index('\n}\n', start) + 3
+    callback = text[start:end]
+    callback = replace_once(callback,
+        '    case BTM_SP_CFM_REQ_EVT:\n        pin_evt = BTA_DM_SP_CFM_REQ_EVT;',
+        '    case BTM_SP_CFM_REQ_EVT:\n'
+        '        memset(&sec_event, 0, sizeof(sec_event));\n'
+        '        pin_evt = BTA_DM_SP_CFM_REQ_EVT;')
+    callback = replace_once(callback,
+        '        /* continue to next case */',
+        '        /* DashBridge: a display name must not hold up SSP confirmation.\n'
+        '         * Deliver the original event to the usual security callback;\n'
+        '         * acceptance, authentication and encryption remain unchanged. */\n'
+        '        bdcpy(sec_event.cfm_req.bd_addr, p_data->cfm_req.bd_addr);\n'
+        '        BTA_COPY_DEVICE_CLASS(sec_event.cfm_req.dev_class, p_data->cfm_req.dev_class);\n'
+        '        BCM_STRNCPY_S((char *)sec_event.cfm_req.bd_name, (char *)p_data->cfm_req.bd_name, BD_NAME_LEN);\n'
+        "        sec_event.cfm_req.bd_name[BD_NAME_LEN] = '\\0';\n"
+        '        bta_dm_cb.num_val = sec_event.cfm_req.num_val = p_data->cfm_req.num_val;\n'
+        '        APPL_TRACE_WARNING("DashBridge SSP confirmation dispatched without waiting for device name");\n'
+        '        bta_dm_cb.p_sec_cback(pin_evt, &sec_event);\n'
+        '        break;')
+    (Path(output) / 'bta_dm_act.c').write_text(text[:start] + callback + text[end:])
 
 
 if __name__ == '__main__':

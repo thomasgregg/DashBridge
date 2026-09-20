@@ -20,3 +20,9 @@ Only the SDK, its source guards, and the obsolete parser patch change. Reconnect
 Install the separate Board B comparison image and pair with Tesla once, because full installation erases saved pairing. Enable Sync Messages and verify `test`. Then reset B and wait up to 90 seconds without pressing Connect in Tesla. Repeat with a five-second power disconnection. Finally test after iPhone has taken the Tesla connection; keep the iPhone phone key enabled. Save one full log covering any failed reconnection and a manual connection attempt. Compilation is not hardware validation.
 
 Rollback is the unchanged main installer, Board B `0.3.1-alpha+d460f0158324`. Full rollback installation also erases pairing.
+
+## Pairing timeout correction
+
+The first hardware trial of `0.3.2-alpha+09201b74ad2c` reached SSP confirmation at 22:32:16, then timed out at 22:32:46 (0x22). No confirmation reply was sent until after timeout. The upstream BTA callback defers confirmation when the remote name is empty; the trace shows its additional name request also waiting until the connection fails.
+
+Forward SSP confirmation immediately to the existing security callback, carrying the original address, numeric value, IO capabilities, authentication requirements and Just Works flag. An empty display name stays empty. Do not auto-grant or change the callback's acceptance policy. The new guarded `bta_dm_act.c` replacement is the 14th translation unit. A regression test executes the original callback to reproduce the missing-name stall and the patched callback to verify immediate delivery, preserved fields, no lookup, absent-callback rejection and unchanged passkey notification behavior. Hardware pairing and reconnection remain to be tested.

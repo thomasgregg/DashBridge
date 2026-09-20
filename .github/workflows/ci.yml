@@ -87,6 +87,7 @@ jobs:
             DASHBRIDGE_BUILD_ROLE="$BOARD" python tools/test_sdp.py
             python tools/test_sdp_attributes.py
             python tools/test_acl_recovery.py
+            python tools/test_pairing_confirmation.py
           fi
       - name: Preserve experimental firmware
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

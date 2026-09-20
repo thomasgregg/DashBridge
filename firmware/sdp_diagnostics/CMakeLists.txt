@@ -14,7 +14,8 @@ get_target_property(bt_sources ${bt_lib} SOURCES)
 set(replaced 0)
 set(updated_sources "")
 foreach(item IN LISTS bt_sources)
-    if(item MATCHES "(^|/)sdp/(sdp_server|sdp_utils|sdp_discovery|sdp_main)\\.c$" OR
+    if(item MATCHES "(^|/)dm/bta_dm_act\\.c$" OR
+       item MATCHES "(^|/)sdp/(sdp_server|sdp_utils|sdp_discovery|sdp_main)\\.c$" OR
        item MATCHES "(^|/)hf_ag/(bta_ag_sdp|bta_ag_act|bta_ag_rfc)\\.c$" OR
        item MATCHES "(^|/)main/bte_main\\.c$" OR
        item MATCHES "(^|/)btu/btu_hcif\\.c$" OR
@@ -27,7 +28,7 @@ foreach(item IN LISTS bt_sources)
         list(APPEND updated_sources "${item}")
     endif()
 endforeach()
-if(NOT replaced EQUAL 13)
+if(NOT replaced EQUAL 14)
     message(FATAL_ERROR "Could not locate all SDP/HFP/ACL patch sources in Bluetooth target")
 endif()
 set_property(TARGET ${bt_lib} PROPERTY SOURCES "${updated_sources}")
