@@ -45,9 +45,10 @@ Implemented for hardware testing:
 - Separate control and audio links, bounded queues, CRC checks, per-connection
   audio tokens, command deduplication and a three-second peer heartbeat timeout.
 - Reconnection attempts to the last successfully connected Classic peer with
-  bounded backoff on A. B currently keeps its incoming phone service available
-  for Tesla-initiated reconnection, with outgoing HFP retries disabled as an
-  experiment. Reconnection and audio routing still require physical tests.
+  bounded backoff. B includes temporary SDP/HFP diagnostics to investigate its
+  failed outgoing reconnects; the incoming-only experiment did not reconnect
+  automatically in the stationary test. Reliable reconnection and audio routing
+  still require physical tests.
 
 Not implemented in this milestone:
 

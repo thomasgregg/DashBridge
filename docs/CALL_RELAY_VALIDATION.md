@@ -101,3 +101,27 @@ for both roles: A retains retries and B makes no outgoing or cancellation calls.
 Packaged binaries match the current source hashes and their recorded SHA-256
 checksums. These software checks do not establish successful Tesla reconnection;
 the stationary power-cycle hardware test remains pending.
+
+### Result and outgoing discovery trace
+
+The subsequent captured reset at 21:14:14 retained `stored=1 bonded=1`. No
+incoming ACL connection was logged in the next 90 seconds. At 21:16:10 a
+connection consistent with the requested manual Connect action brought HFP and
+MAP online within a second. The incoming-only experiment did not meet the
+automatic reconnect requirement. An earlier Device ID query/disconnect does
+not establish the cause.
+
+The next diagnostic build restores the previous bounded outgoing HFP retries
+and adds Board B traces inside the pinned SDK: discovery UUID and result,
+SDP client requests/responses, SDP server responses, selected RFCOMM channel,
+RFCOMM events and the gateway open status. Packet dumps are capped at 192 bytes
+and contain only service-discovery data, never message or audio payloads.
+No advertised services or pairing policy are changed. Board A keeps its
+existing retry behaviour. The startup marker is
+`Tesla reconnect test 2: outgoing HFP with SDP trace`.
+
+After flashing B and pairing once, keep the serial console open, reset B, and
+wait 90 seconds with B selected as Tesla's priority device and the iPhone's
+Tesla phone connection disconnected. If automatic reconnect fails, manually
+connect once and download the same log. This is evidence collection, not a
+verified reconnection fix.

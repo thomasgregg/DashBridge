@@ -34,31 +34,27 @@ POLL_CODE
 }
 int main() {
 #if CONFIG_BRIDGE_PHONE
-    tick = 4999; poll(); assert(client_opens == 0);
-    tick = 5000; poll(); assert(client_opens == 1 && connecting);
-    tick = 24000; poll(); assert(client_opens == 1 && client_closes == 0);
-    tick = 25000; poll(); assert(client_closes == 1 && !connecting);
+    auto &opens = client_opens; auto &closes = client_closes;
+#else
+    auto &opens = gateway_opens; auto &closes = gateway_closes;
+#endif
+    tick = 4999; poll(); assert(opens == 0);
+    tick = 5000; poll(); assert(opens == 1 && connecting);
+    tick = 24000; poll(); assert(opens == 1 && closes == 0);
+    tick = 25000; poll(); assert(closes == 1 && !connecting);
     assert(next_connect == 30000);
     tick = 30000; request_result = 1; poll();
-    assert(client_opens == 2 && !connecting && last_connect_result == 1);
-    self.linked = true; tick = 70000; poll(); assert(client_opens == 2);
-    self.linked = false; peer_saved = false; poll(); assert(client_opens == 2);
-#else
-    // Boot, delayed car wake, long absence, incoming connection and loss must
-    // never initiate/cancel a gateway link or run the phone reconnect path.
-    for (bool saved : {false, true}) {
-        peer_saved = saved;
-        for (bool linked : {false, true, false}) {
-            self.linked = linked;
-            for (int64_t t : {0LL, 5000LL, 25000LL, 60000LL, 3600000LL}) {
-                tick = t; poll();
-            }
-        }
-    }
-    assert(client_opens == 0 && client_closes == 0 && reconnect_attempts == 0);
-#endif
+    assert(opens == 2 && !connecting && last_connect_result == 1);
+    tick = 49999; poll(); assert(opens == 2);
+    self.linked = true; tick = 70000; poll(); assert(opens == 2);
+    self.linked = false; peer_saved = false; poll(); assert(opens == 2);
+#if CONFIG_BRIDGE_PHONE
     assert(gateway_opens == 0 && gateway_closes == 0);
+#else
+    assert(client_opens == 0 && client_closes == 0);
+#endif
 }
+
 '''.replace('POLL_CODE', poll)
 with tempfile.TemporaryDirectory() as temporary:
     path = Path(temporary)
@@ -69,4 +65,4 @@ with tempfile.TemporaryDirectory() as temporary:
                         '-fsanitize=address,undefined', f'-DCONFIG_BRIDGE_PHONE={phone}',
                         str(path / 'test.cpp'), '-o', str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
-print('PASS reconnect policy: A retains timed retries; B never initiates or cancels the Tesla phone link')
+print('PASS reconnect policy: timed retries, timeout cancellation and correct A/B Bluetooth role')
