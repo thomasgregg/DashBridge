@@ -47,6 +47,16 @@ int main() {
     assert(received == 2);
     std::mt19937 random(42);
     for (int i = 0; i < 100000; ++i) decoder.feed(uint8_t(random()), [](const Frame &) {});
+    AudioSequence order;
+    assert(order.accept(65535, 1000) == 2);
+    assert(order.accept(0, 8500) == 1); // Normal 16-bit sequence wrap.
+    assert(order.accept(0, 16000) == 0); // Duplicate.
+    assert(order.accept(65535, 16000) == 0); // Older packet.
+    assert(order.accept(2, 23500) == 2); // Missing packet clears queued PCM.
+    assert(order.accept(3, 100000) == 2); // Re-prime after a long audio pause.
+    assert(order.accept(40000, 300000000) == 2); // Recover after a minutes-long wire interruption.
+    assert(order.accept(40000, 300080000) == 0); // Even after silence, don't replay the same packet.
+    assert(order.accept(40001, 300090000) == 2);
     PcmBuffer buffer;
     std::array<uint8_t, pcm_size * 8> output{};
     assert(buffer.pop(output.data(), pcm_size) == 0);

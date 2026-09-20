@@ -112,6 +112,19 @@ public:
         else { --count_; memmove(data_.data(), data_.data() + 1, count_); }
     }
 };
+struct AudioSequence {
+    bool have = false;
+    uint16_t last = 0;
+    int64_t time = 0;
+    // 0: duplicate/old, 1: contiguous, 2: restart/gap (clear queued PCM).
+    unsigned accept(uint16_t sequence, int64_t now) {
+        uint16_t delta = sequence - last;
+        if (have && (!delta || (delta >= 0x8000 && now - time <= 60000))) return 0;
+        unsigned result = !have || delta != 1 || now - time > 60000 ? 2 : 1;
+        have = true; last = sequence; time = now;
+        return result;
+    }
+};
 // Caller supplies synchronization. Never allocate or block inside Bluetooth audio callbacks.
 class PcmBuffer {
     std::array<uint8_t, pcm_size * 8> data_{};

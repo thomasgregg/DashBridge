@@ -20,8 +20,8 @@ static calls::PcmBuffer playback;
 struct Packet { calls::Frame frame; int64_t created; };
 static QueueHandle_t packets;
 static uint32_t local_token = 0, remote_token = 0, dropped = 0, received = 0, underruns = 0;
-static uint16_t tx_sequence = 0, rx_sequence = 0;
-static bool have_rx_sequence = false;
+static uint16_t tx_sequence = 0;
+static calls::AudioSequence rx_sequence;
 static std::array<uint8_t, calls::pcm_size> partial{};
 static size_t partial_size = 0;
 static int64_t last_rx = 0;
@@ -29,7 +29,7 @@ void call_audio_set(uint32_t local, uint32_t remote) {
     portENTER_CRITICAL(&audio_lock);
     if (local != local_token || remote != remote_token) {
         local_token = local; remote_token = remote;
-        playback.clear(); partial_size = 0; have_rx_sequence = false; last_rx = 0;
+        playback.clear(); partial_size = 0; rx_sequence = {}; last_rx = 0;
     }
     portEXIT_CRITICAL(&audio_lock);
 }
@@ -76,10 +76,9 @@ static void worker(void *) {
             if (local_token && remote_token && calls::get32(f.data() + 4) == remote_token &&
                 calls::get32(f.data() + 8) == local_token) {
                 uint16_t seq = uint16_t(f[12]) | uint16_t(f[13]) << 8;
-                uint16_t delta = seq - rx_sequence;
-                if (!have_rx_sequence || (delta && delta < 0x8000)) {
-                    if (have_rx_sequence && delta != 1) { playback.clear(); ++dropped; }
-                    rx_sequence = seq; have_rx_sequence = true;
+                unsigned progress = rx_sequence.accept(seq, esp_timer_get_time());
+                if (progress) {
+                    if (progress == 2) { playback.clear(); ++dropped; }
                     if (!playback.push(f.data() + 14, calls::pcm_size)) ++dropped;
                     last_rx = esp_timer_get_time(); ++received; audio_ready = true;
                 }
