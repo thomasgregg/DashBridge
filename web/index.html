@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f7f4">
   <meta name="description" content="Install DashBridge firmware on an ESP32 board over USB. Experimental single-board firmware for iPhone and Tesla.">
-  <title>Install DashBridge</title>
+  <title>DashBridge message-only test</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="{{css}}">
   <script type="module" src="{{app}}"></script>
@@ -18,7 +18,7 @@
   <main class="wrap">
     <div class="workspace">
     <div class="hero">
-      <p class="eyebrow">SINGLE-BOARD PREVIEW</p>
+      <p class="eyebrow">MESSAGE-ONLY TEST</p>
       <h1>Install<br> DashBridge</h1>
       <div class="bridge-diagram" role="img" aria-label="iPhone connects by Bluetooth to one DashBridge board, which connects by Bluetooth to Tesla">
         <svg class="diagram-desktop" viewBox="0 0 400 170" fill="none" aria-hidden="true">
@@ -59,16 +59,16 @@
     <div class="install-side">
     <section class="installer" aria-label="Firmware installer">
       <div class="panel-heading"><h2>Install firmware</h2><span>v{{version}}</span></div>
-      <p id="board-description">Pair this ESP32 with your iPhone and Tesla.</p>
+      <p id="board-description">Keep your iPhone as the Tesla’s priority device.</p>
       <div id="install-control" data-manifest="{{single}}"><button class="install" disabled>Loading installer…</button></div>
       <p id="browser-status" role="status" aria-live="polite">Checking browser…</p>
-      <noscript><p class="notice">Enable JavaScript, or use the <a href="https://github.com/thomasgregg/DashBridge/blob/single-board/docs/SINGLE_BOARD.md">manual setup guide</a>.</p></noscript>
+      <noscript><p class="notice">Enable JavaScript, or use the <a href="https://github.com/thomasgregg/DashBridge/blob/message-only/docs/MESSAGE_ONLY.md">manual setup guide</a>.</p></noscript>
       <div class="panel-footer"><span class="usb-symbol" aria-hidden="true">↳</span><span>Connect one board using a USB data cable.</span></div>
     </section>
     <p class="fine-print">Installation erases this board, including saved pairings.</p>
     </div>
     </div>
-    <div class="next"><p>After installation</p><a href="https://github.com/thomasgregg/DashBridge/blob/single-board/docs/SINGLE_BOARD.md">Pair your iPhone and Tesla <span aria-hidden="true">→</span></a></div>
+    <div class="next"><p>After installation</p><a href="https://github.com/thomasgregg/DashBridge/blob/message-only/docs/MESSAGE_ONLY.md">Follow the test steps <span aria-hidden="true">→</span></a></div>
     <details class="help">
       <summary>Help</summary>
       <div class="help-content">
@@ -77,10 +77,10 @@
         <h2>Installing</h2><p>Connect your ESP32 by USB, click Install, choose its USB port, and confirm. After installation, open Logs &amp; Console. Use <code>pair car</code> and <code>pair phone</code> to set up each connection.</p>
         <h2>No board in the USB list?</h2><p>Try a different data cable or USB port and close other apps using the board. Some boards need a USB driver: <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a> or <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">CH340</a>, depending on the USB chip.</p>
         <h2>Connection failed?</h2><p>Hold BOOT as you start installation. Release it once the chip is detected or installation begins. If needed, press EN/reset and try again.</p>
-        <h2>Prototype status</h2><p>Both Bluetooth connections and a Tesla test notification have worked. Real WhatsApp delivery is still being tested. Calls, music passthrough and WhatsApp replies are not supported. <a href="https://github.com/thomasgregg/DashBridge/blob/single-board/docs/SINGLE_BOARD.md">Test guide</a> · <a href="https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4">Restore the two-board release</a></p>
+        <h2>Prototype status</h2><p>This build removes the phone-call service. Tesla may reject it or hide it from discovery. Compatibility alongside your iPhone is unproven. Calls, music passthrough and WhatsApp replies are not supported. <a href="https://github.com/thomasgregg/DashBridge/blob/message-only/docs/MESSAGE_ONLY.md">Test guide</a> · <a href="https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4">Restore the two-board release</a></p>
       </div>
     </details>
-    <p class="prototype">Experimental single-board firmware. WhatsApp delivery is still being tested.</p>
+    <p class="prototype">Compatibility test, not a confirmed fix. <a href="https://thomasgregg.github.io/DashBridge/">Restore the previous firmware</a>.</p>
   </main>
   <footer class="wrap footer"><span>MIT licensed</span><nav aria-label="Footer"><a href="./firmware/checksums.json">Firmware details</a><a href="./third-party-licenses.txt">Notices</a><a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a></nav></footer>
 </body>

@@ -17,7 +17,7 @@ async function fixture(t) {
 test('single-board installer selects its verified ESP32 image at offset zero', async (t) => {
   const { directory, output } = await fixture(t);
   const config = await prepareFirmware(directory, output);
-  for (const [role, label] of [['single', 'single-board (experimental)']]) {
+  for (const [role, label] of [['single', 'message-only test']]) {
     const manifest = JSON.parse(await readFile(path.join(output, config[role]), 'utf8'));
     assert.equal(manifest.name, `DashBridge ${label}`);
     assert.equal(manifest.new_install_improv_wait_time, 0);

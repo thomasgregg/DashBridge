@@ -15,7 +15,7 @@ export async function prepareFirmware(repository, output) {
   }
   await mkdir(path.join(output, 'firmware'), { recursive: true });
   const result = { version: manifest.version };
-  for (const [role, label] of [['single', 'single-board (experimental)']]) {
+  for (const [role, label] of [['single', 'message-only test']]) {
     const entry = manifest.images[role];
     if (entry.file !== `${role}-merged.bin` || entry.flash_address !== '0x0') {
       throw new Error(`Unexpected firmware layout for ${role}`);

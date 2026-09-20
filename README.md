@@ -1,6 +1,11 @@
 <p align="center"><img src="web/favicon.svg" width="64" alt="DashBridge" /></p>
 
-# DashBridge
+# DashBridge — message-only experiment
+
+**Use [the experiment guide](docs/MESSAGE_ONLY.md) for this branch.** Firmware
+0.2.2-map-only removes the phone-call profile to test coexistence with the
+iPhone as Tesla priority device. This is not a confirmed compatibility fix.
+The regular installer remains v0.2.1-dev.
 
 **Your iPhone notifications, on your Tesla dashboard. One ESP32.**
 

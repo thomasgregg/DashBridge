@@ -12,7 +12,7 @@ function renderInstaller() {
   const button = document.createElement('button');
   button.className = 'install';
   button.slot = 'activate';
-  button.textContent = 'Install DashBridge';
+  button.textContent = 'Install test firmware';
   button.disabled = !ready;
   installer.append(button);
   control.replaceChildren(installer);
