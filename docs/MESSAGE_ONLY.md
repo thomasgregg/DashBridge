@@ -68,3 +68,5 @@ Host protocol tests cover the unchanged message path. The build checks confirm
 that HFP roles are disabled and HFP public APIs are absent from the linked image,
 while the SDP, RFCOMM and BLE client entry points remain. Neither check proves
 that Tesla will discover or accept the accessory; hardware results are pending.
+
+[Build and regression checks](https://github.com/thomasgregg/DashBridge/actions/runs/35523666639) passed on 20 September 2026. The linked-image check confirmed that no HFP roles or public APIs were present. Hardware coexistence remains untested.
