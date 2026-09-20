@@ -5,8 +5,10 @@
   font-synthesis: none;
   --green: #126856;
   --control-background: #176c59;
-  --control-hover: #10513f;
-  --control-pressed: #0b4234;
+  --choice-surface: #f0f1f2;
+  --choice-hover: #c5cbd1;
+  --choice-pressed: #afb9c2;
+  --choice-text: #25313b;
   --muted: #586c6e;
   --line: #dce4de;
   --esp-tools-button-color: var(--control-background);
@@ -43,34 +45,24 @@ h1 { font-size: clamp(40px, 4.9vw, 58px); letter-spacing: -2.3px; line-height: 1
 .panel-heading > span { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; color: #83918a; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.selector { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.selector { display: grid; grid-template-columns: 1fr 1fr; background: var(--choice-surface); border: 1px solid #dde1e5; border-radius: 10px; padding: 5px; gap: 4px; }
 .selector label { position: relative; cursor: pointer; }
 .selector input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-/* The board choices and install action share one button treatment. */
-.selector label > span, .install {
-  background: var(--control-background);
-  color: #fff;
-  border: 1px solid #176353;
-  border-radius: 9px;
-  padding: 17px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 160ms ease;
-}
-.selector label > span { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding-inline: 26px; }
-.selector .role { font: inherit; }
-.selection-mark { position: absolute; right: 9px; width: 14px; height: 14px; opacity: 0; }
-.selector input:checked + span .selection-mark { opacity: 1; }
-.selector input:focus-visible + span, .install:focus-visible { outline: 2px solid #fff; outline-offset: -4px; }
+.selector label > span { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 15px 10px; border-radius: 6px; border: 1px solid transparent; font-size: 16px; font-weight: 650; color: var(--choice-text); }
+.selector .role { font-weight: 450; font-size: 13px; }
+.selector input:checked + span { background: var(--control-background); color: #fff; }
+.selector input:focus-visible + span { outline: 2px solid var(--choice-text); outline-offset: -3px; }
+.selector input:checked:focus-visible + span { outline-color: #fff; }
 #board-description { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 23px 0 28px; min-height: 23px; text-wrap: pretty; }
 esp-web-install-button { display: block; }
-.install { width: 100%; }
+.install { width: 100%; border: 1px solid transparent; background: var(--choice-surface); color: var(--choice-text); border-radius: 6px; padding: 17px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.install:focus-visible { outline: 2px solid var(--choice-text); outline-offset: -3px; border-radius: 6px; }
 .install::after { content: '↓'; float: right; font-size: 19px; line-height: 17px; font-weight: 400; }
+.selector label > span, .install { transition: background-color 160ms ease, color 160ms ease; }
 @media (hover: hover) and (pointer: fine) {
-  .selector label:hover > span, .install:hover:not(:disabled) { background: var(--control-hover); }
+  .selector label:hover > input:not(:checked) + span, .install:hover:not(:disabled) { background: var(--choice-hover); }
 }
-.selector label:active > span, .install:active:not(:disabled) { background: var(--control-pressed); }
+.selector label:active > input:not(:checked) + span, .install:active:not(:disabled) { background: var(--choice-pressed); }
 @media (prefers-reduced-motion: reduce) {
   .selector label > span, .install { transition: none; }
 }
