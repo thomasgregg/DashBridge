@@ -52,7 +52,7 @@ with tempfile.TemporaryDirectory(prefix="dashbridge-sdp-") as temp:
     subprocess.run([
         os.environ.get("CXX", "c++"), "-std=c++17", "-Wall", "-Wextra", "-Werror",
         "-fsanitize=address,undefined",
-        "-I", str(ROOT / "build/car/config"),
+        "-I", str(ROOT / "build" / os.environ.get("DASHBRIDGE_BUILD_ROLE", "car") / "config"),
         "-I", str(SDK / "components/esp_common/include"),
         "-I", str(SDK / "components/bt/host/bluedroid/api/include/api"),
         str(source), "-o", str(binary),

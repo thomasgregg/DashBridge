@@ -3,7 +3,7 @@ set -euo pipefail
 project_dir="$(cd "$(dirname "$0")/.." && pwd)"
 selected="$(python3 "$project_dir/tools/build_scope.py" "${1:-auto}")"
 if [[ -z "$selected" ]]; then
-  echo 'Both firmware images are current; nothing to build.'
+  echo 'Requested firmware images are current; nothing to build.'
   exit 0
 fi
 read -r -a roles <<< "$selected"

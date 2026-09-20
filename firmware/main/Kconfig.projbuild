@@ -6,5 +6,7 @@ config BRIDGE_CAR
     bool "Board B: Tesla test receiver"
 config BRIDGE_PHONE
     bool "Board A: iPhone notifications"
+config BRIDGE_SINGLE
+    bool "Single board: iPhone and Tesla (experimental)"
 endchoice
 endmenu

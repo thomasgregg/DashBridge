@@ -1,5 +1,6 @@
 #include "bridge_core.hpp"
 #include "../firmware/main/console_commands.hpp"
+#include "../firmware/main/local_bridge.hpp"
 #include <cassert>
 #include <iostream>
 #include <random>
@@ -254,6 +255,9 @@ static void console_test() {
     feed("st\r\nPAIR\n help \r\n\r\n");
     assert((commands == std::vector<C>{C::test, C::pair, C::help}));
     commands.clear();
+    feed("pair phone\r\npair car\nSTATUS\n");
+    assert((commands == std::vector<C>{C::pair_phone, C::pair_car, C::status}));
+    commands.clear();
     feed("restart\n");
     feed(std::string(32, 'x') + "test\r\n");
     feed(std::string("te\0st\n", 6));
@@ -264,7 +268,52 @@ static void console_test() {
     assert((commands == std::vector<C>{C::invalid, C::help}));
     std::cout << "PASS USB commands: fragmented input, CRLF once, bounds, invalid lines and recovery\n";
 }
+static void single_board_test() {
+    using namespace runtime;
+    PairingWindows pairing;
+    for (auto first : {Peer::phone, Peer::car}) {
+        auto second = first == Peer::phone ? Peer::car : Peer::phone;
+        pairing.open(first, 1000);
+        pairing.open(second, 1000);
+        pairing.paired(first);
+        assert(!pairing.allowed(first, 1001));
+        assert(pairing.allowed(second, 1001));
+        assert(pairing.allowed(second, 120999));
+        assert(!pairing.allowed(second, 121000));
+    }
+    LocalBridge link;
+    WireMessage message{};
+    assert(!link.pop_for_phone(message) && !link.pop_for_car(message));
+    // Saturation cannot block a reset or leak old messages into a new session.
+    for (size_t i = 0; i < LocalBridge::capacity; ++i)
+        assert(link.send_to_car({Op::add, 1, example(unsigned(i))}));
+    assert(!link.send_to_car({Op::add, 1, example(999)}));
+    assert(link.send_to_car({Op::reset, 2, {}}));
+    assert(link.queued() == 1);
+    assert(link.send_to_car({Op::add, 2, example(3)}));
+    Inbox inbox;
+    assert(link.pop_for_car(message) && message.op == Op::reset);
+    inbox.apply(message);
+    assert(link.pop_for_car(message) && message.notice.id == 3);
+    assert(inbox.apply(message) != 0);
+    assert(!link.pop_for_car(message));
+    assert(inbox.messages().size() == 1);
+    // Readiness updates coalesce in each direction rather than growing queues.
+    for (unsigned i = 0; i < 1000; ++i) {
+        Notice heartbeat;
+        heartbeat.id = i % 2;
+        link.send_to_phone({Op::heartbeat, 0, heartbeat});
+        assert(link.send_to_car({Op::heartbeat, 2, {}}));
+    }
+    assert(link.queued() == 1);
+    assert(link.pop_for_phone(message) && message.notice.id == 1);
+    assert(!link.pop_for_phone(message));
+    assert(link.pop_for_car(message) && message.session == 2);
+    assert(!link.pop_for_car(message));
+    std::cout << "PASS single-board routing, bounded queues, session reset and independent pairing\n";
+}
 int main() {
+    single_board_test();
     console_test();
     wire_test();
     ancs_test();

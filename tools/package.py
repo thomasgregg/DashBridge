@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-from build_scope import sources
+from build_scope import sources, ROLES
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -19,8 +19,8 @@ def package(roles):
     manifest_path = destination / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {"images": {}}
     for role in roles:
-        if role not in ("phone", "car"):
-            raise SystemExit("Roles must be phone or car")
+        if role not in ROLES:
+            raise SystemExit("Roles must be phone, car or single")
         build = ROOT / "build" / role
         layout = json.loads((build / "flasher_args.json").read_text())
         if layout["extra_esptool_args"]["chip"] != "esp32":
@@ -35,9 +35,9 @@ def package(roles):
             "file": output.name, "flash_address": "0x0", "sha256": sha256(output),
             "bytes": output.stat().st_size, "source_sha256": sources(ROOT, role),
             "sdkconfig_sha256": sha256(build / "sdkconfig"),
-            "hardware_tested": False,
+            "hardware_tested": False, "version": "0.2.0-dev",
         }
-    manifest.update({"project": "DashBridge prototype", "version": "0.1.4",
+    manifest.update({"project": "DashBridge prototype", "version": "0.2.0-dev",
                      "target": "esp32", "flash_size": "4MB", "esp_idf": "v5.5.1",
                      "esp_idf_commit": "fcae32885b0296b32044cb99ecbdc50d98dddb83"})
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

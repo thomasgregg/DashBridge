@@ -1,6 +1,6 @@
 #include "runtime.hpp"
 #include "sdkconfig.h"
-#if CONFIG_BRIDGE_CAR
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
 #include "esp_bt_device.h"
 #include "esp_gap_bt_api.h"
 #include "esp_hf_ag_api.h"
@@ -272,7 +272,7 @@ static void spp_cb(esp_spp_cb_event_t e, esp_spp_cb_param_t *p) {
 static void gap_cb(esp_bt_gap_cb_event_t e, esp_bt_gap_cb_param_t *p) {
     Guard g;
     if (e == ESP_BT_GAP_CFM_REQ_EVT)
-        esp_bt_gap_ssp_confirm_reply(p->cfm_req.bda, pairing_allowed() || known(p->cfm_req.bda));
+        esp_bt_gap_ssp_confirm_reply(p->cfm_req.bda, pairing_allowed(Peer::car) || known(p->cfm_req.bda));
     if (e == ESP_BT_GAP_PIN_REQ_EVT) {
         esp_bt_pin_code_t pin = {};
         esp_bt_gap_pin_reply(p->pin_req.bda, false, 0, pin);
@@ -280,7 +280,7 @@ static void gap_cb(esp_bt_gap_cb_event_t e, esp_bt_gap_cb_param_t *p) {
     if (e == ESP_BT_GAP_AUTH_CMPL_EVT) {
         ESP_LOGI(tag, "Pairing status=%d", p->auth_cmpl.stat);
         if (p->auth_cmpl.stat == ESP_BT_STATUS_SUCCESS)
-            paired();
+            paired(Peer::car);
     }
 }
 static void hfp_cb(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
@@ -329,7 +329,7 @@ void car_receive(const WireMessage &m) {
     }
 }
 void car_test() {
-    if (!server.handle || !mas.notifications() || mns_state < 3) {
+    if (!car_notifications_ready()) {
         ESP_LOGW(tag, "Not ready: wait for Ready for new-message notifications, then send test again");
         return;
     }
@@ -357,10 +357,10 @@ void car_poll() {
     if (now() - last_heartbeat >= 1000) {
         last_heartbeat = now();
         Notice n;
-        n.id = server.handle && mas.notifications() && mns_state >= 3;
-        send({Op::heartbeat, 0, n});
+        n.id = car_notifications_ready();
+        send_to_phone({Op::heartbeat, 0, n});
         esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE,
-                                 pairing_allowed() ? ESP_BT_GENERAL_DISCOVERABLE : ESP_BT_NON_DISCOVERABLE);
+                                 pairing_allowed(Peer::car) ? ESP_BT_GENERAL_DISCOVERABLE : ESP_BT_NON_DISCOVERABLE);
     }
     if (last_phone && now() - last_phone > 5000) {
         last_phone = 0;
@@ -369,9 +369,14 @@ void car_poll() {
         ESP_LOGW(tag, "Board A heartbeat lost; inbox cleared");
     }
 }
+bool car_notifications_ready() { return server.handle && mas.notifications() && mns_state >= 3; }
 void car_start() {
     ESP_ERROR_CHECK(esp_bt_gap_register_callback(gap_cb));
+    #if CONFIG_BRIDGE_SINGLE
+    ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge"));
+#else
     ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge B"));
+#endif
     esp_bt_io_cap_t cap = ESP_BT_IO_CAP_NONE;
     ESP_ERROR_CHECK(esp_bt_gap_set_security_param(ESP_BT_SP_IOCAP_MODE, &cap, sizeof cap));
     ESP_ERROR_CHECK(esp_hf_ag_register_callback(hfp_cb));

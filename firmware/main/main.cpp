@@ -5,6 +5,8 @@
 #include "esp_gap_ble_api.h"
 #include "esp_gap_bt_api.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
+#include "freertos/task.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "runtime.hpp"
@@ -13,39 +15,75 @@
 #include <deque>
 namespace runtime {
 SemaphoreHandle_t mutex;
-static std::deque<bridge::Bytes> outgoing;
-static int64_t pair_until = 0;
-void send(const bridge::WireMessage &m) {
+static PairingWindows pairing;
+#if CONFIG_BRIDGE_SINGLE
+static LocalBridge local;
+void send_to_car(const bridge::WireMessage &m) {
     Guard g;
-    if (outgoing.size() < 32)
-        outgoing.push_back(bridge::encode(m));
-    else
-        ESP_LOGW("wire", "Queue full; notification dropped");
+    if (!local.send_to_car(m)) ESP_LOGW("bridge", "Local queue full; notification dropped");
 }
-bool pairing_allowed() {
-    return now() < pair_until;
+void send_to_phone(const bridge::WireMessage &m) {
+    Guard g;
+    local.send_to_phone(m);
 }
-void paired() {
-    pair_until = 0;
+#else
+static std::deque<bridge::Bytes> outgoing;
+static void send_wire(const bridge::WireMessage &m) {
+    Guard g;
+    if (outgoing.size() < 32) outgoing.push_back(bridge::encode(m));
+    else ESP_LOGW("wire", "Queue full; notification dropped");
+}
+void send_to_car(const bridge::WireMessage &m) { send_wire(m); }
+void send_to_phone(const bridge::WireMessage &m) { send_wire(m); }
+#endif
+bool pairing_allowed(Peer peer) { return pairing.allowed(peer, now()); }
+void paired(Peer peer) { pairing.paired(peer); }
+static void open_pairing(Peer peer) {
+    pairing.open(peer, now());
+    ESP_LOGI("setup", "%s pairing open for 120 seconds", peer == Peer::phone ? "iPhone" : "Tesla");
 }
 static void open_pairing() {
-    pair_until = now() + 120000;
-    ESP_LOGI("setup", "Pairing open for 120 seconds");
+#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+    open_pairing(Peer::phone);
+#endif
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+    open_pairing(Peer::car);
+#endif
+}
+static void status() {
+#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+    ESP_LOGI("status", "iPhone notifications: %s; pairing: %s", phone_notifications_ready() ? "ready" : "not ready",
+             pairing_allowed(Peer::phone) ? "open" : "closed");
+#endif
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+    ESP_LOGI("status", "Tesla notifications: %s; pairing: %s", car_notifications_ready() ? "ready" : "not ready",
+             pairing_allowed(Peer::car) ? "open" : "closed");
+#endif
+    ESP_LOGI("status", "Internal RAM: free=%u minimum=%u largest=%u bytes",
+             unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+             unsigned(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+             unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
+#if CONFIG_BRIDGE_SINGLE
+    ESP_LOGI("status", "Local messages queued: %u", unsigned(local.queued()));
+#endif
 }
 static void console_command(Command command) {
     if (command == Command::none) return;
-    if (command == Command::pair) {
-        open_pairing();
-        return;
-    }
-#if CONFIG_BRIDGE_CAR
-    if (command == Command::test) {
-        car_test();
-        return;
-    }
-    ESP_LOGI("setup", "USB commands: test (send Tesla notification), pair, help");
+    if (command == Command::pair) { open_pairing(); return; }
+    if (command == Command::status) { status(); return; }
+#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+    if (command == Command::pair_phone) { open_pairing(Peer::phone); return; }
+#endif
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+    if (command == Command::pair_car) { open_pairing(Peer::car); return; }
+    if (command == Command::test) { car_test(); return; }
+#endif
+#if CONFIG_BRIDGE_SINGLE
+    ESP_LOGI("setup", "USB commands: test, pair phone, pair car, pair (both), status, help");
+#elif CONFIG_BRIDGE_CAR
+    ESP_LOGI("setup", "USB commands: test, pair car, pair, status, help");
 #else
-    ESP_LOGI("setup", "USB commands: pair, help. Send test on Board B.");
+    ESP_LOGI("setup", "USB commands: pair phone, pair, status, help. Send test on the Tesla receiver.");
 #endif
 }
 } // namespace runtime
@@ -66,9 +104,11 @@ extern "C" void app_main() {
     u.stop_bits = UART_STOP_BITS_1;
     u.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
     u.source_clk = UART_SCLK_DEFAULT;
+#if !CONFIG_BRIDGE_SINGLE
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_2, &u));
     ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2, 17, 16, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2, 4096, 4096, 0, nullptr, 0));
+#endif
     // USB-to-UART console on GPIO1/GPIO3; independent of the board link above.
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 512, 0, 0, nullptr, 0));
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &u));
@@ -83,31 +123,42 @@ extern "C" void app_main() {
     ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_BTDM));
     ESP_ERROR_CHECK(esp_bluedroid_init());
     ESP_ERROR_CHECK(esp_bluedroid_enable());
-#if CONFIG_BRIDGE_PHONE
-    if (esp_ble_get_bond_device_num() == 0)
-        open_pairing();
-    ESP_LOGI("bridge", "DashBridge A: iPhone receiver. Prototype 0.1, no call/audio relay.");
+    {
+    Guard startup_guard;
+#if CONFIG_BRIDGE_SINGLE
+    ESP_LOGI("bridge", "DashBridge single-board prototype: iPhone BLE + Tesla Classic. No call/audio relay.");
+#endif
+#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+    if (esp_ble_get_bond_device_num() == 0) open_pairing(Peer::phone);
     phone_start();
-#else
-    if (esp_bt_gap_get_bond_device_num() == 0)
-        open_pairing();
-    ESP_LOGI("bridge", "DashBridge B: Tesla receiver. Prototype 0.1, no call/audio relay.");
+#endif
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+    if (esp_bt_gap_get_bond_device_num() == 0) open_pairing(Peer::car);
     car_start();
 #endif
+    }
+#if !CONFIG_BRIDGE_SINGLE
     bridge::WireDecoder decoder;
+    uint8_t buf[256];
+#endif
     ConsoleCommands console;
     console_command(Command::help);
-    uint8_t buf[256];
     uint8_t console_buf[64];
     int64_t down = 0;
     bool pressed = false;
+    int64_t last_status = 0;
     for (;;) {
+#if CONFIG_BRIDGE_SINGLE
+        vTaskDelay(pdMS_TO_TICKS(20));
+#else
         int n = uart_read_bytes(UART_NUM_2, buf, sizeof buf, pdMS_TO_TICKS(20));
+#endif
         int console_n = uart_read_bytes(UART_NUM_0, console_buf, sizeof console_buf, 0);
         {
             Guard g;
             for (int i = 0; i < console_n; ++i)
                 console_command(console.feed(console_buf[i]));
+        #if !CONFIG_BRIDGE_SINGLE
             if (n > 0)
                 decoder.feed(buf, n, [](const bridge::WireMessage &m) {
 #if CONFIG_BRIDGE_PHONE
@@ -116,6 +167,7 @@ extern "C" void app_main() {
                 car_receive(m);
 #endif
                 });
+        #endif
             bool low = gpio_get_level(GPIO_NUM_0) == 0;
             if (low && !pressed) {
                 pressed = true;
@@ -130,17 +182,31 @@ extern "C" void app_main() {
                     esp_restart();
                 } else if (held >= 2000)
                     open_pairing();
-#if CONFIG_BRIDGE_CAR
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
                 else if (held >= 50)
                     car_test();
 #endif
             }
-#if CONFIG_BRIDGE_PHONE
-            phone_poll();
-#else
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
             car_poll();
 #endif
+#if CONFIG_BRIDGE_SINGLE
+            bridge::WireMessage message{};
+            if (local.pop_for_phone(message)) phone_receive(message);
+#endif
+#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+            phone_poll();
+#endif
+#if CONFIG_BRIDGE_SINGLE
+            for (size_t i = 0; i < LocalBridge::capacity && local.pop_for_car(message); ++i)
+                car_receive(message);
+#endif
+            if (now() - last_status >= 30000) {
+                last_status = now();
+                status();
+            }
         }
+#if !CONFIG_BRIDGE_SINGLE
         bridge::Bytes frame;
         {
             Guard g;
@@ -151,5 +217,6 @@ extern "C" void app_main() {
         }
         if (!frame.empty() && uart_write_bytes(UART_NUM_2, frame.data(), frame.size()) != int(frame.size()))
             ESP_LOGW("wire", "UART write failed");
+#endif
     }
 }

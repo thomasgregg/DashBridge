@@ -1,6 +1,6 @@
 #include "runtime.hpp"
 #include "sdkconfig.h"
-#if CONFIG_BRIDGE_PHONE
+#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
 #include "esp_gap_ble_api.h"
 #include "esp_gattc_api.h"
 #include "esp_log.h"
@@ -70,7 +70,7 @@ static void new_session() {
     // An outstanding ANCS response must still be drained before another command.
     if (active)
         canceled = true;
-    send({Op::reset, session, {}});
+    send_to_car({Op::reset, session, {}});
 }
 static void disconnect(const char *reason) {
     ESP_LOGW(tag, "%s", reason);
@@ -123,7 +123,7 @@ static void source_event(const uint8_t *value, size_t size) {
         if (car_ready) {
             Notice n;
             n.id = id;
-            send({Op::remove, session, n});
+            send_to_car({Op::remove, session, n});
         }
         return;
     }
@@ -171,20 +171,20 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
         break;
     case ESP_GAP_BLE_SEC_REQ_EVT:
         esp_ble_gap_security_rsp(p->ble_security.ble_req.bd_addr,
-                                 pairing_allowed() || known(p->ble_security.ble_req.bd_addr));
+                                 pairing_allowed(Peer::phone) || known(p->ble_security.ble_req.bd_addr));
         break;
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
         if (!p->ble_security.auth_cmpl.success) {
             disconnect("iPhone pairing/encryption failed");
             break;
         }
-        if (!pairing_allowed() && !known(p->ble_security.auth_cmpl.bd_addr)) {
+        if (!pairing_allowed(Peer::phone) && !known(p->ble_security.auth_cmpl.bd_addr)) {
             esp_ble_remove_bond_device(p->ble_security.auth_cmpl.bd_addr);
-            disconnect("Unrecognized phone; hold BOOT for two seconds to pair");
+            disconnect("Unrecognized phone; enter pair phone in USB console");
             break;
         }
         secured = true;
-        paired();
+        paired(Peer::phone);
         ESP_LOGI(tag, "iPhone link encrypted");
         search();
         break;
@@ -201,7 +201,11 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
             break;
         }
         interface_id = id;
+        #if CONFIG_BRIDGE_SINGLE
+        ESP_ERROR_CHECK(esp_ble_gap_set_device_name("DashBridge"));
+#else
         ESP_ERROR_CHECK(esp_ble_gap_set_device_name("DashBridge A"));
+#endif
         ESP_ERROR_CHECK(esp_ble_gap_config_local_privacy(true));
         break;
     case ESP_GATTC_CONNECT_EVT: {
@@ -325,7 +329,7 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
             if (result == 1) {
                 if (!canceled && car_ready &&
                     (notice.app == "net.whatsapp.WhatsApp" || notice.app == "net.whatsapp.WhatsAppSMB"))
-                    send({current.op, session, notice});
+                    send_to_car({current.op, session, notice});
                 active = false;
                 request_next();
             }
@@ -366,7 +370,7 @@ void phone_receive(const WireMessage &m) {
 void phone_poll() {
     if (now() - last_heartbeat >= 1000) {
         last_heartbeat = now();
-        send({Op::heartbeat, session, {}});
+        send_to_car({Op::heartbeat, session, {}});
     }
     if (car_ready && now() - last_car > 3000) {
         car_ready = false;
@@ -383,6 +387,7 @@ void phone_poll() {
     }
     request_next();
 }
+bool phone_notifications_ready() { return linked && secured && ready; }
 void phone_start() {
     advertising.adv_int_min = 0x100;
     advertising.adv_int_max = 0x100;

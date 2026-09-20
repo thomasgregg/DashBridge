@@ -20,7 +20,7 @@ on:
         description: 'Build stale images, or force a specific board'
         type: choice
         default: auto
-        options: [auto, phone, car, both]
+        options: [auto, phone, car, single, both]
 
 permissions:
   contents: read
@@ -80,8 +80,8 @@ jobs:
         run: |
           . "$IDF_PATH/export.sh"
           bash tools/build.sh "$BOARD"
-          if [[ "$BOARD" == car ]]; then
-            python tools/test_sdp.py
+          if [[ "$BOARD" == car || "$BOARD" == single ]]; then
+            DASHBRIDGE_BUILD_ROLE="$BOARD" python tools/test_sdp.py
             python tools/test_sdp_attributes.py
           fi
       - name: Preserve experimental firmware

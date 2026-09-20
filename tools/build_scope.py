@@ -5,12 +5,14 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ROLES = ("phone", "car")
+ROLES = ("phone", "car", "single")
 
 
 def sources(root, role):
-    other = "car" if role == "phone" else "phone"
-    excluded = {f"firmware/main/{other}.cpp", f"firmware/sdkconfig.{other}"}
+    excluded = {f"firmware/sdkconfig.{other}" for other in ROLES if other != role}
+    if role != "single":
+        other = "car" if role == "phone" else "phone"
+        excluded.add(f"firmware/main/{other}.cpp")
     result = {}
     for p in sorted((root / "firmware").rglob("*")):
         name = p.relative_to(root).as_posix()
@@ -40,7 +42,7 @@ def current(root, role):
 
 def select(root, requested="auto"):
     if requested == "both":
-        return list(ROLES)
+        return ["phone", "car"]
     if requested in ROLES:
         return [requested]
     return [role for role in ROLES if not current(root, role)]
