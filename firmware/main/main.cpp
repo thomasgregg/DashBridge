@@ -9,6 +9,7 @@
 #include "nvs_flash.h"
 #include "runtime.hpp"
 #include "sdkconfig.h"
+#include "console_commands.hpp"
 #include <deque>
 namespace runtime {
 SemaphoreHandle_t mutex;
@@ -31,6 +32,22 @@ static void open_pairing() {
     pair_until = now() + 120000;
     ESP_LOGI("setup", "Pairing open for 120 seconds");
 }
+static void console_command(Command command) {
+    if (command == Command::none) return;
+    if (command == Command::pair) {
+        open_pairing();
+        return;
+    }
+#if CONFIG_BRIDGE_CAR
+    if (command == Command::test) {
+        car_test();
+        return;
+    }
+    ESP_LOGI("setup", "USB commands: test (send Tesla notification), pair, help");
+#else
+    ESP_LOGI("setup", "USB commands: pair, help. Send test on Board B.");
+#endif
+}
 } // namespace runtime
 extern "C" void app_main() {
     using namespace runtime;
@@ -52,6 +69,10 @@ extern "C" void app_main() {
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_2, &u));
     ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2, 17, 16, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2, 4096, 4096, 0, nullptr, 0));
+    // USB-to-UART console on GPIO1/GPIO3; independent of the board link above.
+    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 512, 0, 0, nullptr, 0));
+    ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &u));
+    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_0, 1, 3, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     gpio_config_t b = {};
     b.pin_bit_mask = 1ULL << GPIO_NUM_0;
     b.mode = GPIO_MODE_INPUT;
@@ -74,13 +95,19 @@ extern "C" void app_main() {
     car_start();
 #endif
     bridge::WireDecoder decoder;
+    ConsoleCommands console;
+    console_command(Command::help);
     uint8_t buf[256];
+    uint8_t console_buf[64];
     int64_t down = 0;
     bool pressed = false;
     for (;;) {
         int n = uart_read_bytes(UART_NUM_2, buf, sizeof buf, pdMS_TO_TICKS(20));
+        int console_n = uart_read_bytes(UART_NUM_0, console_buf, sizeof console_buf, 0);
         {
             Guard g;
+            for (int i = 0; i < console_n; ++i)
+                console_command(console.feed(console_buf[i]));
             if (n > 0)
                 decoder.feed(buf, n, [](const bridge::WireMessage &m) {
 #if CONFIG_BRIDGE_PHONE

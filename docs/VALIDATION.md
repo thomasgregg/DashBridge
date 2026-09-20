@@ -58,9 +58,20 @@ Host replay tests accept all three captured requests, accept exactly 16 entries,
 reject 17 and 32 without sanitizer findings, and preserve range requests.
 Tesla message sync and message delivery still require a physical retest.
 
-The pictured board has only an RST button. BOOT-based pairing and test-message
-controls cannot be used on that board without an alternative input. Before any
-pairing is saved, restarting opens the two-minute pairing window automatically.
+The v0.1.3 hardware retest passes service discovery, opens the MAP transport,
+receives successful OBEX responses, and reaches `Ready for new-message
+notifications`. The log later shows a failed low-power-mode request followed by
+a successful mode change; it does not show a message-channel disconnect.
+Actual notification display remains unverified. Version 0.1.4 adds an explicit
+USB `test` command to trigger that test on boards without a BOOT button, plus
+`pair` and `help`. Fragmentation, CRLF, invalid input and overlong-line recovery
+are covered by the host sanitizer tests. USB command operation needs hardware
+verification.
+
+The pictured board has only an RST button. Firmware v0.1.4 adds USB console
+commands as the alternative to BOOT-based pairing and test-message controls.
+Before any pairing is saved, restarting opens the two-minute pairing window
+automatically.
 
 ## Hardware compatibility: UNVERIFIED
 
@@ -69,7 +80,7 @@ The user is testing an ESP32 with a Tesla; no hardware is connected to the build
 | Test | Result |
 |---|---|
 | Both boards boot and stay within available RAM | A and B startup observed; sustained RAM/stability testing pending |
-| Tesla discovers B and enables message sync | B discovered and phone profile connects; Sync Messages reverts off |
+| Tesla discovers B and enables message sync | v0.1.3 reaches MAP transport and notification readiness |
 | B's standalone test message appears on Tesla | Not run |
 | iPhone pairs with A and grants ANCS access | Not run |
 | New WhatsApp content reaches Tesla end to end | Not run |

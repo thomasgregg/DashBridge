@@ -329,8 +329,8 @@ void car_receive(const WireMessage &m) {
     }
 }
 void car_test() {
-    if (!server.handle || !mas.notifications()) {
-        ESP_LOGW(tag, "Not ready: connect Tesla and enable Sync Messages first");
+    if (!server.handle || !mas.notifications() || mns_state < 3) {
+        ESP_LOGW(tag, "Not ready: wait for Ready for new-message notifications, then send test again");
         return;
     }
     Notice n;
@@ -343,7 +343,9 @@ void car_test() {
     if (h && pending_events.size() < 16) {
         pending_events.push_back(h);
         pump_event();
-    }
+        ESP_LOGI(tag, "Test notification queued; check the Tesla screen");
+    } else
+        ESP_LOGW(tag, "Test notification could not be queued; try again later");
 }
 void car_poll() {
     if (mns_state != 0 && mns_state != 3 && now() > mns_deadline) {

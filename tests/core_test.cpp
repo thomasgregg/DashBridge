@@ -1,4 +1,5 @@
 #include "bridge_core.hpp"
+#include "../firmware/main/console_commands.hpp"
 #include <cassert>
 #include <iostream>
 #include <random>
@@ -238,7 +239,33 @@ static void fuzz_test() {
     }
     std::cout << "PASS 10,000 deterministic malformed-input cases (run with sanitizers)\n";
 }
+static void console_test() {
+    runtime::ConsoleCommands parser;
+    using C = runtime::Command;
+    std::vector<C> commands;
+    auto feed = [&](const std::string &bytes) {
+        for (unsigned char byte : bytes) {
+            auto command = parser.feed(byte);
+            if (command != C::none) commands.push_back(command);
+        }
+    };
+    feed("te");
+    assert(commands.empty());
+    feed("st\r\nPAIR\n help \r\n\r\n");
+    assert((commands == std::vector<C>{C::test, C::pair, C::help}));
+    commands.clear();
+    feed("restart\n");
+    feed(std::string(32, 'x') + "test\r\n");
+    feed(std::string("te\0st\n", 6));
+    feed("test\n");
+    assert((commands == std::vector<C>{C::invalid, C::invalid, C::invalid, C::test}));
+    commands.clear();
+    feed(std::string(10000, 'x') + "pair\nhelp\n");
+    assert((commands == std::vector<C>{C::invalid, C::help}));
+    std::cout << "PASS USB commands: fragmented input, CRLF once, bounds, invalid lines and recovery\n";
+}
 int main() {
+    console_test();
     wire_test();
     ancs_test();
     inbox_test();

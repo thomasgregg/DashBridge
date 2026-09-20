@@ -34,20 +34,20 @@ Use `--board phone` for A. The script checks the local image checksum before fla
 
 ## Test 1: Tesla, with Board B alone
 
-1. Power Board B. On a new board, pairing is open for two minutes. To reopen it later, hold **BOOT for two seconds**, then release. EN restarts the board; BOOT performs the test action only after firmware has started.
+1. Power Board B. On a new board, pairing is open for two minutes. To reopen it later, enter `pair` in **Logs & Console** and press Enter (firmware v0.1.4+), or hold **BOOT for two seconds**, then release if your board has that button. RST/EN restarts the board; it is not a BOOT button.
 2. While parked, use the Tesla Bluetooth controls to add **DashBridge B** as a phone. Accept the pairing prompt and enable **Sync Messages** if that option appears.
-3. Wait several seconds, then briefly press and release BOOT on B.
+3. Open **Logs & Console** and wait for `Ready for new-message notifications`. Type `test` into the input next to `>` and press Enter (firmware v0.1.4+). A board with a BOOT button can also send the test with a brief press and release. Boards with only RST use the console command.
 4. Look for a notification from **DashBridge test** with “Your Tesla received a test notification from DashBridge.”
 
 If the board pairs but the car offers no message synchronization, or the test message never appears, stop at this test. That is a compatibility result we need to investigate. It does not mean the real WhatsApp connection is already working. Do not change or delete the phone key under Tesla's Locks settings.
 
-The serial output is 115200 baud. Useful milestones are `Tesla message transport connected` and `Ready for new-message notifications`. Logs contain status codes, not message bodies. Capture these logs if the car refuses the service.
+The serial output is 115200 baud. Useful milestones are `Tesla message transport connected` and `Ready for new-message notifications`. `Test notification queued` confirms the test was queued, not that it appeared on screen. Logs contain status codes and service-discovery metadata, not message bodies. Capture these logs if the car refuses the service. The `help` command lists the available USB commands; `pair` opens pairing for two minutes without deleting saved pairings.
 
 **Calls are not available through this prototype.** After the test, select the real iPhone as the car's active phone again. Leave its Tesla phone key intact.
 
 ## Test 2: iPhone notification access
 
-1. Load `phone-merged.bin` onto A and power it. New-board pairing opens for two minutes; BOOT for two seconds reopens it.
+1. Load `phone-merged.bin` onto A and power it. New-board pairing opens for two minutes; entering `pair` in the USB console (v0.1.4+) or holding BOOT for two seconds reopens it.
 2. Connect to **DashBridge A**. Generic BLE accessories may not appear in iPhone Settings. If it is absent, a BLE utility such as Nordic's **nRF Connect for Mobile** can scan for and connect to it. This utility is a prototype setup aid; automatic connection without it is not yet established.
 3. Accept the iPhone pairing and notification-sharing prompts. In the accessory's Bluetooth details, enable **Share System Notifications** if offered. Make sure WhatsApp notifications are allowed. Preview settings and Focus can affect what iOS exposes.
 4. In the serial output, look for `iPhone link encrypted` followed by `ANCS ready; waiting for car and new notifications`.
