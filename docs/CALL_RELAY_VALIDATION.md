@@ -93,3 +93,11 @@ seconds, restore it, and wait 90 seconds without manually connecting. Reopen the
 USB console and capture `status`. A successful result requires an automatic
 connection and another delivered test message. If it fails, capture that log
 before manually connecting, then capture the manual connection in the same log.
+
+Source `fcdbc5b` passed [firmware CI](https://github.com/thomasgregg/DashBridge/actions/runs/35531040216):
+both ESP32 builds, protocol and reconnect-policy tests, call configuration checks,
+and Tesla SDP checks. The reconnect test executes the production polling block
+for both roles: A retains retries and B makes no outgoing or cancellation calls.
+Packaged binaries match the current source hashes and their recorded SHA-256
+checksums. These software checks do not establish successful Tesla reconnection;
+the stationary power-cycle hardware test remains pending.
