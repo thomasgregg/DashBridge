@@ -34,3 +34,34 @@ Music, media controls, contacts, Siri, redial and multiparty calling are outside
 this first milestone. At the time of this firmware build, the public installer was unchanged. The
 installer was subsequently updated to offer these A/B alpha images; the
 v0.1.4 rollback release remains unchanged.
+
+## Board B reconnection investigation
+
+The user subsequently tested Board B alone on the Tesla with `0.3.0-call-alpha`:
+
+- Pairing, message syncing and a test notification were reported working.
+- One reset was followed by the phone profile becoming ready after about 26 seconds;
+  message notifications were ready immediately afterwards.
+- Reconnection after USB power removal was not reliable. Failures also occurred
+  with B set as priority and the iPhone manually disconnected in Tesla settings.
+- Failure logs show Bluetooth links opening, closing with reason `0x13`, and the
+  phone profile remaining disconnected. That reason denotes termination by the
+  remote device; it does not explain the Tesla's decision.
+
+Firmware source `4d53d36` adds reconnect diagnostics without changing the retry
+policy: saved-peer/bond checks, outgoing request results, retry timing, HFP states
+and Bluetooth link events. Its startup marker is `Reconnect diagnostics 1`.
+The second board and end-to-end call/audio tests are still outstanding. These
+observations do not establish reliable automatic reconnection.
+
+The installer log-download action was also corrected: downloading logs no longer
+resets the board. After unplugging USB, refresh the installer and reopen
+**Logs & Console** to start a new serial session; earlier startup output may be
+missing. Capture both a failed automatic attempt and a manual Tesla connection
+in the same session, without resetting between them.
+
+The [diagnostic firmware CI run](https://github.com/thomasgregg/DashBridge/actions/runs/35530031334)
+passed both ESP32 builds, host protocol tests, call configuration checks and the
+Tesla SDP tests. Packaged images were checked against their source and binary
+checksums before publication. This diagnostic build has not yet been tested on
+the physical board.

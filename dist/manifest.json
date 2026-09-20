@@ -3,8 +3,8 @@
     "phone": {
       "file": "phone-merged.bin",
       "flash_address": "0x0",
-      "sha256": "1091d553292881b7f64dfb8098a5acdfd2f166e4eef6a701faea813397806aa9",
-      "bytes": 1105248,
+      "sha256": "9bdd009fb8d3e34767f0a28796f4ba3261a95889b4f4fe9f437d3071f158d957",
+      "bytes": 1106528,
       "source_sha256": {
         "firmware/CMakeLists.txt": "d4a48ec1c5998c587e208d8e2a44cf0014f2ffe1c9fe71096ff171adac6dcb48",
         "firmware/components/bridge_core/CMakeLists.txt": "49ee6986d910f8b0f798656296d141a713181ccfbe1a3c6967751a36399d4b76",
@@ -14,7 +14,7 @@
         "firmware/main/Kconfig.projbuild": "8fcbf88388e91b47576c25cc1998cd80481d32cae4cc588eb924d3f618fe3b69",
         "firmware/main/call_audio.cpp": "06cc0f0457ad657aeb247505de48a59328fdc9085e03910b7462a2b93ccd39fe",
         "firmware/main/call_protocol.hpp": "e6fda78df71938d41436ad8d7061be7cd7c266a77144b7cf8e4aadce6f8729cd",
-        "firmware/main/call_relay.cpp": "9c52d82d2353b3ced31b63c4d0fde55f3a89677ed552cb53ba2c65efe0487d81",
+        "firmware/main/call_relay.cpp": "adc865a2bafec1cf60ae192f0f254d0910d2849c239c1227cee0f714866ebd8e",
         "firmware/main/call_relay.hpp": "4c57f395b733cd0009ce58ccf3682a5c6b1c751521b3dac60a9ed0ee98b82037",
         "firmware/main/console_commands.hpp": "e4bec16205847906f1a9d786d1b091b79258815935b928e80edd5ee84085e20e",
         "firmware/main/local_bridge.hpp": "9b4362de45da099f4972875e47f59161dec2e20f62b7f3bffc4277f338f31978",
@@ -31,8 +31,8 @@
     "car": {
       "file": "car-merged.bin",
       "flash_address": "0x0",
-      "sha256": "5e664ea7f1a76c480dce3f3405d5884e338b300999dca48a35daee45b988c556",
-      "bytes": 1113984,
+      "sha256": "9687a11d9a7b6f36fef7c7d850b75119cd86322afbe7ea3a283b378c610aa59e",
+      "bytes": 1115472,
       "source_sha256": {
         "firmware/CMakeLists.txt": "d4a48ec1c5998c587e208d8e2a44cf0014f2ffe1c9fe71096ff171adac6dcb48",
         "firmware/components/bridge_core/CMakeLists.txt": "49ee6986d910f8b0f798656296d141a713181ccfbe1a3c6967751a36399d4b76",
@@ -42,9 +42,9 @@
         "firmware/main/Kconfig.projbuild": "8fcbf88388e91b47576c25cc1998cd80481d32cae4cc588eb924d3f618fe3b69",
         "firmware/main/call_audio.cpp": "06cc0f0457ad657aeb247505de48a59328fdc9085e03910b7462a2b93ccd39fe",
         "firmware/main/call_protocol.hpp": "e6fda78df71938d41436ad8d7061be7cd7c266a77144b7cf8e4aadce6f8729cd",
-        "firmware/main/call_relay.cpp": "9c52d82d2353b3ced31b63c4d0fde55f3a89677ed552cb53ba2c65efe0487d81",
+        "firmware/main/call_relay.cpp": "adc865a2bafec1cf60ae192f0f254d0910d2849c239c1227cee0f714866ebd8e",
         "firmware/main/call_relay.hpp": "4c57f395b733cd0009ce58ccf3682a5c6b1c751521b3dac60a9ed0ee98b82037",
-        "firmware/main/car.cpp": "27d36d9aa60fffd41649d8ed023611c2207180bfae60fdcac26ab2337f6273fc",
+        "firmware/main/car.cpp": "7339921d3daf0ed712d7693955ee37974e79001602d88a594737705e3ac45e1a",
         "firmware/main/console_commands.hpp": "e4bec16205847906f1a9d786d1b091b79258815935b928e80edd5ee84085e20e",
         "firmware/main/local_bridge.hpp": "9b4362de45da099f4972875e47f59161dec2e20f62b7f3bffc4277f338f31978",
         "firmware/main/main.cpp": "f84eaf25080a3a6e330296d6a31732d799b44d94a1fbdc64d8b396de332d6fd5",
