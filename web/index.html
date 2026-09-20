@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f7f4">
-  <meta name="description" content="Install DashBridge firmware on an ESP32 board over USB. Experimental single-board firmware for iPhone and Tesla.">
+  <meta name="description" content="Install DashBridge firmware on an ESP32 board over USB. Select Board A for iPhone or Board B for Tesla.">
   <title>Install DashBridge</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="{{css}}">
@@ -18,19 +18,28 @@
   <main class="wrap">
     <div class="workspace">
     <div class="hero">
-      <p class="eyebrow">SINGLE-BOARD PREVIEW</p>
+      <p class="eyebrow">USB INSTALLER</p>
       <h1>Install<br> DashBridge</h1>
-      <div class="bridge-diagram" role="img" aria-label="iPhone connects by Bluetooth to one DashBridge board, which connects by Bluetooth to Tesla">
+      <div class="bridge-diagram" role="img" aria-label="iPhone connects to Board A, Board A is wired to Board B, and Board B connects to Tesla">
         <svg class="diagram-desktop" viewBox="0 0 400 170" fill="none" aria-hidden="true">
           <defs><linearGradient id="signal" x1="0" x2="400" gradientUnits="userSpaceOnUse"><stop stop-color="#79e4c7"/><stop offset="1" stop-color="#52b6e6"/></linearGradient></defs>
-          <path d="M53 78h117m48 0h104" stroke="url(#signal)" stroke-width="1.5" stroke-dasharray="3 6"/>
+          <path d="M53 78h78m134 0h76" stroke="url(#signal)" stroke-width="1.5" stroke-dasharray="3 6"/>
           <rect x="8" y="34" width="45" height="87" rx="9" fill="#153b44" stroke="#739ba2" stroke-width="1.5"/>
           <path d="M24 42h13m-12 70h11" stroke="#739ba2" stroke-linecap="round"/>
           <rect x="17" y="61" width="27" height="25" rx="7" fill="#79e4c7"/><path d="m22 85 0 6 7-6" fill="#79e4c7"/><path d="M23 69h14m-14 7h9" stroke="#153b44" stroke-width="1.5" stroke-linecap="round"/>
-          <g class="board-marker is-selected">
-            <rect class="board-body" x="170" y="36" width="48" height="84" rx="7" fill="#1d4650" stroke="#79e4c7"/>
-            <rect x="180" y="51" width="28" height="28" rx="3" fill="#112f39" stroke="#79e4c7"/>
-            <path d="M182 94h24m-24 7h24" stroke="#79e4c7" stroke-linecap="round"/>
+          <rect x="114" y="20" width="159" height="117" rx="18" fill="#11323d" stroke="#3b5d66"/>
+          <path d="M167 67h52m-52 10h52m-52 10h52" stroke="#79e4c7" stroke-width="1.4"/>
+          <g class="board-marker is-selected" data-board="phone">
+            <rect class="board-body" x="132" y="40" width="42" height="71" rx="7" fill="#1d4650" stroke="#79e4c7"/>
+            <rect x="142" y="55" width="22" height="23" rx="3" fill="#112f39" stroke="#79e4c7"/>
+            <path d="M145 91h16m-16 5h16" stroke="#5e8990" stroke-linecap="round"/>
+            <text x="153" y="129" text-anchor="middle" fill="#a6c5cb" font-size="10" font-family="sans-serif">A</text>
+          </g>
+          <g class="board-marker" data-board="car">
+            <rect class="board-body" x="213" y="40" width="42" height="71" rx="7" fill="#1d4650" stroke="#79e4c7"/>
+            <rect x="223" y="55" width="22" height="23" rx="3" fill="#112f39" stroke="#79e4c7"/>
+            <path d="M226 91h16m-16 5h16" stroke="#5e8990" stroke-linecap="round"/>
+            <text x="234" y="129" text-anchor="middle" fill="#a6c5cb" font-size="10" font-family="sans-serif">B</text>
           </g>
           <path d="m322 71 8-21c2-5 5-6 9-6h30c4 0 7 1 9 6l8 21m-64 0h64l7 12v22h-78V83z" fill="#173c48" stroke="#739ba2" stroke-width="1.5" stroke-linejoin="round"/>
           <path d="m335 51-6 18h51l-6-18z" fill="#315762"/>
@@ -39,15 +48,22 @@
           <text x="30" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">iPhone</text><text x="194" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">DashBridge</text><text x="354" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">Tesla</text>
         </svg>
         <svg class="diagram-mobile" viewBox="0 0 320 68" fill="none" aria-hidden="true">
-          <path d="M38 33h108m28 0h92" stroke="#6ebdb9" stroke-width="1.5" stroke-dasharray="3 5"/>
+          <path d="M38 33h79m86 0h69" stroke="#6ebdb9" stroke-width="1.5" stroke-dasharray="3 5"/>
           <rect x="12" y="10" width="26" height="47" rx="6" fill="#153b44" stroke="#739ba2" stroke-width="1.5"/>
           <path d="M21 15h8m-7 37h6" stroke="#739ba2" stroke-linecap="round"/>
           <rect x="18" y="25" width="14" height="13" rx="4" fill="#79e4c7"/>
           <path d="m21 37 0 4 5-4" fill="#79e4c7"/>
-          <g class="board-marker is-selected">
-            <rect class="board-body" x="146" y="10" width="28" height="47" rx="5" fill="#1d4650" stroke="#79e4c7"/>
-            <rect x="152" y="19" width="16" height="17" rx="2" fill="#112f39" stroke="#79e4c7"/>
-            <path d="M153 44h14m-14 5h14" stroke="#79e4c7"/>
+          <rect x="117" y="4" width="86" height="59" rx="10" fill="#11323d" stroke="#3b5d66"/>
+          <path d="M149 28h22m-22 7h22m-22 7h22" stroke="#79e4c7"/>
+          <g class="board-marker is-selected" data-board="phone">
+            <rect class="board-body" x="127" y="15" width="23" height="37" rx="4" fill="#1d4650" stroke="#79e4c7"/>
+            <rect x="133" y="23" width="11" height="13" rx="2" fill="#112f39" stroke="#79e4c7"/>
+            <text x="138.5" y="47" text-anchor="middle" fill="#a6c5cb" font-size="8" font-family="sans-serif">A</text>
+          </g>
+          <g class="board-marker" data-board="car">
+            <rect class="board-body" x="170" y="15" width="23" height="37" rx="4" fill="#1d4650" stroke="#79e4c7"/>
+            <rect x="176" y="23" width="11" height="13" rx="2" fill="#112f39" stroke="#79e4c7"/>
+            <text x="181.5" y="47" text-anchor="middle" fill="#a6c5cb" font-size="8" font-family="sans-serif">B</text>
           </g>
           <path d="m266 29 5-13h26l5 13 5 8v15h-46V37z" fill="#173c48" stroke="#739ba2" stroke-width="1.5" stroke-linejoin="round"/>
           <path d="m275 20-4 10h26l-4-10z" fill="#315762"/>
@@ -58,29 +74,36 @@
     </div>
     <div class="install-side">
     <section class="installer" aria-label="Firmware installer">
-      <div class="panel-heading"><h2>Install firmware</h2><span>v{{version}}</span></div>
-      <p id="board-description">Pair this ESP32 with your iPhone and Tesla.</p>
-      <div id="install-control" data-manifest="{{single}}"><button class="install" disabled>Loading installer…</button></div>
+      <div class="panel-heading"><h2>Choose your board</h2><span>v{{displayVersion}}</span></div>
+      <fieldset>
+        <legend>Board</legend>
+        <div class="selector">
+          <label><input type="radio" name="board" value="phone" data-manifest="{{phone}}" checked><span>A <span class="role">iPhone</span></span></label>
+          <label><input type="radio" name="board" value="car" data-manifest="{{car}}"><span>B <span class="role">Tesla</span></span></label>
+        </div>
+      </fieldset>
+      <p id="board-description">Receives iPhone calls and notifications.</p>
+      <div id="install-control"><button class="install" disabled>Loading installer…</button></div>
       <p id="browser-status" role="status" aria-live="polite">Checking browser…</p>
-      <noscript><p class="notice">Enable JavaScript, or use the <a href="https://github.com/thomasgregg/DashBridge/blob/single-board/docs/SINGLE_BOARD.md">manual setup guide</a>.</p></noscript>
+      <noscript><p class="notice">Enable JavaScript, or use the <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/CALL_RELAY.md#build-and-verification">manual setup guide</a>.</p></noscript>
       <div class="panel-footer"><span class="usb-symbol" aria-hidden="true">↳</span><span>Connect one board using a USB data cable.</span></div>
     </section>
-    <p class="fine-print">Installation erases this board, including saved pairings.</p>
+    <p class="fine-print">Installation erases the selected board, including saved pairings.</p>
     </div>
     </div>
-    <div class="next"><p>After installation</p><a href="https://github.com/thomasgregg/DashBridge/blob/single-board/docs/SINGLE_BOARD.md">Pair your iPhone and Tesla <span aria-hidden="true">→</span></a></div>
+    <div class="next"><p>After installation</p><a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/CALL_RELAY.md#first-physical-test-parked">Set up Bluetooth and wiring <span aria-hidden="true">→</span></a></div>
     <details class="help">
       <summary>Help</summary>
       <div class="help-content">
         <h2>Compatible boards</h2><p>Use an original ESP32-WROOM-32 with 4 MB of flash memory. ESP32-S2, S3 and C3 boards are incompatible.</p>
         <h2>Which browser?</h2><p>Use Chrome or Edge on a Mac, Windows PC or Linux computer. iPhone, iPad and Safari don’t support USB installation.</p>
-        <h2>Installing</h2><p>Connect your ESP32 by USB, click Install, choose its USB port, and confirm. After installation, open Logs &amp; Console. Use <code>pair car</code> and <code>pair phone</code> to set up each connection.</p>
+        <h2>Installing both boards</h2><p>Connect only one board at a time. Select A for the iPhone board or B for the Tesla board. Click Install, choose its USB port, and confirm. Wait for the success message, close the dialog and unplug the board. Label it A or B, then repeat with the other board. Follow the setup guide to connect both boards and pair your iPhone and Tesla.</p>
         <h2>No board in the USB list?</h2><p>Try a different data cable or USB port and close other apps using the board. Some boards need a USB driver: <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a> or <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">CH340</a>, depending on the USB chip.</p>
         <h2>Connection failed?</h2><p>Hold BOOT as you start installation. Release it once the chip is detected or installation begins. If needed, press EN/reset and try again.</p>
-        <h2>Prototype status</h2><p>Both Bluetooth connections and a Tesla test notification have worked. Real WhatsApp delivery is still being tested. Calls, music passthrough and WhatsApp replies are not supported. <a href="https://github.com/thomasgregg/DashBridge/blob/single-board/docs/SINGLE_BOARD.md">Test guide</a> · <a href="https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4">Restore the two-board release</a></p>
+        <h2>Prototype status</h2><p>This is the two-board call relay alpha. Both images compile and software tests pass; calls and audio still need testing with both boards. Music, contacts and WhatsApp replies are not implemented. <a href="https://github.com/thomasgregg/DashBridge#current-boundaries">Known limitations</a> · <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/CALL_RELAY.md">Setup guide</a></p>
       </div>
     </details>
-    <p class="prototype">Experimental single-board firmware. WhatsApp delivery is still being tested.</p>
+    <p class="prototype">Call relay alpha. Two-board call testing is pending; music and contacts are not available.</p>
   </main>
   <footer class="wrap footer"><span>MIT licensed</span><nav aria-label="Footer"><a href="./firmware/checksums.json">Firmware details</a><a href="./third-party-licenses.txt">Notices</a><a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a></nav></footer>
 </body>

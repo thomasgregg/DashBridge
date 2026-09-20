@@ -14,9 +14,12 @@ export async function prepareFirmware(repository, output) {
     throw new Error('Installer only supports original ESP32 with 4 MB flash');
   }
   await mkdir(path.join(output, 'firmware'), { recursive: true });
-  const result = { version: manifest.version };
-  for (const [role, label] of [['single', 'single-board (experimental)']]) {
+  const result = { version: manifest.version, displayVersion: manifest.version.split('-')[0] };
+  for (const [role, label] of [['phone', 'A — iPhone'], ['car', 'B — Tesla']]) {
     const entry = manifest.images[role];
+    if (!entry || entry.version !== manifest.version) {
+      throw new Error(`Missing or mismatched firmware version for ${role}`);
+    }
     if (entry.file !== `${role}-merged.bin` || entry.flash_address !== '0x0') {
       throw new Error(`Unexpected firmware layout for ${role}`);
     }
@@ -74,6 +77,14 @@ async function main() {
   await cp(path.join(root, 'web/favicon.svg'), path.join(output, 'favicon.svg'));
   await cp(path.join(root, 'dist/manifest.json'), path.join(output, 'firmware/checksums.json'));
   await writeFile(path.join(output, '.nojekyll'), '');
+  // Retire the failed message-only experiment, including bookmarks to its URL.
+  await mkdir(path.join(output, 'message-only'), { recursive: true });
+  await writeFile(path.join(output, 'message-only/index.html'), `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DashBridge installer</title><meta http-equiv="refresh" content="0;url=../">
+<link rel="canonical" href="https://thomasgregg.github.io/DashBridge/"></head>
+<body><p>The message-only experiment has been replaced by the two-board installer.</p>
+<p><a href="../">Open the DashBridge installer</a></p></body></html>\n`);
   // Distribute notices alongside the bundled code.
   const notices = [];
   for (const file of ['LICENSE', 'third_party/README.md', 'third_party/ESP-IDF-LICENSE', 'third_party/ESP32-controller-LICENSE']) {
@@ -89,7 +100,7 @@ async function main() {
     }
   }
   await writeFile(path.join(output, 'third-party-licenses.txt'), notices.join('\n'));
-  console.log(`Built DashBridge installer ${firmware.version}; single-board firmware verified.`);
+  console.log(`Built DashBridge installer ${firmware.version}; both firmware images verified.`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main();

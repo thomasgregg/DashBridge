@@ -33,4 +33,8 @@ The `Web installer` workflow builds and tests on relevant pull requests. On `mai
 
 ## Validation boundary
 
-Browser checks can validate the page, manifest-to-image mapping, help, fallback states and USB-picker cancellation. They cannot establish that a physical flash completes or that the Tesla and iPhone accept the prototype. Validate those on the actual original ESP32-WROOM-32 boards using `docs/SETUP.md`.
+Browser checks can validate the page, manifest-to-image mapping, help, fallback states and USB-picker cancellation. They cannot establish that a physical flash completes or that the Tesla and iPhone accept the prototype. Validate those on the actual original ESP32-WROOM-32 boards using `docs/CALL_RELAY.md`.
+
+The main page installs the current two-board call relay alpha. The former
+`/message-only/` URL redirects here; the failed experiment is no longer offered
+for installation. Earlier firmware remains in the repository history/releases.

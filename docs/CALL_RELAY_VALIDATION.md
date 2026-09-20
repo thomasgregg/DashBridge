@@ -31,5 +31,6 @@ not simulate the complete iPhone/Tesla Bluetooth state machines.
 
 Use the [wiring and test guide](CALL_RELAY.md) when both boards are available.
 Music, media controls, contacts, Siri, redial and multiparty calling are outside
-this first milestone. The public notification installer and the v0.1.4 rollback
-release were not replaced by this experimental build.
+this first milestone. At the time of this firmware build, the public installer was unchanged. The
+installer was subsequently updated to offer these A/B alpha images; the
+v0.1.4 rollback release remains unchanged.

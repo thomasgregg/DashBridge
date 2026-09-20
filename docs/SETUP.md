@@ -1,3 +1,5 @@
+> **Archived setup: v0.1.x notification prototype.** For the current five-wire call relay, use the [current setup guide](CALL_RELAY.md).
+
 # DashBridge setup: first parked-car test
 
 ## Identify the parts

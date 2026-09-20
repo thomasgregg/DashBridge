@@ -2,8 +2,9 @@
 
 **Development build. Not yet tested with two physical boards.** The second board
 has not arrived. Do not replace a working adapter expecting calls or music to be
-proven. The public installer continues to serve the single-board notification
-prototype; the original two-board design is preserved in release **v0.1.4**.
+proven. The [public installer](https://thomasgregg.github.io/DashBridge/) serves this
+two-board alpha, with separate A and B selections. The original two-board
+notification design is preserved in release **v0.1.4**.
 
 This branch starts from the working single-board notification code, including the
 ANCS flag and Tesla SDP fixes. It restores two physical Bluetooth radios and adds
@@ -86,8 +87,10 @@ supply and long-term automotive installation are separate work.
 
 ## First physical test, parked
 
-1. Install `phone-merged.bin` on A and `car-merged.bin` on B from the same
-   **0.3.0-call-alpha** build. The old v0.1.4 images cannot carry call audio.
+1. Open the [installer](https://thomasgregg.github.io/DashBridge/) in Chrome or
+   Edge on a computer. Connect one board at a time and select **A — iPhone** or
+   **B — Tesla**. Install `phone-merged.bin` on A and `car-merged.bin` on B from
+   the same **0.3.0-call-alpha** build. The old v0.1.4 images cannot carry call audio.
 2. Wire the boards as above, then power both. Open each board's USB log console
    separately and send `status`. Each should detect the other board's call relay.
 3. On A send `pair phone`. In iPhone Bluetooth settings select **DashBridge A**.
