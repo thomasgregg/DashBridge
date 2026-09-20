@@ -42,7 +42,7 @@ DashBridge explores that through a small, inspectable hardware bridge:
 ## How it works
 
 ```mermaid
-flowchart LR
+flowchart TB
     phone["iPhone<br/>WhatsApp notifications"]
     receiver["DashBridge A<br/>Notification receiver"]
     gateway["DashBridge B<br/>Message gateway"]
