@@ -2,6 +2,14 @@
 
 # DashBridge
 
+> **Development branch: two-board call relay.** This branch adds the first call
+> milestone on top of the working notification code. Read the
+> [call-relay wiring and test guide](docs/CALL_RELAY.md). It has not been tested
+> with two physical boards yet. Music and contacts are still missing.
+> The public installer and the v0.1.4 rollback release remain available.
+
+The following describes the preserved single-board prototype on `main`.
+
 **Your iPhone notifications, on your Tesla dashboard. One ESP32.**
 
 DashBridge is a single-board Bluetooth bridge. It receives iPhone

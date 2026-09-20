@@ -283,6 +283,7 @@ static void gap_cb(esp_bt_gap_cb_event_t e, esp_bt_gap_cb_param_t *p) {
             paired(Peer::car);
     }
 }
+#if !CONFIG_BRIDGE_CALL_RELAY
 static void hfp_cb(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
     Guard g;
     // Minimal truthful gateway for car discovery. This prototype has no phone service.
@@ -307,6 +308,7 @@ static void hfp_cb(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
     else if (e == ESP_HF_CONNECTION_STATE_EVT)
         ESP_LOGI(tag, "Phone-profile state=%d (calls unavailable in prototype)", p->conn_stat.state);
 }
+#endif
 void car_receive(const WireMessage &m) {
     last_phone = now();
     if (m.op == Op::reset) {
@@ -379,8 +381,10 @@ void car_start() {
 #endif
     esp_bt_io_cap_t cap = ESP_BT_IO_CAP_NONE;
     ESP_ERROR_CHECK(esp_bt_gap_set_security_param(ESP_BT_SP_IOCAP_MODE, &cap, sizeof cap));
+#if !CONFIG_BRIDGE_CALL_RELAY
     ESP_ERROR_CHECK(esp_hf_ag_register_callback(hfp_cb));
     ESP_ERROR_CHECK(esp_hf_ag_init());
+#endif
     ESP_ERROR_CHECK(esp_sdp_register_callback(sdp_cb));
     ESP_ERROR_CHECK(esp_sdp_init());
     ESP_ERROR_CHECK(esp_spp_register_callback(spp_cb));

@@ -69,7 +69,7 @@ void WireDecoder::feed(const uint8_t *p, size_t n, const std::function<void(cons
         if (data_.size() < 6)
             continue;
         size_t len = be16(data_.data() + 4), total = len + 10;
-        if (data_[2] != 1 || data_[3] < 1 || data_[3] > 5 || len > 1302 || len < 18) {
+        if (data_[2] != 1 || data_[3] < 1 || data_[3] > 6 || len > 1302 || len < 18) {
             data_.erase(data_.begin());
             continue;
         }

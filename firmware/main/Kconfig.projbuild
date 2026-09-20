@@ -9,4 +9,8 @@ config BRIDGE_PHONE
 config BRIDGE_SINGLE
     bool "Single board: iPhone and Tesla (experimental)"
 endchoice
+config BRIDGE_CALL_RELAY
+    bool "Two-board call relay (hardware-unverified alpha)"
+    depends on !BRIDGE_SINGLE
+    default n
 endmenu

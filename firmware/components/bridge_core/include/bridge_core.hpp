@@ -12,7 +12,7 @@ struct Notice {
     uint32_t id = 0;
     std::string app, title, subtitle, body, date;
 };
-enum class Op : uint8_t { reset = 1, add = 2, update = 3, remove = 4, heartbeat = 5 };
+enum class Op : uint8_t { reset = 1, add = 2, update = 3, remove = 4, heartbeat = 5, call = 6 };
 struct WireMessage {
     Op op;
     uint32_t session;

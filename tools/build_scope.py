@@ -45,7 +45,8 @@ def select(root, requested="auto"):
         return ["phone", "car"]
     if requested in ROLES:
         return [requested]
-    candidates = ("single",) if (root / "firmware/sdkconfig.single").exists() else ("phone", "car")
+    relay = (root / "firmware/sdkconfig.phone").exists() and "CONFIG_BRIDGE_CALL_RELAY=y" in (root / "firmware/sdkconfig.phone").read_text()
+    candidates = ("single",) if not relay and (root / "firmware/sdkconfig.single").exists() else ("phone", "car")
     return [role for role in candidates if not current(root, role)]
 
 

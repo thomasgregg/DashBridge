@@ -12,6 +12,7 @@
 #include "runtime.hpp"
 #include "sdkconfig.h"
 #include "console_commands.hpp"
+#include "call_relay.hpp"
 #include <deque>
 namespace runtime {
 SemaphoreHandle_t mutex;
@@ -27,17 +28,24 @@ void send_to_phone(const bridge::WireMessage &m) {
     local.send_to_phone(m);
 }
 #else
-static std::deque<bridge::Bytes> outgoing;
+static std::deque<bridge::Bytes> outgoing, call_outgoing;
 static void send_wire(const bridge::WireMessage &m) {
     Guard g;
-    if (outgoing.size() < 32) outgoing.push_back(bridge::encode(m));
+    auto &queue = m.op == bridge::Op::call ? call_outgoing : outgoing;
+    if (queue.size() < 32) queue.push_back(bridge::encode(m));
     else ESP_LOGW("wire", "Queue full; notification dropped");
 }
 void send_to_car(const bridge::WireMessage &m) { send_wire(m); }
 void send_to_phone(const bridge::WireMessage &m) { send_wire(m); }
 #endif
 bool pairing_allowed(Peer peer) { return pairing.allowed(peer, now()); }
-void paired(Peer peer) { pairing.paired(peer); }
+void paired(Peer peer) {
+#if CONFIG_BRIDGE_CALL_RELAY && CONFIG_BRIDGE_PHONE
+    // BLE and Classic must both pair before closing the same 120-second window.
+    if (peer == Peer::phone && (!phone_notifications_ready() || !relay_calls_ready())) return;
+#endif
+    pairing.paired(peer);
+}
 static void open_pairing(Peer peer) {
     pairing.open(peer, now());
     ESP_LOGI("setup", "%s pairing open for 120 seconds", peer == Peer::phone ? "iPhone" : "Tesla");
@@ -51,6 +59,9 @@ static void open_pairing() {
 #endif
 }
 static void status() {
+#if CONFIG_BRIDGE_CALL_RELAY
+    relay_status();
+#endif
 #if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
     ESP_LOGI("status", "iPhone notifications: %s; pairing: %s", phone_notifications_ready() ? "ready" : "not ready",
              pairing_allowed(Peer::phone) ? "open" : "closed");
@@ -129,12 +140,19 @@ extern "C" void app_main() {
     ESP_LOGI("bridge", "DashBridge single-board prototype: iPhone BLE + Tesla Classic. No call/audio relay.");
 #endif
 #if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
-    if (esp_ble_get_bond_device_num() == 0) open_pairing(Peer::phone);
+    if (esp_ble_get_bond_device_num() == 0
+#if CONFIG_BRIDGE_CALL_RELAY
+        || esp_bt_gap_get_bond_device_num() == 0
+#endif
+    ) open_pairing(Peer::phone);
     phone_start();
 #endif
 #if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
     if (esp_bt_gap_get_bond_device_num() == 0) open_pairing(Peer::car);
     car_start();
+#endif
+#if CONFIG_BRIDGE_CALL_RELAY
+    relay_start();
 #endif
     }
 #if !CONFIG_BRIDGE_SINGLE
@@ -161,6 +179,9 @@ extern "C" void app_main() {
         #if !CONFIG_BRIDGE_SINGLE
             if (n > 0)
                 decoder.feed(buf, n, [](const bridge::WireMessage &m) {
+#if CONFIG_BRIDGE_CALL_RELAY
+                    if (m.op == bridge::Op::call) { relay_receive(m); return; }
+#endif
 #if CONFIG_BRIDGE_PHONE
                     phone_receive(m);
 #else
@@ -201,6 +222,9 @@ extern "C" void app_main() {
             for (size_t i = 0; i < LocalBridge::capacity && local.pop_for_car(message); ++i)
                 car_receive(message);
 #endif
+#if CONFIG_BRIDGE_CALL_RELAY
+            relay_poll();
+#endif
             if (now() - last_status >= 30000) {
                 last_status = now();
                 status();
@@ -210,9 +234,10 @@ extern "C" void app_main() {
         bridge::Bytes frame;
         {
             Guard g;
-            if (!outgoing.empty()) {
-                frame = std::move(outgoing.front());
-                outgoing.pop_front();
+            auto &queue = call_outgoing.empty() ? outgoing : call_outgoing;
+            if (!queue.empty()) {
+                frame = std::move(queue.front());
+                queue.pop_front();
             }
         }
         if (!frame.empty() && uart_write_bytes(UART_NUM_2, frame.data(), frame.size()) != int(frame.size()))

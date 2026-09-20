@@ -69,6 +69,12 @@ class BuildScopeTest(unittest.TestCase):
         (self.root / "dist/single-merged.bin").unlink()
         self.assertEqual(select(self.root), ["single"])
 
+    def test_relay_selects_only_stale_two_board_images(self):
+        self.write("firmware/sdkconfig.phone", "CONFIG_BRIDGE_CALL_RELAY=y")
+        self.assertEqual(select(self.root), ["phone"])
+        self.write("firmware/main/car.cpp", "changed")
+        self.assertEqual(select(self.root), ["phone", "car"])
+
     def test_manual_selection_forces_only_requested_roles(self):
         self.assertEqual(select(self.root, "phone"), ["phone"])
         self.assertEqual(select(self.root, "car"), ["car"])
