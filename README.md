@@ -101,6 +101,10 @@ The initial test target is an **iPhone and an approximately 2021 Tesla Model 3**
 
 Disconnect power before wiring. Label the boards **A — iPhone** and **B — Tesla**.
 
+![ESP32 D1 Mini wiring: five connections between A and B](docs/assets/d1-mini-wiring.svg)
+
+Shown from above, USB sockets at the bottom. This layout matches the **AZDelivery ESP32 D1 Mini**. Connect matching numbered pins; the GPIO numbers are labelled beside them.
+
 | DashBridge A | DashBridge B |
 | :--- | :--- |
 | GPIO **17** · TX2 | GPIO **16** · RX2 |

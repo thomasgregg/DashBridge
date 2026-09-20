@@ -66,6 +66,22 @@ Two **original ESP32-WROOM-32, 4 MB** development boards are required. These
 instructions do not apply to ESP32-S3/C3 or ESP8266. Flash the matching A/B images
 from the same build. Mark the boards before wiring them.
 
+### ESP32 D1 Mini pin locations
+
+![ESP32 D1 Mini wiring: five connections between A and B](assets/d1-mini-wiring.svg)
+
+Both boards are shown from above, with the metal module visible and USB at the
+bottom. Connect matching numbered circles. The numbers 1–5 identify the wires;
+the GPIO labels identify the pins. Wire colours are only a visual aid.
+
+The drawing follows the [AZDelivery ESP32 D1 Mini pinout](https://cdn.shopify.com/s/files/1/1509/1638/files/D1_Mini_ESP32_-_pinout.pdf?v=1604068668).
+It does not apply to the ESP8266 D1 Mini. For other ESP32 boards, follow the GPIO
+labels rather than these physical positions.
+
+Count pins from the antenna end (top): GPIO26 is left inner, third; GPIO25 is
+right outer, third. GPIO17, GPIO16 and the pictured GND are right inner, fifth,
+sixth and seventh respectively. Fit soldered headers before using jumper leads.
+
 With both boards unplugged, connect five short jumper wires:
 
 | Board A | Board B | Purpose |
