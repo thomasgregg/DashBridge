@@ -327,7 +327,25 @@ static void single_board_test() {
     assert(!link.pop_for_car(message));
     std::cout << "PASS single-board routing, bounded queues, session reset and independent pairing\n";
 }
+static void ancs_flags_test() {
+    // Values from Apple's ANCS specification, independent of production constants.
+    // Fresh notifications may offer Dismiss (0x10) and Reply (0x08).
+    for (uint8_t flags : {0x00, 0x10, 0x18, 0x1b}) {
+        Inbox inbox;
+        uint64_t handle = 0;
+        if (!ancs_is_preexisting(flags)) handle = inbox.apply({Op::add, 1, example()});
+        assert(handle != 0 && inbox.messages().size() == 1);
+    }
+    // Old notifications must stay suppressed, including those offering actions.
+    for (uint8_t flags : {0x04, 0x14, 0x1c, 0x1f}) {
+        Inbox inbox;
+        if (!ancs_is_preexisting(flags)) inbox.apply({Op::add, 1, example()});
+        assert(inbox.messages().empty());
+    }
+    std::cout << "PASS ANCS fresh dismissible notifications forwarded; pre-existing notifications suppressed\n";
+}
 int main() {
+    ancs_flags_test();
     single_board_test();
     console_test();
     wire_test();

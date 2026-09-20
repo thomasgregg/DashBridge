@@ -114,6 +114,9 @@ static void source_event(const uint8_t *value, size_t size) {
         return;
     uint32_t id =
         uint32_t(value[4]) | uint32_t(value[5]) << 8 | uint32_t(value[6]) << 16 | uint32_t(value[7]) << 24;
+    ESP_LOGI(tag, "ANCS event=%u flags=0x%02x uid=%lu car_ready=%d preexisting=%d",
+             unsigned(value[0]), unsigned(value[1]), static_cast<unsigned long>(id),
+             car_ready, ancs_is_preexisting(value[1]));
     if (value[0] == 2) {
         requests.erase(
             std::remove_if(requests.begin(), requests.end(), [id](const Request &r) { return r.id == id; }),
@@ -127,7 +130,7 @@ static void source_event(const uint8_t *value, size_t size) {
         }
         return;
     }
-    if (!car_ready || (value[1] & 0x10))
+    if (!car_ready || ancs_is_preexisting(value[1]))
         return; // Ignore pre-existing notifications.
     Op op = value[0] == 0 ? Op::add : Op::update;
     for (auto &r : requests)
@@ -327,8 +330,11 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
                 break;
             }
             if (result == 1) {
-                if (!canceled && car_ready &&
-                    (notice.app == "net.whatsapp.WhatsApp" || notice.app == "net.whatsapp.WhatsAppSMB"))
+                bool whatsapp = notice.app == "net.whatsapp.WhatsApp" || notice.app == "net.whatsapp.WhatsAppSMB";
+                ESP_LOGI(tag, "ANCS details uid=%lu whatsapp=%d canceled=%d car_ready=%d; %s",
+                         static_cast<unsigned long>(current.id), whatsapp, canceled, car_ready,
+                         !canceled && car_ready && whatsapp ? "forwarding" : "filtered");
+                if (!canceled && car_ready && whatsapp)
                     send_to_car({current.op, session, notice});
                 active = false;
                 request_next();

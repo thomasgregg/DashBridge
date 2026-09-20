@@ -34,6 +34,9 @@ class AncsResponse {
     // Returns 1 on completion, 0 when incomplete, -1 on malformed/oversize data.
     int feed(const uint8_t *p, size_t n, uint32_t expected_id, Notice &result);
 };
+// Apple ANCS EventFlagPreExisting is bit 2. Bit 4 is NegativeAction
+// (for example, Dismiss), and must not suppress a new notification.
+constexpr bool ancs_is_preexisting(uint8_t flags) { return (flags & (1u << 2)) != 0; }
 class ObexFramer {
     Bytes data_;
 
