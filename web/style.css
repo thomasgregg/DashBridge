@@ -29,8 +29,15 @@ h1 { font-size: clamp(40px, 4.9vw, 58px); letter-spacing: -2.3px; line-height: 1
 .bridge-diagram { margin: 28px -8px 22px; }
 .bridge-diagram svg { width: 100%; display: block; }
 .bridge-diagram .diagram-mobile { display: none; }
-.hero-note { display: flex; align-items: center; gap: 9px; font-size: 10px; color: #91adb7; }
-.hero-note > span { width: 5px; height: 5px; border: 1px solid #76c6b9; border-radius: 50%; }
+.board-marker { opacity: .5; transition: opacity 160ms ease; }
+.board-marker.is-selected { opacity: 1; }
+.board-halo { fill: #79e4c714; stroke: #79e4c7; stroke-width: 1.5; opacity: 0; transition: opacity 160ms ease; }
+.board-marker.is-selected .board-halo { opacity: 1; }
+.board-marker.is-selected .board-body { fill: #2b635f; stroke-width: 2; }
+.board-marker.is-selected text { fill: #c1ffeb; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  .board-marker, .board-halo { transition: none; }
+}
 .install-side { display: flex; flex-direction: column; justify-content: center; padding: 43px 39px 34px; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 26px; }
 .panel-heading h2 { font-size: 21px; font-weight: 600; letter-spacing: -.5px; margin: 0; }
@@ -92,7 +99,6 @@ esp-web-install-button { display: block; }
   .bridge-diagram { margin: 16px auto 13px; max-width: 320px; }
   .bridge-diagram .diagram-desktop { display: none; }
   .bridge-diagram .diagram-mobile { display: block; }
-  .hero-note { font-size: 9px; }
   .install-side { padding: 24px 23px; }
   .panel-heading { margin-bottom: 22px; }
   .panel-heading h2 { font-size: 20px; }

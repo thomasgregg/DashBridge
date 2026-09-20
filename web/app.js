@@ -8,6 +8,11 @@ let ready = false;
 function selectBoard() {
   const choice = choices.find(input => input.checked);
   const label = choice.value === 'phone' ? 'A' : 'B';
+  for (const board of document.querySelectorAll('.board-marker')) {
+    board.classList.toggle('is-selected', board.dataset.board === choice.value);
+  }
+  document.querySelector('.bridge-diagram').setAttribute('aria-label',
+    `iPhone connects to Board A, Board A is wired to Board B, and Board B connects to Tesla. Board ${label} selected.`);
   description.textContent = label === 'A'
     ? 'Receives notifications from your iPhone.'
     : 'Sends notifications to your Tesla.';
