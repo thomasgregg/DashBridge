@@ -28,6 +28,13 @@ This is an experimental build, not an established replacement for v0.1.4.
 The earlier two-board B firmware displayed a test message on the user's
 Tesla. That result does **not** establish that this combined build works.
 
+### Verification recorded on 20 September 2026
+
+- [ESP-IDF v5.5.1 build and protocol tests](https://github.com/thomasgregg/DashBridge/actions/runs/35521656978) passed, including the Tesla service-discovery regression checks.
+- The merged image is 1,153,904 bytes; the application has 29% of its flash partition remaining. This does not measure runtime RAM.
+- Installer tests passed (8/8); desktop and 390 px mobile previews were checked with no horizontal overflow.
+- Simultaneous iPhone/Tesla connections, runtime memory, real WhatsApp delivery and reconnection remain **untested on hardware**.
+
 1. Save the v0.1.4 release or use its recovery guide before changing the board.
 2. Connect one original ESP32 by USB. Install `single-merged.bin` at address
    `0x0`, or use this branch's built web installer. The merged install erases

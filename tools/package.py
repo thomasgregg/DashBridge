@@ -17,7 +17,8 @@ def package(roles):
     destination = ROOT / "dist"
     destination.mkdir(exist_ok=True)
     manifest_path = destination / "manifest.json"
-    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {"images": {}}
+    manifest = (json.loads(manifest_path.read_text())
+                if manifest_path.exists() and roles != ["single"] else {"images": {}})
     for role in roles:
         if role not in ROLES:
             raise SystemExit("Roles must be phone, car or single")
