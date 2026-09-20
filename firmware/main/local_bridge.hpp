@@ -34,7 +34,7 @@ public:
             }
         }
         if (to_car_.size() >= capacity) return false;
-        to_car_.push_back(message);
+        to_car_.push_back({message.op, message.session, bridge::bounded_notice(message.notice)});
         return true;
     }
     void send_to_phone(const bridge::WireMessage &message) {

@@ -297,6 +297,21 @@ static void single_board_test() {
     assert(link.pop_for_car(message) && message.notice.id == 3);
     assert(inbox.apply(message) != 0);
     assert(!link.pop_for_car(message));
+    auto oversized = example();
+    oversized.title = std::string(200, 'T');
+    oversized.body = std::string(767, 'x') + "👋";
+    oversized.subtitle = std::string("a\x01\n\tb", 5);
+    auto encoded = encode({Op::add, 2, oversized});
+    WireMessage wire_result{};
+    WireDecoder wire;
+    wire.feed(encoded.data(), encoded.size(), [&](const WireMessage &m) { wire_result = m; });
+    assert(link.send_to_car({Op::add, 2, oversized}));
+    assert(link.pop_for_car(message));
+    assert(message.notice.title.size() == 128);
+    assert(message.notice.body == std::string(767, 'x'));
+    assert(message.notice.subtitle == "a\n\tb");
+    assert(message.notice.body == wire_result.notice.body && message.notice.title == wire_result.notice.title
+           && message.notice.subtitle == wire_result.notice.subtitle);
     assert(inbox.messages().size() == 1);
     // Readiness updates coalesce in each direction rather than growing queues.
     for (unsigned i = 0; i < 1000; ++i) {

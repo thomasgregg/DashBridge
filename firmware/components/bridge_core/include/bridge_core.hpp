@@ -18,6 +18,7 @@ struct WireMessage {
     uint32_t session;
     Notice notice;
 };
+Notice bounded_notice(const Notice &notice);
 Bytes encode(const WireMessage &m);
 class WireDecoder {
     Bytes data_;

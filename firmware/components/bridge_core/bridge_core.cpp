@@ -41,13 +41,16 @@ static std::string clipped(const std::string &s, size_t max) {
             out += s[i];
     return out;
 }
+Notice bounded_notice(const Notice &notice) {
+    return {notice.id, clipped(notice.app, 128), clipped(notice.title, 128),
+            clipped(notice.subtitle, 128), clipped(notice.body, 768), clipped(notice.date, 32)};
+}
 Bytes encode(const WireMessage &m) {
     Bytes payload;
     put32(payload, m.session);
     put32(payload, m.notice.id);
-    const std::array<std::string, 5> fields = {clipped(m.notice.app, 128), clipped(m.notice.title, 128),
-                                               clipped(m.notice.subtitle, 128), clipped(m.notice.body, 768),
-                                               clipped(m.notice.date, 32)};
+    const auto notice = bounded_notice(m.notice);
+    const std::array<std::string, 5> fields = {notice.app, notice.title, notice.subtitle, notice.body, notice.date};
     for (const auto &s : fields) {
         put16(payload, s.size());
         payload.insert(payload.end(), s.begin(), s.end());
