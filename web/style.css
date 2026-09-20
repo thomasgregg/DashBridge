@@ -98,7 +98,6 @@ esp-web-install-button { display: block; }
   .panel-heading h2 { font-size: 20px; }
   #board-description { min-height: 0; max-width: none; margin: 19px 0 23px; }
   .panel-footer { margin-top: 23px; padding-top: 20px; }
-  .desktop-break { display: none; }
   .fine-print { margin-top: 17px; }
   .next { align-items: flex-start; flex-direction: column; gap: 11px; padding: 24px 0; }
   .next a { font-size: 12px; }
