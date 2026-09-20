@@ -4,6 +4,7 @@
   background: #f3f5f2;
   font-synthesis: none;
   --green: #126856;
+  --control-hover: #10513f;
   --muted: #586c6e;
   --line: #dce4de;
   --esp-tools-button-color: #126856;
@@ -51,7 +52,15 @@ legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-pat
 esp-web-install-button { display: block; }
 .install { width: 100%; border: 1px solid #176353; background: #176c59; color: #fff; border-radius: 9px; padding: 17px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 5px #173b2510; }
 .install::after { content: '↓'; float: right; font-size: 19px; line-height: 17px; font-weight: 400; }
-.install:hover { background: #10513f; }
+.selector label > span, .install { transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease; }
+@media (hover: hover) and (pointer: fine) {
+  .selector label:hover > span { background: #e4eee7; color: var(--control-hover); border-color: #c3d8c9; }
+  .selector label:hover > input:checked + span { background: #edf5f0; border-color: #8eaf9b; }
+  .install:hover:not(:disabled) { background: var(--control-hover); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .selector label > span, .install { transition: none; }
+}
 .install:disabled { opacity: .45; cursor: wait; }
 #browser-status { font-size: 10px; color: var(--muted); line-height: 1.6; margin: 12px 0 0; }
 #browser-status.ready::before { content: '●'; color: var(--green); font-size: 7px; margin-right: 7px; }
