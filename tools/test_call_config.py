@@ -2,6 +2,7 @@
 from pathlib import Path
 import os
 import json
+import shlex
 
 role = os.environ["DASHBRIDGE_BUILD_ROLE"]
 root = Path(__file__).resolve().parent.parent
@@ -20,5 +21,5 @@ if role == "car":
     commands = json.loads((root / "build" / role / "compile_commands.json").read_text())
     source = next(item for item in commands if item["file"].endswith("/btc_hf_ag.c"))
     definition = "BTC_HF_FEATURES=(BTA_AG_FEAT_REJECT|BTA_AG_FEAT_EXTERR|BTA_AG_FEAT_ESCO_S4|BTA_AG_FEAT_UNAT)"
-    assert definition in source["command"], "Gateway advertises features outside this prototype"
+    assert "-D" + definition in shlex.split(source["command"]), "Gateway advertises features outside this prototype"
 print(f"PASS {role}: correct HFP role, internal CVSD/PCM codec and audio worker tick")
