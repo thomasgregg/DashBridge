@@ -73,7 +73,15 @@ commands as the alternative to BOOT-based pairing and test-message controls.
 Before any pairing is saved, restarting opens the two-minute pairing window
 automatically.
 
-## Hardware compatibility: UNVERIFIED
+## v0.1.4 physical test message: PASS (user report)
+
+On 20 September 2026 the user installed Board B v0.1.4, entered `test`
+in the USB console, and reported that **DashBridge test** appeared on the
+Tesla screen. This verifies the standalone B-to-Tesla notification path
+on that setup. The iPhone ANCS path and end-to-end WhatsApp delivery remain
+untested; the second board had not arrived.
+
+## End-to-end hardware compatibility: UNVERIFIED
 
 The user is testing an ESP32 with a Tesla; no hardware is connected to the build/test process. The following remain unverified:
 
@@ -81,7 +89,7 @@ The user is testing an ESP32 with a Tesla; no hardware is connected to the build
 |---|---|
 | Both boards boot and stay within available RAM | A and B startup observed; sustained RAM/stability testing pending |
 | Tesla discovers B and enables message sync | v0.1.3 reaches MAP transport and notification readiness |
-| B's standalone test message appears on Tesla | Not run |
+| B's standalone test message appears on Tesla | PASS — v0.1.4 USB `test`, user observed DashBridge test on screen |
 | iPhone pairs with A and grants ANCS access | Not run |
 | New WhatsApp content reaches Tesla end to end | Not run |
 | Locked iPhone and closed setup app | Not run |
