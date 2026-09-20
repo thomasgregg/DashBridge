@@ -22,7 +22,7 @@
       <h1>Install<br> DashBridge</h1>
       <p>Connect one ESP32 board by USB.<br>Select A or B to install its firmware.</p>
       <div class="bridge-diagram" aria-label="iPhone connects to Board A, Board A is wired to Board B, and Board B connects to Tesla">
-        <svg viewBox="0 0 400 170" fill="none" aria-hidden="true">
+        <svg class="diagram-desktop" viewBox="0 0 400 170" fill="none" aria-hidden="true">
           <defs><linearGradient id="signal" x1="0" x2="400" gradientUnits="userSpaceOnUse"><stop stop-color="#79e4c7"/><stop offset="1" stop-color="#52b6e6"/></linearGradient></defs>
           <path d="M53 78h78m134 0h76" stroke="url(#signal)" stroke-width="1.5" stroke-dasharray="3 6"/>
           <rect x="8" y="34" width="45" height="87" rx="9" fill="#153b44" stroke="#739ba2" stroke-width="1.5"/>
@@ -39,6 +39,21 @@
           <path d="M320 106v9h10v-9m47 0v9h10v-9" fill="#739ba2"/>
           <text x="30" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">iPhone</text><text x="194" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">DashBridge</text><text x="354" y="157" text-anchor="middle" fill="#95b5bd" font-size="10" font-family="sans-serif">Tesla</text>
         </svg>
+        <svg class="diagram-mobile" viewBox="0 0 320 68" fill="none" aria-hidden="true">
+          <path d="M38 33h79m86 0h69" stroke="#6ebdb9" stroke-width="1.5" stroke-dasharray="3 5"/>
+          <rect x="12" y="10" width="26" height="47" rx="6" fill="#153b44" stroke="#739ba2" stroke-width="1.5"/>
+          <path d="M21 15h8m-7 37h6" stroke="#739ba2" stroke-linecap="round"/>
+          <rect x="18" y="25" width="14" height="13" rx="4" fill="#79e4c7"/>
+          <path d="m21 37 0 4 5-4" fill="#79e4c7"/>
+          <rect x="117" y="4" width="86" height="59" rx="10" fill="#11323d" stroke="#3b5d66"/>
+          <path d="M149 28h22m-22 7h22m-22 7h22" stroke="#79e4c7"/>
+          <g fill="#1d4650" stroke="#79e4c7"><rect x="127" y="15" width="23" height="37" rx="4"/><rect x="170" y="15" width="23" height="37" rx="4"/></g>
+          <g fill="#112f39" stroke="#79e4c7"><rect x="133" y="23" width="11" height="13" rx="2"/><rect x="176" y="23" width="11" height="13" rx="2"/></g>
+          <path d="m266 29 5-13h26l5 13 5 8v15h-46V37z" fill="#173c48" stroke="#739ba2" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="m275 20-4 10h26l-4-10z" fill="#315762"/>
+          <path d="M268 40h7m18 0h7" stroke="#79e4c7" stroke-width="2" stroke-linecap="round"/>
+          <path d="M264 53v5h7v-5m26 0v5h7v-5" fill="#739ba2"/>
+        </svg>
       </div>
       <div class="hero-note"><span></span> Original ESP32-WROOM-32 · 4 MB</div>
     </div>
@@ -52,7 +67,7 @@
           <label><input type="radio" name="board" value="car" data-manifest="{{car}}"><span>B <span class="role">Tesla</span></span></label>
         </div>
       </fieldset>
-      <p id="board-description">Board A receives notifications from your iPhone.</p>
+      <p id="board-description">Receives notifications from your iPhone.</p>
       <div id="install-control"><button class="install" disabled>Loading installer…</button></div>
       <p id="browser-status" role="status" aria-live="polite">Checking browser…</p>
       <noscript><p class="notice">Enable JavaScript, or use the <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md#load-the-firmware">manual setup guide</a>.</p></noscript>

@@ -28,6 +28,7 @@ h1 { font-size: clamp(40px, 4.9vw, 58px); letter-spacing: -2.3px; line-height: 1
 .hero > p:not(.eyebrow) { color: #aac1c9; font-size: 14px; line-height: 1.75; margin: 0; }
 .bridge-diagram { margin: 28px -8px 22px; }
 .bridge-diagram svg { width: 100%; display: block; }
+.bridge-diagram .diagram-mobile { display: none; }
 .hero-note { display: flex; align-items: center; gap: 9px; font-size: 10px; color: #91adb7; }
 .hero-note > span { width: 5px; height: 5px; border: 1px solid #76c6b9; border-radius: 50%; }
 .install-side { display: flex; flex-direction: column; justify-content: center; padding: 43px 39px 34px; }
@@ -43,7 +44,7 @@ legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-pat
 .selector .role { font-weight: 450; font-size: 13px; }
 .selector input:checked + span { background: white; color: #125e4e; border-color: #d6e1d6; box-shadow: 0 2px 5px #122b3210; }
 .selector input:focus-visible + span { outline: 3px solid #188575; outline-offset: 2px; }
-#board-description { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 23px 0 28px; min-height: 44px; max-width: 265px; }
+#board-description { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 23px 0 28px; min-height: 23px; text-wrap: pretty; }
 esp-web-install-button { display: block; }
 .install { width: 100%; border: 1px solid #176353; background: #176c59; color: #fff; border-radius: 9px; padding: 17px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 5px #173b2510; }
 .install::after { content: '↓'; float: right; font-size: 19px; line-height: 17px; font-weight: 400; }
@@ -81,16 +82,18 @@ esp-web-install-button { display: block; }
 }
 @media (max-width: 700px) {
   .wrap { width: min(100% - 40px, 480px); }
-  .header { height: 85px; }
+  .header { height: 72px; }
   .workspace { grid-template-columns: 1fr; border-radius: 17px; }
-  .hero { padding: 27px 27px 24px; }
-  .eyebrow { margin-bottom: 24px !important; }
-  h1 { font-size: 42px; line-height: 1.05; letter-spacing: -1.6px; margin-bottom: 15px; }
+  .hero { padding: 21px 23px 19px; }
+  .eyebrow { margin-bottom: 15px !important; font-size: 9px !important; }
+  h1 { font-size: clamp(24px, 6.7vw, 32px); line-height: 1.15; letter-spacing: -.8px; margin-bottom: 10px; }
   h1 br { display: none; }
-  .hero > p:not(.eyebrow) { font-size: 13px; }
-  .bridge-diagram { margin: 20px 0 15px; max-width: 340px; }
+  .hero > p:not(.eyebrow) { font-size: 12px; line-height: 1.65; }
+  .bridge-diagram { margin: 16px auto 13px; max-width: 320px; }
+  .bridge-diagram .diagram-desktop { display: none; }
+  .bridge-diagram .diagram-mobile { display: block; }
   .hero-note { font-size: 9px; }
-  .install-side { padding: 28px 26px 26px; }
+  .install-side { padding: 24px 23px; }
   .panel-heading { margin-bottom: 22px; }
   .panel-heading h2 { font-size: 20px; }
   #board-description { min-height: 0; max-width: none; margin: 19px 0 23px; }

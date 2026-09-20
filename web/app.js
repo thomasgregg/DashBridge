@@ -9,8 +9,8 @@ function selectBoard() {
   const choice = choices.find(input => input.checked);
   const label = choice.value === 'phone' ? 'A' : 'B';
   description.textContent = label === 'A'
-    ? 'Board A receives notifications from your iPhone.'
-    : 'Board B sends notifications to your Tesla.';
+    ? 'Receives notifications from your iPhone.'
+    : 'Sends notifications to your Tesla.';
   // Give each selection a new element. A pending USB chooser keeps the old
   // element and manifest, so changing the selector cannot change its firmware.
   const installer = document.createElement('esp-web-install-button');
