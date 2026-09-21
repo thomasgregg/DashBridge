@@ -17,7 +17,8 @@ test('board selection updates the full version and preserves an already-open ins
   const nodes = Object.fromEntries(['#browser-status', '#install-control', '#board-description',
     '#firmware-version', '.bridge-diagram'].map(key => [key, element()]));
   const source = (await readFile(new URL('./app.js', import.meta.url), 'utf8'))
-    .replace("import { successRenderer } from './install-success.js';", '');
+    .replace("import { successRenderer } from './install-success.js';", '')
+    .replace("import { refreshLatest } from './latest.js';", '');
   runInNewContext(source, {
     document: {
       querySelector: key => nodes[key],
@@ -25,7 +26,7 @@ test('board selection updates the full version and preserves an already-open ins
       createElement: element,
     },
     window: { isSecureContext: false }, navigator: {}, console,
-    successRenderer: (role, selectOther, version) => ({ role, version }),
+    successRenderer: (role, selectOther, version) => ({ role, version }), refreshLatest() {},
   });
   const originalInstaller = nodes['#install-control'].child;
   assert.equal(nodes['#firmware-version'].textContent, `v${choices[0].dataset.version}`);

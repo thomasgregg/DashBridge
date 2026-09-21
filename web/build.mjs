@@ -84,6 +84,11 @@ async function main() {
   html = html.replaceAll('{{css}}', `./assets/${cssName}`);
   if (/\{\{.+?\}\}/.test(html)) throw new Error('Unresolved HTML placeholder');
   await writeFile(path.join(output, 'index.html'), html);
+  await writeFile(path.join(output, 'latest.json'), JSON.stringify({
+    release: firmware.version,
+    phone: { manifest: firmware.phone, version: firmware.phoneVersion },
+    car: { manifest: firmware.car, version: firmware.carVersion },
+  }, null, 2) + '\n');
   await cp(path.join(root, 'web/favicon.svg'), path.join(output, 'favicon.svg'));
   await cp(path.join(root, 'dist/manifest.json'), path.join(output, 'firmware/checksums.json'));
   await writeFile(path.join(output, '.nojekyll'), '');

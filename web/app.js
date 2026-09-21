@@ -1,4 +1,5 @@
 import { successRenderer } from './install-success.js';
+import { refreshLatest } from './latest.js';
 
 const status = document.querySelector('#browser-status');
 const control = document.querySelector('#install-control');
@@ -50,6 +51,10 @@ async function start() {
     return;
   }
   try {
+    // Resolve the current release at runtime. The unique query bypasses the
+    // browser and GitHub Pages' short cache for this small pointer file.
+    await refreshLatest(choices, window.fetch.bind(window), document.baseURI);
+    selectBoard();
     // Load the dialog before enabling the button so the first click is ready.
     await import('esp-web-tools/dist/install-dialog.js');
     await import('esp-web-tools/dist/install-button.js');
@@ -59,7 +64,7 @@ async function start() {
     status.classList.add('ready');
   } catch (error) {
     console.error('Installer could not load', error);
-    status.textContent = 'Could not load the installer. Check your connection and reload this page.';
+    status.textContent = 'Could not verify the latest firmware. Check your connection and reload this page.';
     status.classList.add('notice');
   }
 }
