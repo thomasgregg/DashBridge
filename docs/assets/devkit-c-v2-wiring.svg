@@ -6,7 +6,6 @@
 <rect width="1440" height="660" rx="24" fill="#f3f5f2"/>
 <text x="54" y="65" font-size="32" font-weight="700">ESP32 Dev Kit C V2 wiring</text>
 
-<text x="54" y="96" font-size="17" class="muted">AZDelivery · 38 pins (19 per side) · top view, USB at bottom</text>
 <g transform="translate(0 -100)">
 <text x="270" y="224" font-size="25" text-anchor="middle" font-weight="700" style="fill:#142d33">A  /  iPhone</text>
 <rect x="140" y="260" width="260" height="394" rx="6" fill="#173b48" stroke="#395d65" stroke-width="2"/>
