@@ -258,6 +258,9 @@ static void console_test() {
     feed("pair phone\r\npair car\nSTATUS\n");
     assert((commands == std::vector<C>{C::pair_phone, C::pair_car, C::status}));
     commands.clear();
+    feed("audio phone tone\naudio phone loopback\naudio car tone\naudio car loopback\naudio off\n");
+    assert((commands == std::vector<C>{C::audio_phone_tone, C::audio_phone_loopback, C::audio_car_tone, C::audio_car_loopback, C::audio_off}));
+    commands.clear();
     feed("restart\n");
     feed(std::string(32, 'x') + "test\r\n");
     feed(std::string("te\0st\n", 6));

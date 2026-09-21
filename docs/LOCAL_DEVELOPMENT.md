@@ -6,9 +6,9 @@ Use local tests before building firmware or asking for another in-car trial.
 
 `bash tools/test.sh` compiles the production protocol code and runs sanitizer checks for messages, UART, call control, audio buffering and reconnect policy. The reconnect replay additionally extracts the production peer-storage and reconnect functions and drives them with a virtual clock and the sanitized events in `tests/fixtures/tesla-reconnect-failure.json`.
 
-The replay verifies persistence across a simulated reboot, rejection of missing/invalid bonds, timeout handling, the observed retry schedule and recovery after a later successful connection. NVS, Bluetooth API results and connection outcomes are substitutes supplied by the test. **It does not reproduce Tesla's radio handshake or explain the remote disconnect.** Its value is quickly detecting a regression in our handling of those events.
+The reconnect checks cover A’s retry policy and B’s passive gateway policy, saved-peer persistence across a simulated reboot, rejection of missing/invalid bonds, and later incoming connection success. NVS, Bluetooth API results and connection outcomes are substitutes supplied by the test. **It does not reproduce Tesla's radio handshake or explain the remote disconnect.** Its value is quickly detecting a regression in our handling of those events.
 
-With the matching SDK installed, `bash tools/local_dev.sh check /absolute/path/to/esp-idf` also tests the actual SDK SDP parser, late feature failures and SSP confirmation callback. These tests do not need an ESP32, GitHub or a firmware installation.
+With the matching SDK installed, `bash tools/local_dev.sh check /absolute/path/to/esp-idf` also tests the actual SDK SDP parser, late feature failures and SSP confirmation callback. These checks include historical patch regressions and do not mean the patches are enabled in current firmware. They do not need an ESP32, GitHub or a firmware installation.
 
 ## Native build setup
 
@@ -33,6 +33,17 @@ bash tools/local_dev.sh build /absolute/path/to/esp-idf
 The helper reuses `build/car` for incremental builds and also enables a local compiler cache when `ccache` is installed. It builds and packages only Board B, then verifies the generated Bluetooth configuration and SDP record. It does not flash hardware, publish an installer, or erase pairing. The package step updates the local `dist` files; those outputs must be reviewed before any release.
 
 Keep the build directory between iterations. A no-change build should do very little work. A source change recompiles affected files; shared SDK/configuration changes can legitimately require a broader rebuild. Official release builds and final artifact verification remain useful, but do not need to be repeated for every hypothesis.
+
+## Audio diagnostic checks
+
+The host suite also runs production audio callbacks at 8 and 16 kHz, checks
+bounded tone generation and loopback, and replays diagnostic command routing
+for both roles. These checks do not establish Bluetooth audio quality.
+
+The local build helper above builds only B. After shared audio changes, activate
+the pinned SDK and use `bash tools/build.sh both`, then check each generated
+configuration with `DASHBRIDGE_BUILD_ROLE=phone python3 tools/test_call_config.py`
+and the corresponding `car` command. Build and install both roles after shared audio changes.
 
 ## Where hardware is still required
 

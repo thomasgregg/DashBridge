@@ -4,6 +4,9 @@ Public installer: https://thomasgregg.github.io/DashBridge/
 
 The static site uses ESP Web Tools 10.4.0 and the repository’s prebuilt images. No backend, accounts or analytics. JavaScript, styles, manifests and firmware are served together by GitHub Pages. Chrome or Edge on a desktop computer is the recommended USB installation route.
 
+The completion instructions use Dash Calls, Dash Messages and Dash Tesla.
+The 0.3.3-alpha release includes audio diagnostics. Hardware results are recorded in [current validation](../docs/CALL_RELAY_VALIDATION.md).
+
 ## Build and preview
 
 From the repository root, with Node.js 22 or newer:
@@ -39,4 +42,4 @@ The main page is a stable A/B installer shell. On each visit it resolves the
 current manifests, public release number and matching release-notes URL from
 `latest.json` before enabling installation. Firmware-specific test results,
 setup requirements and limitations belong in `docs/releases/`, not in the
-installer copy. Earlier firmware remains in the repository history.
+installer copy.

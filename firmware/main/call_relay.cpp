@@ -19,7 +19,10 @@ namespace runtime {
 using bridge::WireMessage;
 using bridge::Op;
 static calls::State self, other;
-static calls::CommandGate commands;
+static unsigned audio_rate = 0;
+static calls::CommandGate commands, test_commands;
+static uint32_t test_sequence = 0, test_pending = 0;
+static int64_t test_deadline = 0;
 static uint32_t boot, sequence = 0, other_boot = 0, other_sequence = 0, pending = 0;
 static uint32_t pending_peer = 0;
 static int64_t last_peer = 0, last_snapshot = 0, pending_deadline = 0, next_audio = 0;
@@ -32,6 +35,11 @@ static esp_err_t last_connect_result = ESP_OK;
 #endif
 static esp_bd_addr_t peer = {};
 static std::string previous_snapshot, previous_number;
+static std::string peer_audio_counters;
+static int64_t peer_audio_at = 0, last_audio_report = 0;
+static uint16_t sync_handle = 0xffff;
+static std::string radio_counters, peer_radio_counters;
+static int64_t radio_at = 0, peer_radio_at = 0;
 #if CONFIG_BRIDGE_PHONE
 static bool command_fault = false;
 static int64_t phone_ready_at = 0;
@@ -50,6 +58,50 @@ static WireMessage message(const char *kind) {
     WireMessage m{Op::call, boot, {}};
     m.notice.app = calls::protocol; m.notice.title = kind;
     return m;
+}
+static void apply_audio_test(calls::AudioTestMode mode) {
+    bool ok = call_audio_test(mode);
+    ESP_LOGI("audio", "Local audio test %s: %s", calls::audio_test_name(mode),
+             ok ? "applied (maximum 60 seconds)" : "rejected; answer a call first");
+}
+static void send_audio_test(calls::AudioTestMode mode) {
+    if (!peer_live()) {
+        ESP_LOGW("audio", "Other board unavailable; test command not sent"); return;
+    }
+    auto m = message("audio-test");
+    m.notice.id = ++test_sequence;
+    m.notice.body = calls::audio_test_name(mode);
+    m.notice.date = std::to_string(other.audio);
+    transmit(m); test_pending = m.notice.id; test_deadline = now() + 3000;
+    ESP_LOGI("audio", "Other board audio test %s requested; awaiting confirmation", m.notice.body.c_str());
+}
+void relay_audio_test(bool phone, calls::AudioTestMode mode) {
+    // Only one side runs an isolation test at a time. No calls are placed or answered here.
+#if CONFIG_BRIDGE_PHONE
+    const bool local = phone;
+#else
+    const bool local = !phone;
+#endif
+    if (local) {
+        send_audio_test(calls::AudioTestMode::normal);
+        apply_audio_test(mode);
+    } else {
+        apply_audio_test(calls::AudioTestMode::normal);
+        send_audio_test(mode);
+    }
+}
+void relay_audio_test_stop() {
+    apply_audio_test(calls::AudioTestMode::normal);
+    send_audio_test(calls::AudioTestMode::normal);
+}
+template<class Stats> static void radio_snapshot(const Stats &s) {
+    char text[240];
+    snprintf(text, sizeof text, "rx_total=%lu rx_ok=%lu rx_err=%lu rx_none=%lu rx_lost=%lu tx_total=%lu tx_discarded=%lu",
+             (unsigned long)s.rx_total, (unsigned long)s.rx_correct, (unsigned long)s.rx_err,
+             (unsigned long)s.rx_none, (unsigned long)s.rx_lost,
+             (unsigned long)s.tx_total, (unsigned long)s.tx_discarded);
+    radio_counters = text; radio_at = now();
+    auto report = message("radio"); report.notice.body = radio_counters; transmit(report);
 }
 static void snapshot() {
     auto m = message("state");
@@ -90,10 +142,14 @@ static void load_peer() {
     ESP_LOGI("calls", "Saved peer: stored=%d bonded=%d bonds=%d read=%s",
              valid, bonded, esp_bt_gap_get_bond_device_num(), esp_err_to_name(error));
 }
-static void set_audio(bool active) {
-    if (active != bool(self.audio)) self.audio = active ? token() : 0;
-    call_audio_set(self.audio, peer_live() ? other.audio : 0); dirty = true;
-    ESP_LOGI("calls", "Local call audio: %s", active ? "connected (8 kHz)" : "disconnected");
+static void set_audio(unsigned rate) {
+    const bool active = rate != 0;
+    if (active && (!self.audio || rate != audio_rate)) { radio_counters.clear(); radio_at = 0; }
+    if (active != bool(self.audio) || rate != audio_rate) self.audio = active ? token() : 0;
+    audio_rate = rate;
+    call_audio_set(self.audio, peer_live() ? other.audio : 0, audio_rate); dirty = true;
+    ESP_LOGI("calls", "Local call audio: %s; %u Hz", rate == 16000 ? "mSBC HD" :
+             (rate == 8000 ? "CVSD fallback" : "disconnected"), rate);
 }
 static void set_connected(bool connected, const uint8_t *address) {
 #if CONFIG_BRIDGE_PHONE
@@ -105,7 +161,7 @@ static void set_connected(bool connected, const uint8_t *address) {
         reconnect_delay = 5000;
 #endif
     } else {
-        self = {}; call_audio_set(0, 0);
+        self = {}; audio_rate = 0; call_audio_set(0, 0, 0);
 #if CONFIG_BRIDGE_PHONE
         next_connect = now() + reconnect_delay;
         ESP_LOGI("calls", "Reconnect retry scheduled in %u ms", reconnect_delay);
@@ -151,12 +207,12 @@ static void phone_hfp(esp_hf_client_cb_event_t e, esp_hf_client_cb_param_t *p) {
         }
         break;
     case ESP_HF_CLIENT_AUDIO_STATE_EVT:
-        if (p->audio_stat.state == ESP_HF_CLIENT_AUDIO_STATE_CONNECTED_MSBC) {
-            ESP_LOGE("calls", "Unexpected wideband audio; refusing incompatible samples");
-            esp_hf_client_disconnect_audio(peer);
-        }
-        set_audio(p->audio_stat.state == ESP_HF_CLIENT_AUDIO_STATE_CONNECTED);
+        set_audio(p->audio_stat.state == ESP_HF_CLIENT_AUDIO_STATE_CONNECTED_MSBC ? 16000 :
+                  (p->audio_stat.state == ESP_HF_CLIENT_AUDIO_STATE_CONNECTED ? 8000 : 0));
+        sync_handle = self.audio ? p->audio_stat.sync_conn_handle : 0xffff;
+        if (self.audio) ESP_LOGI("calls", "SCO handle=%u preferred_frame=%u", sync_handle, p->audio_stat.preferred_frame_size);
         break;
+    case ESP_HF_CLIENT_PKT_STAT_NUMS_GET_EVT: radio_snapshot(p->pkt_nums); break;
     case ESP_HF_CLIENT_CIND_CALL_EVT: self.call = p->call.status; dirty = true; break;
     case ESP_HF_CLIENT_CIND_CALL_SETUP_EVT: self.setup = p->call_setup.status; dirty = true; break;
     case ESP_HF_CLIENT_CIND_CALL_HELD_EVT: self.held = p->call_held.status; dirty = true; break;
@@ -248,12 +304,12 @@ static void car_hfp(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
         }
         break;
     case ESP_HF_AUDIO_STATE_EVT:
-        if (p->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED_MSBC) {
-            ESP_LOGE("calls", "Unexpected wideband audio; refusing incompatible samples");
-            esp_hf_ag_audio_disconnect(peer);
-        }
-        set_audio(p->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED);
+        set_audio(p->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED_MSBC ? 16000 :
+                  (p->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED ? 8000 : 0));
+        sync_handle = self.audio ? p->audio_stat.sync_conn_handle : 0xffff;
+        if (self.audio) ESP_LOGI("calls", "SCO handle=%u preferred_frame=%u", sync_handle, p->audio_stat.preferred_frame_size);
         break;
+    case ESP_HF_PKT_STAT_NUMS_GET_EVT: radio_snapshot(p->pkt_nums); break;
     case ESP_HF_CIND_RESPONSE_EVT:
         esp_hf_ag_cind_response(p->cind_rep.remote_addr, esp_hf_call_status_t(s.call), esp_hf_call_setup_status_t(s.setup),
                                esp_hf_network_state_t(s.service), s.signal, esp_hf_roaming_status_t(s.roam),
@@ -293,7 +349,50 @@ static void car_hfp(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
 }
 #endif
 void relay_receive(const WireMessage &m) {
-    if (m.op != Op::call || m.notice.app != calls::protocol || !m.session) return;
+    if (m.op != Op::call || !m.session) return;
+    if (m.notice.app != calls::protocol) {
+        static int64_t last_warning = -10000;
+        if (now() - last_warning >= 10000) {
+            ESP_LOGW("calls", "Incompatible call relay protocol; update BOTH boards to HD audio firmware");
+            last_warning = now();
+        }
+        return;
+    }
+    if (m.notice.title == "audio-test" && peer_live() && m.session == other_boot) {
+        if (!test_commands.accept(m.session, m.notice.id)) return;
+        calls::AudioTestMode mode;
+        if (m.notice.body == "normal") mode = calls::AudioTestMode::normal;
+        else if (m.notice.body == "tone") mode = calls::AudioTestMode::tone;
+        else if (m.notice.body == "loopback") mode = calls::AudioTestMode::loopback;
+        else return;
+        uint32_t requested_audio = 0;
+        bool current = calls::decimal(m.notice.date, requested_audio) &&
+            (mode == calls::AudioTestMode::normal || (self.audio && requested_audio == self.audio));
+        bool ok = current && call_audio_test(mode);
+        auto reply = message("audio-test-result");
+        reply.notice.id = m.notice.id; reply.notice.date = std::to_string(m.session);
+        reply.notice.body = std::string(calls::audio_test_name(mode)) + (ok ? " applied" : " rejected; answer a call first");
+        transmit(reply);
+        ESP_LOGI("audio", "Remote audio test: %s", reply.notice.body.c_str());
+        return;
+    }
+    if (m.notice.title == "audio-test-result" && peer_live() && m.session == other_boot) {
+        uint32_t destination = 0;
+        if (test_pending && m.notice.id == test_pending && calls::decimal(m.notice.date, destination) &&
+            destination == boot && m.notice.body.size() < 100) {
+            ESP_LOGI("audio", "Other board audio test: %s", m.notice.body.c_str());
+            test_pending = 0;
+        }
+        return;
+    }
+    if ((m.notice.title == "audio" || m.notice.title == "radio") && peer_live() && m.session == other_boot) {
+        // Optional v2 diagnostic message; previous v2 firmware safely ignores it.
+        if (m.notice.body.size() < 512) {
+            if (m.notice.title == "audio") { peer_audio_counters = m.notice.body; peer_audio_at = now(); }
+            else { peer_radio_counters = m.notice.body; peer_radio_at = now(); }
+        }
+        return;
+    }
     if (m.notice.title == "state") {
         calls::State decoded;
         if (!m.notice.id || !calls::decode_state(m.notice.body, m.notice.subtitle, decoded)) return;
@@ -307,11 +406,12 @@ void relay_receive(const WireMessage &m) {
 #if CONFIG_BRIDGE_CAR
             pending = 0;
 #endif
-            other_boot = m.session; commands.reset(other_boot);
-            ESP_LOGI("calls", "Other board detected (call relay protocol 1)");
+            other_boot = m.session; commands.reset(other_boot); test_commands.reset(other_boot); test_pending = 0; peer_audio_counters.clear(); peer_audio_at = 0;
+            peer_radio_counters.clear(); peer_radio_at = 0;
+            ESP_LOGI("calls", "Other board detected (call relay protocol 2; HD audio supported)");
         }
         other_sequence = m.notice.id; other = decoded; last_peer = now();
-        call_audio_set(self.audio, other.audio);
+        call_audio_set(self.audio, other.audio, audio_rate);
 #if CONFIG_BRIDGE_PHONE
         if (!other.linked && self.audio) esp_hf_client_disconnect_audio(peer);
 #endif
@@ -332,6 +432,10 @@ void relay_receive(const WireMessage &m) {
 #endif
 }
 void relay_poll() {
+    if (test_pending && now() >= test_deadline) {
+        ESP_LOGW("audio", "Other board did not confirm audio test; check its firmware and status");
+        test_pending = 0;
+    }
 #if CONFIG_BRIDGE_PHONE
     if (self.linked && (self.call || self.setup || self.held)) {
         if (!self.generation) { self.generation = token(); self.incoming = self.setup == 1; dirty = true; }
@@ -339,7 +443,7 @@ void relay_poll() {
     if (self.linked && phone_notifications_ready()) paired(Peer::phone);
 #endif
     if (last_peer && !peer_live()) {
-        last_peer = 0; other = {}; call_audio_set(self.audio, 0);
+        last_peer = 0; other = {}; call_audio_set(self.audio, 0, audio_rate);
         ESP_LOGW("calls", "Other board heartbeat lost; audio cleared");
 #if CONFIG_BRIDGE_PHONE
         if (self.audio) esp_hf_client_disconnect_audio(peer); // Return audio routing to the iPhone; never hang up.
@@ -362,6 +466,18 @@ void relay_poll() {
         ESP_LOGW("calls", "Call command timed out; no automatic retry");
     }
     if (dirty || now() - last_snapshot >= 1000) snapshot();
+    if (now() - last_audio_report >= 5000) {
+        auto diagnostics = message("audio");
+        diagnostics.notice.body = call_audio_diagnostics();
+        transmit(diagnostics); last_audio_report = now();
+        if (self.audio && sync_handle != 0xffff) {
+#if CONFIG_BRIDGE_PHONE
+            esp_hf_client_pkt_stat_nums_get(sync_handle);
+#else
+            esp_hf_ag_pkt_stat_nums_get(sync_handle);
+#endif
+        }
+    }
     // Reconnect policy: only the iPhone-facing HFP client initiates.
 #if CONFIG_BRIDGE_PHONE
     // The iPhone-facing HFP client owns its outgoing reconnect policy. Board B
@@ -412,6 +528,12 @@ void relay_status() {
              peer_saved, !self.linked);
 #endif
     call_audio_status();
+    if (peer_live() && peer_audio_at && now() - peer_audio_at < 10000)
+        ESP_LOGI("calls", "Other board audio counters: %s", peer_audio_counters.c_str());
+    if (radio_at) ESP_LOGI("calls", "Local Bluetooth audio counters: %s; age_ms=%lld",
+                          radio_counters.c_str(), (long long)(now() - radio_at));
+    if (peer_live() && peer_radio_at) ESP_LOGI("calls", "Other board Bluetooth audio counters: %s; age_ms=%lld",
+                                            peer_radio_counters.c_str(), (long long)(now() - peer_radio_at));
 }
 void relay_start() {
     boot = token(); load_peer();
@@ -423,7 +545,7 @@ void relay_start() {
     call_audio_start();
 #if CONFIG_BRIDGE_PHONE
     ESP_ERROR_CHECK(esp_bt_gap_register_callback(phone_gap));
-    ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge A"));
+    ESP_ERROR_CHECK(esp_bt_gap_set_device_name("Dash Calls"));
     esp_bt_io_cap_t capability = ESP_BT_IO_CAP_NONE;
     ESP_ERROR_CHECK(esp_bt_gap_set_security_param(ESP_BT_SP_IOCAP_MODE, &capability, sizeof capability));
     esp_bt_cod_t cod = {}; cod.major = ESP_BT_COD_MAJOR_DEV_AV; cod.minor = 1;

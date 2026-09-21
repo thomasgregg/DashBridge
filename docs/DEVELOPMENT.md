@@ -99,14 +99,20 @@ record against the activated SDK's actual SDP argument validator. It also checks
 that excluding the service name's NUL terminator reproduces the original startup
 failure. A host C++ compiler is required; no board is accessed.
 
-## Service-discovery diagnostics
+## Historical service-discovery diagnostics
+
+The patch instrumentation described below belongs to the older notification and
+reconnection experiments. The current build does not include
+`firmware/sdp_diagnostics/CMakeLists.txt`; it uses the stock pinned SDK Bluetooth
+component. The patch tools and regression tests remain for the recorded cases.
+
 
 Board B's build uses `firmware/sdp_diagnostics/CMakeLists.txt` to instrument a
 build-local copy of ESP-IDF's SDP server. The SDK source remains untouched.
 A source checksum makes SDK changes fail configuration until reviewed. Version
 0.1.2 logs the first 96 bytes of each incoming SDP request and labels invalid
 request branches. These are service-discovery requests, not WhatsApp contents.
-Version 0.1.3 also applies a pinned compatibility patch through `patch.py`: the
+Version 0.1.3 also applies a pinned SDP parser patch through `patch.py`: the
 attribute-list capacity increases from 8 to 16 and the capacity check runs before
 writing each entry. The original post-increment check rejected a valid list of
 exactly 8 attributes. All Bluetooth source files use the same patched internal
