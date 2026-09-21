@@ -6,7 +6,7 @@
 
 // Pure protocol code, shared by the firmware and sanitizer-backed host tests.
 namespace calls {
-constexpr const char *protocol = "calls/1";
+constexpr const char *protocol = "calls/2";
 struct State {
     unsigned linked = 0, audio = 0, generation = 0;
     unsigned call = 0, setup = 0, held = 0, service = 0, signal = 0, roam = 0, battery = 0, incoming = 0;
@@ -76,8 +76,11 @@ struct CommandGate {
         return true;
     }
 };
-constexpr size_t pcm_size = 120; // 7.5 ms of 8 kHz mono, signed 16-bit PCM.
-constexpr size_t frame_size = 136;
+constexpr size_t pcm_size = 240; // 7.5 ms of 16 kHz mono, signed 16-bit little-endian PCM.
+constexpr size_t frame_size = pcm_size + 16;
+constexpr unsigned audio_baud = 460800;
+static_assert(frame_size * 10 * 1000000ULL < audio_baud * 7500ULL,
+              "The full-duplex UART must carry each audio frame within 7.5 ms");
 using Frame = std::array<uint8_t, frame_size>;
 inline uint16_t crc16(const uint8_t *p, size_t n) {
     uint16_t c = 0xffff;
@@ -88,28 +91,30 @@ inline void put32(uint8_t *p, uint32_t n) { for (int i = 0; i < 4; ++i) p[i] = n
 inline uint32_t get32(const uint8_t *p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; }
 inline Frame audio_frame(uint32_t source, uint32_t target, uint16_t sequence, const uint8_t *pcm) {
     Frame f{};
-    f[0] = 'D'; f[1] = 'A'; f[2] = 1; f[3] = pcm_size;
+    f[0] = 'D'; f[1] = 'A'; f[2] = 2; f[3] = pcm_size;
     put32(f.data() + 4, source); put32(f.data() + 8, target);
     f[12] = sequence; f[13] = sequence >> 8;
     memcpy(f.data() + 14, pcm, pcm_size);
     auto crc = crc16(f.data(), frame_size - 2);
-    f[134] = crc; f[135] = crc >> 8;
+    f[frame_size - 2] = crc; f[frame_size - 1] = crc >> 8;
     return f;
 }
 class AudioDecoder {
     Frame data_{};
     size_t count_ = 0;
+    uint32_t crc_failures_ = 0;
 public:
+    uint32_t crc_failures() const { return crc_failures_; }
     template<class Receive> void feed(uint8_t c, Receive receive) {
         data_[count_++] = c;
         while (count_ && (data_[0] != 'D' || (count_ > 1 && data_[1] != 'A') ||
-               (count_ > 2 && data_[2] != 1) || (count_ > 3 && data_[3] != pcm_size))) {
+               (count_ > 2 && data_[2] != 2) || (count_ > 3 && data_[3] != pcm_size))) {
             --count_; memmove(data_.data(), data_.data() + 1, count_);
         }
         if (count_ != frame_size) return;
         auto crc = crc16(data_.data(), frame_size - 2);
-        if (data_[134] == uint8_t(crc) && data_[135] == uint8_t(crc >> 8)) { receive(data_); count_ = 0; }
-        else { --count_; memmove(data_.data(), data_.data() + 1, count_); }
+        if (data_[frame_size - 2] == uint8_t(crc) && data_[frame_size - 1] == uint8_t(crc >> 8)) { receive(data_); count_ = 0; }
+        else { ++crc_failures_; --count_; memmove(data_.data(), data_.data() + 1, count_); }
     }
 };
 struct AudioSequence {
@@ -143,7 +148,10 @@ public:
     size_t pop(uint8_t *p, size_t n) {
         if (!n || n % 2 || n > data_.size()) return 0;
         if (!primed_ && size_ < pcm_size * 2) return 0;
-        if (size_ < n) { clear(); return 0; }
+        // IDF drains this callback until zero on each data-ready event. An empty
+        // probe is not a stream interruption: keep prefill and any partial PCM.
+        // The owner clears explicitly on timeout, sequence gaps or a new stream.
+        if (size_ < n) return 0;
         primed_ = true;
         for (size_t i = 0; i < n; ++i) p[i] = data_[(read_ + i) % data_.size()];
         read_ = (read_ + n) % data_.size(); size_ -= n;

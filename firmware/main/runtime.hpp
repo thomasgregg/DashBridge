@@ -21,6 +21,7 @@ void phone_start();
 void phone_poll();
 void phone_receive(const bridge::WireMessage &m);
 bool phone_notifications_ready();
+void phone_status();
 void car_start();
 void car_poll();
 void car_receive(const bridge::WireMessage &m);

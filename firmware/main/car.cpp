@@ -395,7 +395,7 @@ void car_start() {
     #if CONFIG_BRIDGE_SINGLE
     ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge"));
 #else
-    ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge B"));
+    ESP_ERROR_CHECK(esp_bt_gap_set_device_name("Dash Tesla"));
 #endif
     esp_bt_io_cap_t cap = ESP_BT_IO_CAP_NONE;
     ESP_ERROR_CHECK(esp_bt_gap_set_security_param(ESP_BT_SP_IOCAP_MODE, &cap, sizeof cap));

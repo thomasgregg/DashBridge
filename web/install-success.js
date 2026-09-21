@@ -15,8 +15,8 @@ export function successRenderer(role, onSelectOther, version) {
           <li>Label this board <strong>${board} — ${phone ? 'iPhone' : 'Tesla'}</strong>.</li>
           <li>Close this window before unplugging the board.</li>
           <li>${phone
-            ? 'Next, pair DashBridge A with your iPhone for calls and notification access.'
-            : 'Next, pair DashBridge B with your Tesla while parked and send the test message.'}</li>
+            ? 'Next, pair Dash Calls and Dash Messages with your iPhone for calls and notification access.'
+            : 'Next, pair Dash Tesla with your Tesla while parked and send the test message.'}</li>
         </ol>
         <a href=${guide} target="_blank" rel="noopener noreferrer" style="color:#126856;font-weight:600;text-underline-offset:3px">
           ${phone ? 'Open pairing and wiring guide' : 'Open pairing and wiring guide'} ↗

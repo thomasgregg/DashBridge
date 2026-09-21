@@ -5,7 +5,7 @@ DashBridge is an early hardware prototype. Useful evidence matters more than a b
 ## Start here
 
 - Read the [README](README.md) for the scope and current limits.
-- Follow the [setup guide](docs/SETUP.md) for hardware work.
+- Follow the [setup guide](docs/CALL_RELAY.md) for hardware work.
 - Read the [implementation notes](docs/DEVELOPMENT.md) before changing Bluetooth or message handling.
 
 ## Hardware reports
@@ -23,9 +23,9 @@ Start with Board B alone. A negative result, such as pairing working but message
 ## Code changes
 
 1. Fork the repository and create a branch for one focused change.
-2. Activate ESP-IDF v5.5.1. Use the original `esp32` target.
+2. Activate ESP-IDF v5.5.5. Use the original `esp32` target.
 3. Run `bash tools/test.sh` for protocol/core changes.
-4. Run `bash tools/build.sh` for firmware changes. This builds both roles and refreshes the packaged images and manifest.
+4. Run `bash tools/build.sh` for firmware changes. By default this rebuilds only stale roles and refreshes their packaged images and manifest; use `bash tools/build.sh both` to force both.
 5. Update relevant documentation if behavior or setup changes.
 6. Open a pull request explaining the problem, resulting behavior, and validation performed. State explicitly whether hardware was tested.
 
@@ -35,6 +35,6 @@ Keep notification queues bounded, avoid logging message content, and preserve cl
 
 ## Scope
 
-The immediate goal is a verified receive-only notification path. Larger work, including audio passthrough, a different chip, or a different phone platform, should begin with an issue describing the proposed approach and hardware requirements.
+The current work covers notification delivery and diagnosing the two-board call relay. Call audio is not yet acceptable in hardware tests. Music forwarding, other chips and other phone platforms need a separately defined design and hardware validation. See the current status in the README.
 
 Contributions to the original DashBridge project are provided under its [MIT License](LICENSE). Preserve the licenses and attribution of any third-party code you introduce.

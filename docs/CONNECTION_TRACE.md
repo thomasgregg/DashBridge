@@ -1,5 +1,7 @@
 # Reading a reconnect capture
 
+> **Historical vendor-stack trace build.** These traces describe the earlier outgoing-reconnect investigation. Current firmware uses the stock ESP-IDF v5.5.5 Bluetooth component and passive Tesla reconnection; it does not emit all these patched trace markers. See [current diagnostics](BLUETOOTH_AUDIO_DIAGNOSTICS.md) and [validation](CALL_RELAY_VALIDATION.md).
+
 Use the full downloaded console log, not just the final status block. The
 firmware version identifies the exact build. `Connection trace v1` marks the
 combined controller/channel/service instrumentation. No additional debug flags

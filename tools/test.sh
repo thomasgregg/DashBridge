@@ -12,6 +12,8 @@ mkdir -p "$project_dir/build/tests"
   "$project_dir/firmware/components/bridge_core/bridge_core.cpp" \
   "$project_dir/tests/call_test.cpp" -o "$project_dir/build/tests/call_test"
 "$project_dir/build/tests/call_test"
+python3 "$project_dir/tools/test_audio_replay.py"
+python3 "$project_dir/tools/test_audio_control.py"
 
 python3 "$project_dir/tools/test_reconnect.py"
 python3 "$project_dir/tools/test_reconnect_replay.py"

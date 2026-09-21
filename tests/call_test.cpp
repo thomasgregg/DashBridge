@@ -1,9 +1,71 @@
 #include "call_protocol.hpp"
+#include "call_resampler.hpp"
 #include <cassert>
+#include <cmath>
 #include <iostream>
 #include <random>
 using namespace calls;
+static std::vector<uint8_t> tone(unsigned rate, double frequency) {
+    std::vector<uint8_t> result(rate / 5 * 2); // 200 ms; several callback boundaries.
+    for (size_t i = 0; i < result.size() / 2; ++i)
+        pcm_write(result.data() + 2 * i, int16_t(12000 * std::sin(2 * 3.141592653589793 * frequency * i / rate)));
+    return result;
+}
+static double rms(const std::vector<uint8_t> &pcm) {
+    double total = 0;
+    for (size_t i = 200; i < pcm.size(); i += 2) {
+        double value = pcm_read(pcm.data() + i); total += value * value;
+    }
+    return std::sqrt(total / ((pcm.size() - 200) / 2));
+}
+static double component(const std::vector<uint8_t> &pcm, double frequency) {
+    double re = 0, im = 0;
+    for (size_t i = 200; i < pcm.size(); i += 2) {
+        double phase = 2 * 3.141592653589793 * frequency * (i / 2) / 16000;
+        re += pcm_read(pcm.data() + i) * std::cos(phase);
+        im += pcm_read(pcm.data() + i) * std::sin(phase);
+    }
+    return std::sqrt(re * re + im * im);
+}
+static void resampler_tests() {
+    auto input = tone(8000, 1000);
+    std::vector<uint8_t> wide(input.size() * 2), chunks(wide.size()), restored(input.size());
+    PcmUpsampler up, split_up;
+    up.convert(input.data(), input.size(), wide.data());
+    for (size_t i = 0; i < input.size(); i += 2)
+        split_up.convert(input.data() + i, 2, chunks.data() + 2 * i);
+    assert(chunks == wide); // Callback fragmentation must not alter signal or timing.
+    assert(rms(wide) / rms(input) > .97 && rms(wide) / rms(input) < 1.03);
+    assert(component(wide, 7000) / component(wide, 1000) < .01); // Suppress interpolation image.
+    PcmDownsampler down, split_down;
+    down.convert(wide.data(), wide.size(), restored.data());
+    chunks.resize(restored.size());
+    for (size_t i = 0; i < wide.size(); i += 4)
+        split_down.convert(wide.data() + i, 4, chunks.data() + i / 2);
+    assert(chunks == restored);
+    assert(rms(restored) / rms(input) > .94 && rms(restored) / rms(input) < 1.06);
+    auto high = tone(16000, 6000);
+    down.clear(); down.convert(high.data(), high.size(), restored.data());
+    assert(rms(restored) / rms(high) < .01); // >40 dB anti-alias rejection before 8 kHz fallback.
+    auto speech = tone(16000, 3000);
+    down.clear(); down.convert(speech.data(), speech.size(), restored.data());
+    assert(rms(restored) / rms(speech) > .95);
+    // Disconnect/codec-change reset must remove previous speech from filter history.
+    std::vector<uint8_t> silence(input.size());
+    up.clear(); up.convert(silence.data(), silence.size(), wide.data());
+    assert(rms(wide) == 0);
+    down.clear(); down.convert(wide.data(), wide.size(), restored.data());
+    assert(rms(restored) == 0);
+    // Full-scale inputs must saturate rather than wrap, including filter overshoot.
+    for (size_t i = 0; i < input.size(); i += 2) pcm_write(input.data() + i, 32767);
+    up.clear(); up.convert(input.data(), input.size(), wide.data());
+    for (size_t i = 100; i < wide.size(); i += 2) assert(pcm_read(wide.data() + i) > 32000);
+    for (size_t i = 0; i < input.size(); i += 2) pcm_write(input.data() + i, -32768);
+    up.clear(); up.convert(input.data(), input.size(), wide.data());
+    for (size_t i = 100; i < wide.size(); i += 2) assert(pcm_read(wide.data() + i) < -32000);
+}
 int main() {
+    resampler_tests();
     State a{1, 0xdeadbeef, 0x12345678, 0, 1, 0, 1, 4, 0, 5, 1, "+491234"}, b;
     assert(decode_state(encode_state(a), a.number, b) && b.audio == a.audio && b.generation == a.generation);
     for (const auto &bad : {"", "1 2", "1 0 0 0 4 0 1 4 0 5 1", "1 4294967296 0 0 0 0 0 0 0 0 0",
@@ -42,6 +104,13 @@ int main() {
     auto corrupt = frame; corrupt[18] ^= 1;
     for (auto c : corrupt) decoder.feed(c, accept);
     assert(received == 1);
+    assert(decoder.crc_failures() == 1);
+    std::array<uint8_t, 136> legacy{};
+    legacy[0] = 'D'; legacy[1] = 'A'; legacy[2] = 1; legacy[3] = 120;
+    auto legacy_crc = crc16(legacy.data(), legacy.size() - 2);
+    legacy[134] = legacy_crc; legacy[135] = legacy_crc >> 8;
+    for (auto c : legacy) decoder.feed(c, accept);
+    assert(received == 1); // Never play v1 8 kHz data at 16 kHz.
     for (int i = 0; i < 55; ++i) decoder.feed(frame[i], accept); // Truncated frame followed by fresh frame.
     for (auto c : frame) decoder.feed(c, accept);
     assert(received == 2);
@@ -79,5 +148,5 @@ int main() {
         assert(out.op == bridge::Op::call && out.session == 33 && out.notice.body == m.notice.body); delivered = true;
     });
     assert(delivered);
-    std::cout << "Call control and PCM transport tests passed\n";
+    std::cout << "Call control, 16 kHz PCM transport and filtered 8/16 kHz conversion tests passed\n";
 }

@@ -22,9 +22,14 @@ static uint8_t control_uuid[] = {0xd9, 0xd9, 0xaa, 0xfd, 0xbd, 0x9b, 0x21, 0x98,
                                  0xa8, 0x49, 0xe1, 0x45, 0xf3, 0xd8, 0xd1, 0x69};
 static uint8_t data_uuid[] = {0xfb, 0x7b, 0x7c, 0xce, 0x6a, 0xb3, 0x44, 0xbe,
                               0xb5, 0x4b, 0xd6, 0x24, 0xe9, 0xc6, 0xea, 0x22};
-// ANCS service solicitation; this accessory does not claim to be a keyboard.
+// Keep ANCS solicitation and add the generic HID discovery advertisement used by
+// ESP-IDF v5.5.5 examples/bluetooth/bluedroid/ble/ble_ancs. This is a compatibility
+// experiment for iOS Settings discovery, not a keyboard/report implementation.
 static uint8_t advertisement[] = {2,    0x01, 0x06, 17,   0x15, 0xd0, 0x00, 0x2d, 0x12, 0x1e, 0x4b,
-                                  0x0f, 0xa4, 0x99, 0x4e, 0xce, 0xb5, 0x31, 0xf4, 0x05, 0x79};
+                                  0x0f, 0xa4, 0x99, 0x4e, 0xce, 0xb5, 0x31, 0xf4, 0x05, 0x79,
+                                  3, 0x03, 0x12, 0x18, // Complete 16-bit service list: HID, 0x1812.
+                                  3, 0x19, 0xc0, 0x03}; // Appearance: generic HID, 0x03c0.
+static_assert(sizeof(advertisement) <= 31, "Legacy BLE advertisement exceeds 31 bytes");
 static esp_ble_adv_params_t advertising = {};
 static esp_gatt_if_t interface_id = ESP_GATT_IF_NONE;
 static uint16_t connection = 0, start_handle = 0, end_handle = 0;
@@ -33,6 +38,9 @@ static esp_bd_addr_t peer = {};
 static bool linked = false, secured = false, mtu_ready = false, searching = false, ready = false;
 static bool car_ready = false, active = false, canceled = false;
 static int adv_pending = 0;
+// Diagnostic state only; never used to drive pairing or connection decisions.
+static const char *adv_state = "not requested";
+static int privacy_status = -1, adv_data_status = -1, scan_data_status = -1;
 static int64_t last_car = 0, last_heartbeat = 0, deadline = 0, setup_deadline = 0;
 static uint32_t session = 0;
 struct Request {
@@ -43,6 +51,17 @@ static std::deque<Request> requests;
 static Request current = {};
 static AncsResponse response;
 static std::vector<std::array<uint8_t, 6>> previous_bonds;
+static esp_err_t log_request(const char *operation, esp_err_t result) {
+    ESP_LOGI(tag, "BLE %s request: %s (0x%x)", operation, esp_err_to_name(result), unsigned(result));
+    return result;
+}
+static esp_err_t start_advertising() {
+    adv_state = "starting";
+    esp_err_t result = log_request("advertising start", esp_ble_gap_start_advertising(&advertising));
+    if (result != ESP_OK)
+        adv_state = "request failed";
+    return result;
+}
 static bool known(const uint8_t *address) {
     for (const auto &bond : previous_bonds)
         if (!memcmp(bond.data(), address, 6))
@@ -74,6 +93,7 @@ static void new_session() {
 }
 static void disconnect(const char *reason) {
     ESP_LOGW(tag, "%s", reason);
+    phone_status();
     ready = false;
     requests.clear();
     canceled = true;
@@ -87,7 +107,7 @@ static void search() {
     esp_bt_uuid_t uuid = {};
     uuid.len = ESP_UUID_LEN_128;
     memcpy(uuid.uuid.uuid128, service_uuid, 16);
-    if (esp_ble_gattc_search_service(interface_id, connection, &uuid) != ESP_OK)
+    if (log_request("ANCS discovery", esp_ble_gattc_search_service(interface_id, connection, &uuid)) != ESP_OK)
         disconnect("Could not start ANCS discovery");
 }
 static void request_next() {
@@ -148,13 +168,17 @@ static void source_event(const uint8_t *value, size_t size) {
 }
 static void subscribe(uint16_t handle) {
     subscribing = handle;
-    if (esp_ble_gattc_register_for_notify(interface_id, peer, handle) != ESP_OK)
+    ESP_LOGI(tag, "ANCS subscribing: channel=%s handle=0x%04x",
+             handle == data_handle ? "data" : "notifications", unsigned(handle));
+    if (log_request("notification registration", esp_ble_gattc_register_for_notify(interface_id, peer, handle)) != ESP_OK)
         disconnect("Could not register ANCS subscription");
 }
 static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
     Guard guard;
     switch (event) {
     case ESP_GAP_BLE_SET_LOCAL_PRIVACY_COMPLETE_EVT: {
+        privacy_status = p->local_privacy_cmpl.status;
+        ESP_LOGI(tag, "BLE privacy complete: status=0x%02x", unsigned(privacy_status));
         if (p->local_privacy_cmpl.status != ESP_BT_STATUS_SUCCESS) {
             ESP_LOGE(tag, "Bluetooth privacy setup failed");
             break;
@@ -168,15 +192,43 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
         break;
     }
     case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT:
-    case ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT:
+    case ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT: {
+        const bool raw = event == ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT;
+        int result = raw ? p->adv_data_raw_cmpl.status : p->scan_rsp_data_cmpl.status;
+        if (raw)
+            adv_data_status = result;
+        else
+            scan_data_status = result;
+        ESP_LOGI(tag, "BLE %s configured: status=0x%02x pending=%d",
+                 raw ? "advertisement (ANCS + generic HID discovery)" : "scan response (device name)",
+                 unsigned(result), adv_pending - 1);
         if (--adv_pending == 0)
-            ESP_ERROR_CHECK(esp_ble_gap_start_advertising(&advertising));
+            ESP_ERROR_CHECK(start_advertising());
         break;
-    case ESP_GAP_BLE_SEC_REQ_EVT:
-        esp_ble_gap_security_rsp(p->ble_security.ble_req.bd_addr,
-                                 pairing_allowed(Peer::phone) || known(p->ble_security.ble_req.bd_addr));
+    }
+    case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
+        adv_state = p->adv_start_cmpl.status == ESP_BT_STATUS_SUCCESS ? "active" : "start failed";
+        ESP_LOGI(tag, "BLE advertising start complete: status=0x%02x state=%s",
+                 unsigned(p->adv_start_cmpl.status), adv_state);
         break;
+    case ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT:
+        if (p->adv_stop_cmpl.status == ESP_BT_STATUS_SUCCESS)
+            adv_state = "stopped";
+        ESP_LOGI(tag, "BLE advertising stop complete: status=0x%02x state=%s",
+                 unsigned(p->adv_stop_cmpl.status), adv_state);
+        break;
+    case ESP_GAP_BLE_SEC_REQ_EVT: {
+        const bool allowed = pairing_allowed(Peer::phone) || known(p->ble_security.ble_req.bd_addr);
+        ESP_LOGI(tag, "BLE security request: accepted=%d pairing_open=%d",
+                 allowed, pairing_allowed(Peer::phone));
+        log_request("security response", esp_ble_gap_security_rsp(p->ble_security.ble_req.bd_addr, allowed));
+        break;
+    }
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
+        ESP_LOGI(tag, "BLE authentication complete: success=%d reason=0x%02x auth_mode=0x%02x",
+                 p->ble_security.auth_cmpl.success,
+                 unsigned(p->ble_security.auth_cmpl.success ? 0 : p->ble_security.auth_cmpl.fail_reason),
+                 unsigned(p->ble_security.auth_cmpl.auth_mode));
         if (!p->ble_security.auth_cmpl.success) {
             disconnect("iPhone pairing/encryption failed");
             break;
@@ -199,6 +251,8 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
     Guard guard;
     switch (event) {
     case ESP_GATTC_REG_EVT:
+        ESP_LOGI(tag, "BLE GATT registration complete: status=0x%02x interface=%u",
+                 unsigned(p->reg.status), unsigned(id));
         if (p->reg.status != ESP_GATT_OK) {
             ESP_LOGE(tag, "GATT registration failed");
             break;
@@ -207,13 +261,17 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         #if CONFIG_BRIDGE_SINGLE
         ESP_ERROR_CHECK(esp_ble_gap_set_device_name("DashBridge"));
 #else
-        ESP_ERROR_CHECK(esp_ble_gap_set_device_name("DashBridge A"));
+        ESP_ERROR_CHECK(esp_ble_gap_set_device_name("Dash Messages"));
 #endif
-        ESP_ERROR_CHECK(esp_ble_gap_config_local_privacy(true));
+        ESP_ERROR_CHECK(log_request("privacy configuration", esp_ble_gap_config_local_privacy(true)));
         break;
     case ESP_GATTC_CONNECT_EVT: {
+        ESP_LOGI(tag, "BLE connection event: id=%u role=%u address_type=%u already_linked=%d",
+                 unsigned(p->connect.conn_id), unsigned(p->connect.link_role),
+                 unsigned(p->connect.ble_addr_type), linked);
         if (linked)
             break;
+        adv_state = "connected";
         linked = true;
         connection = p->connect.conn_id;
         snapshot_bonds();
@@ -225,26 +283,31 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         params.remote_addr_type = p->connect.ble_addr_type;
         params.own_addr_type = BLE_ADDR_TYPE_RPA_PUBLIC;
         params.is_direct = true;
-        if (esp_ble_gattc_enh_open(interface_id, &params) != ESP_OK)
+        if (log_request("GATT open", esp_ble_gattc_enh_open(interface_id, &params)) != ESP_OK)
             disconnect("Could not open iPhone GATT connection");
         break;
     }
-    case ESP_GATTC_OPEN_EVT:
+    case ESP_GATTC_OPEN_EVT: {
+        ESP_LOGI(tag, "BLE GATT open complete: status=0x%02x id=%u mtu=%u",
+                 unsigned(p->open.status), unsigned(p->open.conn_id), unsigned(p->open.mtu));
         if (p->open.status != ESP_GATT_OK) {
             disconnect("GATT open failed");
             break;
         }
         connection = p->open.conn_id;
-        if (esp_ble_set_encryption(peer, ESP_BLE_SEC_ENCRYPT) != ESP_OK) {
+        if (log_request("encryption", esp_ble_set_encryption(peer, ESP_BLE_SEC_ENCRYPT)) != ESP_OK) {
             disconnect("Could not encrypt iPhone link");
             break;
         }
-        if (esp_ble_gattc_send_mtu_req(interface_id, connection) != ESP_OK) {
+        if (log_request("MTU exchange", esp_ble_gattc_send_mtu_req(interface_id, connection)) != ESP_OK) {
             mtu_ready = true;
             search();
         }
         break;
+    }
     case ESP_GATTC_CFG_MTU_EVT:
+        ESP_LOGI(tag, "BLE MTU complete: status=0x%02x mtu=%u",
+                 unsigned(p->cfg_mtu.status), unsigned(p->cfg_mtu.mtu));
         mtu_ready = true;
         search();
         break;
@@ -253,9 +316,13 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
             !memcmp(p->search_res.srvc_id.uuid.uuid.uuid128, service_uuid, 16)) {
             start_handle = p->search_res.start_handle;
             end_handle = p->search_res.end_handle;
+            ESP_LOGI(tag, "ANCS service found: handles=0x%04x-0x%04x",
+                     unsigned(start_handle), unsigned(end_handle));
         }
         break;
     case ESP_GATTC_SEARCH_CMPL_EVT: {
+        ESP_LOGI(tag, "ANCS discovery complete: status=0x%02x service_found=%d",
+                 unsigned(p->search_cmpl.status), start_handle != 0);
         if (p->search_cmpl.status != ESP_GATT_OK || !start_handle) {
             disconnect("ANCS unavailable; allow Share System Notifications on iPhone");
             break;
@@ -277,6 +344,8 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
                 if (!memcmp(u, control_uuid, 16))
                     control_handle = chars[i].char_handle;
             }
+        ESP_LOGI(tag, "ANCS characteristics: notifications=0x%04x data=0x%04x control=0x%04x",
+                 unsigned(source_handle), unsigned(data_handle), unsigned(control_handle));
         if (!source_handle || !data_handle || !control_handle) {
             disconnect("Incomplete ANCS service");
             break;
@@ -285,6 +354,8 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         break;
     }
     case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
+        ESP_LOGI(tag, "ANCS notification registration complete: status=0x%02x handle=0x%04x",
+                 unsigned(p->reg_for_notify.status), unsigned(p->reg_for_notify.handle));
         if (p->reg_for_notify.status != ESP_GATT_OK) {
             disconnect("ANCS notification registration failed");
             break;
@@ -301,12 +372,14 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
             break;
         }
         uint8_t enable[] = {1, 0};
-        if (esp_ble_gattc_write_char_descr(interface_id, connection, descriptor.handle, 2, enable,
-                                           ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE) != ESP_OK)
+        if (log_request("subscription write", esp_ble_gattc_write_char_descr(interface_id, connection, descriptor.handle, 2, enable,
+                                           ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE)) != ESP_OK)
             disconnect("ANCS subscription write failed");
         break;
     }
     case ESP_GATTC_WRITE_DESCR_EVT:
+        ESP_LOGI(tag, "ANCS subscription complete: status=0x%02x handle=0x%04x",
+                 unsigned(p->write.status), unsigned(p->write.handle));
         if (p->write.status != ESP_GATT_OK) {
             disconnect("iPhone refused notification access");
             break;
@@ -352,12 +425,15 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         disconnect("iPhone services changed; rediscovering");
         break;
     case ESP_GATTC_DISCONNECT_EVT:
+        ESP_LOGI(tag, "BLE disconnected: id=%u reason=0x%02x",
+                 unsigned(p->disconnect.conn_id), unsigned(p->disconnect.reason));
+        phone_status();
         linked = secured = mtu_ready = searching = ready = active = false;
         start_handle = end_handle = source_handle = data_handle = control_handle = subscribing = 0;
         response.clear();
         new_session();
         ESP_LOGI(tag, "iPhone disconnected; inbox cleared");
-        esp_ble_gap_start_advertising(&advertising);
+        start_advertising();
         break;
     default:
         break;
@@ -394,7 +470,15 @@ void phone_poll() {
     request_next();
 }
 bool phone_notifications_ready() { return linked && secured && ready; }
+void phone_status() {
+    ESP_LOGI(tag, "BLE state: advertising=%s registered=%d privacy=%d adv_data=%d scan_data=%d pending=%d",
+             adv_state, interface_id != ESP_GATT_IF_NONE, privacy_status, adv_data_status, scan_data_status, adv_pending);
+    ESP_LOGI(tag, "BLE setup: linked=%d encrypted=%d mtu_ready=%d discovery_started=%d ancs_ready=%d bonds=%d",
+             linked, secured, mtu_ready, searching, ready, esp_ble_get_bond_device_num());
+}
 void phone_start() {
+    ESP_LOGI(tag, "BLE notification diagnostics enabled; configuration status -1=pending, 0=success");
+    ESP_LOGI(tag, "BLE discovery compatibility test: ANCS + generic HID advertisement; no input reports");
     advertising.adv_int_min = 0x100;
     advertising.adv_int_max = 0x100;
     advertising.adv_type = ADV_TYPE_IND;
@@ -411,7 +495,7 @@ void phone_start() {
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &keys, sizeof keys));
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap));
     ESP_ERROR_CHECK(esp_ble_gattc_register_callback(gatt));
-    ESP_ERROR_CHECK(esp_ble_gattc_app_register(0));
+    ESP_ERROR_CHECK(log_request("GATT registration", esp_ble_gattc_app_register(0)));
     new_session();
 }
 } // namespace runtime

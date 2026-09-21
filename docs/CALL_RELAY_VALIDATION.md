@@ -1,4 +1,50 @@
-# Call relay validation — 20 September 2026
+# Call relay validation
+
+## Current local hardware status — 21 September 2026
+
+The two boards have arrived and both are installed with ESP-IDF **v5.5.5**
+diagnostic firmware. The installed development builds used for the observations
+below are listed here. Release **0.3.3-alpha** uses the same firmware logic with
+a new release identifier; its exact images have not been flashed or listened to
+on hardware. See the [release image identities](releases/0.3.3-alpha.md).
+
+| Board | Installed application version | Startup verification |
+| --- | --- | --- |
+| A — Dash Calls / Dash Messages | `0.3.2-alpha+2fc3efa8d0cf` | Verified; iPhone HFP and ANCS reconnected, normal audio mode |
+| B — Dash Tesla | `0.3.2-alpha+cc21ebb27de2` | Verified; peer A detected, normal audio mode; Tesla not connected in latest captured status |
+
+- The user confirmed WhatsApp text delivery through the two-board setup after
+  connecting Tesla. This does not establish sustained notification reliability.
+- Answered FaceTime Audio calls were exercised. The user reported robotic/bad
+  audio and unclear or missing microphone audio. A brief earlier report of clear
+  speech was subsequently corrected and is not treated as a successful result.
+- Captured calls negotiated 16 kHz mSBC on both links. The UART timing build
+  removed measured cable sequence gaps, CRC failures and UART errors in the
+  subsequent call, but the user still reported poor audio, possibly worse.
+- The latest firmware adds Bluetooth packet statistics and per-side test tone
+  and loopback modes. Both boards acknowledged normal mode via a remote stop
+  command. **No tone/loopback listening test has been performed yet.**
+- A automatically restored calls and notification sharing after updates. B's
+  Tesla-owned vehicle-wake reconnect was verified in the earlier investigation
+  below; it must not be generalized to every adapter reset or the latest build.
+- Both role builds and sanitizer tests passed, including the production audio
+  callbacks at 8/16 kHz and diagnostic-control routing/replay checks. Generated
+  configuration checks confirm the intended roles and codecs.
+- Music, media controls, contacts and replies remain unimplemented. Daily-use
+  reliability, all call-control operations, and acceptable audio quality are
+  not established. Hardware, power and radio conditions are not ruled out.
+
+See [audio isolation instructions](AUDIO_ISOLATION_TESTS.md),
+[UART timing findings](UART_AUDIO_TIMING.md), and
+[Bluetooth diagnostics](BLUETOOTH_AUDIO_DIAGNOSTICS.md).
+
+## Earlier build and investigation records
+
+The sections below preserve results and pending checks as recorded at each
+stage. References to absent boards or unrun tests describe those earlier stages;
+the current status above supersedes them.
+
+### Initial call-relay build — 20 September 2026
 
 Version: **0.3.0-call-alpha**. Firmware source commit: `dcfb6a5`.
 
@@ -32,8 +78,7 @@ not simulate the complete iPhone/Tesla Bluetooth state machines.
 Use the [wiring and test guide](CALL_RELAY.md) when both boards are available.
 Music, media controls, contacts, Siri, redial and multiparty calling are outside
 this first milestone. At the time of this firmware build, the public installer was unchanged. The
-installer was subsequently updated to offer these A/B alpha images; the
-v0.1.4 rollback release remains unchanged.
+installer was subsequently updated to offer these A/B alpha images.
 
 ## Board B reconnection investigation
 

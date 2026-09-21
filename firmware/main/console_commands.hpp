@@ -4,7 +4,7 @@
 #include <string_view>
 
 namespace runtime {
-enum class Command { none, test, pair, pair_phone, pair_car, status, help, invalid };
+enum class Command { none, test, pair, pair_phone, pair_car, status, help, audio_phone_tone, audio_phone_loopback, audio_car_tone, audio_car_loopback, audio_off, invalid };
 
 // A bounded, line-oriented USB console. Discard invalid/overlong lines in full
 // so a suffix can never turn into an unintended command. CRLF runs only once.
@@ -35,6 +35,11 @@ public:
         if (line == "pair phone") return Command::pair_phone;
         if (line == "pair car") return Command::pair_car;
         if (line == "status") return Command::status;
+        if (line == "audio phone tone") return Command::audio_phone_tone;
+        if (line == "audio phone loopback") return Command::audio_phone_loopback;
+        if (line == "audio car tone") return Command::audio_car_tone;
+        if (line == "audio car loopback") return Command::audio_car_loopback;
+        if (line == "audio off") return Command::audio_off;
         if (line == "help") return Command::help;
         return Command::invalid;
     }

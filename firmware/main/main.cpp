@@ -67,6 +67,7 @@ static void status() {
 #if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
     ESP_LOGI("status", "iPhone notifications: %s; pairing: %s", phone_notifications_ready() ? "ready" : "not ready",
              pairing_allowed(Peer::phone) ? "open" : "closed");
+    phone_status();
 #endif
 #if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
     ESP_LOGI("status", "Tesla notifications: %s; pairing: %s", car_notifications_ready() ? "ready" : "not ready",
@@ -84,12 +85,23 @@ static void console_command(Command command) {
     if (command == Command::none) return;
     if (command == Command::pair) { open_pairing(); return; }
     if (command == Command::status) { status(); return; }
+#if CONFIG_BRIDGE_CALL_RELAY
+    using Mode = calls::AudioTestMode;
+    if (command == Command::audio_off) { relay_audio_test_stop(); return; }
+    if (command == Command::audio_phone_tone) { relay_audio_test(true, Mode::tone); return; }
+    if (command == Command::audio_phone_loopback) { relay_audio_test(true, Mode::loopback); return; }
+    if (command == Command::audio_car_tone) { relay_audio_test(false, Mode::tone); return; }
+    if (command == Command::audio_car_loopback) { relay_audio_test(false, Mode::loopback); return; }
+#endif
 #if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
     if (command == Command::pair_phone) { open_pairing(Peer::phone); return; }
 #endif
 #if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
     if (command == Command::pair_car) { open_pairing(Peer::car); return; }
     if (command == Command::test) { car_test(); return; }
+#endif
+#if CONFIG_BRIDGE_CALL_RELAY
+    ESP_LOGI("setup", "Audio tests (active call, 60s): audio phone tone, audio phone loopback, audio car tone, audio car loopback, audio off");
 #endif
 #if CONFIG_BRIDGE_SINGLE
     ESP_LOGI("setup", "USB commands: test, pair phone, pair car, pair (both), status, help");

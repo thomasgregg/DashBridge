@@ -115,8 +115,7 @@ Calls, music passthrough and WhatsApp replies are still not implemented.
 
 Activate ESP-IDF v5.5.1, then run `bash tools/build.sh single`.
 This explicitly builds only the single-board target. The default automatic build
-on this branch also considers only `single`, so stale legacy A/B images do not
-trigger unrelated builds. CI's manual **board**
+on this branch also considers only `single`. CI's manual **board**
 selection also accepts `single`. The artifact is `dashbridge-firmware-single`.
 Run `bash tools/test.sh` and `python3 tools/test_build_scope.py` for host tests.
 After compiling, run `DASHBRIDGE_BUILD_ROLE=single python tools/test_sdp.py`

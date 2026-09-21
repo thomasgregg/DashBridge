@@ -26,7 +26,7 @@ using esp_err_t=int; using esp_bd_addr_t=uint8_t[6]; using nvs_handle_t=int;
 constexpr int ESP_OK=0, ESP_ERR_NVS_NOT_FOUND=1, NVS_READONLY=0, NVS_READWRITE=1;
 struct State { bool linked=false; } self;
 bool dirty=false, connecting=false, peer_saved=false;
-unsigned reconnect_attempts=0, reconnect_delay=5000;
+unsigned reconnect_attempts=0, reconnect_delay=5000, audio_rate=0;
 int last_connect_result=ESP_OK;
 int64_t tick=0,next_connect=5000;
 esp_bd_addr_t peer{}, saved{}, bonded_address{1,2,3,4,5,6};
@@ -34,7 +34,7 @@ bool stored=false,bonded=true;
 size_t stored_size=6;
 int opens=0,closes=0;
 int64_t now(){return tick;}
-void call_audio_set(int,int){}
+void call_audio_set(int,int,unsigned){}
 int esp_bt_gap_get_bond_device_num(){return bonded?1:0;}
 int esp_bt_gap_get_bond_device_list(int*count,esp_bd_addr_t*out){assert(*count==1);memcpy(out[0],bonded_address,6);return 0;}
 int nvs_open(const char*,int mode,int*h){*h=1;return (mode==NVS_READONLY&&!stored)?ESP_ERR_NVS_NOT_FOUND:ESP_OK;}

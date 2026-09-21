@@ -1,5 +1,7 @@
 # DashBridge validation record — 20 September 2026
 
+> **Historical notification-prototype validation.** Versions, missing features and pending tests below describe the earlier builds, not current firmware. See [current two-board validation](CALL_RELAY_VALIDATION.md).
+
 ## Host software tests: PASS
 
 Command: `bash tools/test.sh`, using Apple Clang, C++17, warnings as errors, AddressSanitizer and UndefinedBehaviorSanitizer. Output is recorded in `host-test-results.txt`.
