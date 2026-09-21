@@ -63,6 +63,7 @@ static uint8_t channel_number = 0;
 static int mns_state = 0; // 0 idle, 1 discovery/connect, 2 OBEX connect, 3 ready, 4 event awaiting response
 static uint32_t mns_id = 0;
 static int64_t mns_deadline = 0, last_heartbeat = 0, last_phone = 0, last_discovery = 0;
+static int discoverable = -1;
 static uint32_t test_id = 0;
 static std::deque<uint64_t> pending_events;
 static bool known(const uint8_t *bda) {
@@ -368,8 +369,18 @@ void car_poll() {
         Notice n;
         n.id = car_notifications_ready();
         send_to_phone({Op::heartbeat, 0, n});
-        esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE,
-                                 pairing_allowed(Peer::car) ? ESP_BT_GENERAL_DISCOVERABLE : ESP_BT_NON_DISCOVERABLE);
+        const int desired = pairing_allowed(Peer::car);
+        if (desired != discoverable) {
+            auto error = esp_bt_gap_set_scan_mode(
+                ESP_BT_CONNECTABLE,
+                desired ? ESP_BT_GENERAL_DISCOVERABLE : ESP_BT_NON_DISCOVERABLE);
+            if (error == ESP_OK) {
+                discoverable = desired;
+                ESP_LOGI(tag, "Discoverability changed: %s", desired ? "pairing" : "paired-only");
+            } else {
+                ESP_LOGW(tag, "Discoverability change failed: %s", esp_err_to_name(error));
+            }
+        }
     }
     if (last_phone && now() - last_phone > 5000) {
         last_phone = 0;
@@ -380,7 +391,6 @@ void car_poll() {
 }
 bool car_notifications_ready() { return server.handle && mas.notifications() && mns_state >= 3; }
 void car_start() {
-    ESP_LOGI(tag, "Connection trace v1: HCI/authentication/encryption, L2CAP queue/controller/RX, SDP/HFP; keys and message payloads excluded");
     ESP_ERROR_CHECK(esp_bt_gap_register_callback(gap_cb));
     #if CONFIG_BRIDGE_SINGLE
     ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge"));

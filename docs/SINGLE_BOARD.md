@@ -1,8 +1,7 @@
 # Single-board prototype
 
 Archived firmware: **0.2.1-dev**, preserved at [archive/single-board](https://github.com/thomasgregg/DashBridge/tree/archive/single-board).
-The [online installer](https://thomasgregg.github.io/DashBridge/) now serves the current two-board firmware; the instructions below describe the archived prototype.
-The permanent two-board snapshot is [v0.1.4](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4).
+The instructions below describe the archived prototype source. The public installer serves only the current two-board A/B firmware.
 
 ## What changed
 
@@ -25,7 +24,7 @@ WhatsApp filtering and duplicate handling are unchanged.
 
 ## Install and test while parked
 
-This is an experimental build, not an established replacement for v0.1.4.
+This is an archived experimental build, not the current supported firmware.
 The earlier two-board B firmware displayed a test message on the user's
 Tesla. That result does **not** establish that this combined build works.
 
@@ -68,9 +67,9 @@ tests this separately, without replacing the regular installer.
 
 ### Setup steps
 
-1. Save the v0.1.4 release or use its recovery guide before changing the board.
+1. Check out the `archive/single-board` tag and build its image.
 2. Connect one original ESP32 by USB. Install `single-merged.bin` at address
-   `0x0`, or use the [online installer](https://thomasgregg.github.io/DashBridge/). The merged install erases
+   `0x0`. The merged install erases
    saved pairings. RST is not a BOOT button; use the USB console commands below.
 3. Open **Logs & Console** at 115200 baud. Confirm `App version: 0.2.1-dev`
    and `DashBridge single-board prototype` appear without repeated restarts.
@@ -123,14 +122,4 @@ Run `bash tools/test.sh` and `python3 tools/test_build_scope.py` for host tests.
 After compiling, run `DASHBRIDGE_BUILD_ROLE=single python tools/test_sdp.py`
 and `python tools/test_sdp_attributes.py` with the pinned SDK active.
 
-The single-board installer is built with `npm ci --prefix web` then
-`npm run build --prefix web`. Serve `_site` over localhost or HTTPS using
-Chrome/Edge. The public GitHub Pages installer now serves the two-board firmware.
-The preserved v0.1.4 release includes the earlier two-board installer.
-
-## Roll back
-
-Use [the two-board recovery guide](https://github.com/thomasgregg/DashBridge/blob/v0.1.4/docs/RESTORE_TWO_BOARD.md).
-For the board already tested with the Tesla, restore v0.1.4 `car-merged.bin`,
-re-pair **DashBridge B**, and run `test` again. The release includes its own
-archived web installer and does not depend on this development branch.
+The public GitHub Pages installer serves only the current two-board firmware.

@@ -87,14 +87,6 @@ async function main() {
   await cp(path.join(root, 'web/favicon.svg'), path.join(output, 'favicon.svg'));
   await cp(path.join(root, 'dist/manifest.json'), path.join(output, 'firmware/checksums.json'));
   await writeFile(path.join(output, '.nojekyll'), '');
-  // Retire the failed message-only experiment, including bookmarks to its URL.
-  await mkdir(path.join(output, 'message-only'), { recursive: true });
-  await writeFile(path.join(output, 'message-only/index.html'), `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DashBridge installer</title><meta http-equiv="refresh" content="0;url=../">
-<link rel="canonical" href="https://thomasgregg.github.io/DashBridge/"></head>
-<body><p>The message-only experiment has been replaced by the two-board installer.</p>
-<p><a href="../">Open the DashBridge installer</a></p></body></html>\n`);
   // Distribute notices alongside the bundled code.
   const notices = [];
   for (const file of ['LICENSE', 'third_party/README.md', 'third_party/ESP-IDF-LICENSE', 'third_party/ESP32-controller-LICENSE']) {
