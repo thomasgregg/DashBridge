@@ -84,6 +84,29 @@ Count pins from the antenna end (top): GPIO26 is left inner, third; GPIO25 is
 right outer, third. GPIO17, GPIO16 and the pictured GND are right inner, fifth,
 sixth and seventh respectively. Fit soldered headers before using jumper leads.
 
+### ESP32 Dev Kit C V2 pin locations
+
+![AZDelivery ESP32 Dev Kit C V2 wiring: five connections between A and B](assets/devkit-c-v2-wiring.svg)
+
+This illustration follows the [AZDelivery 38-pin Dev Kit C V2 pinout](https://cdn.shopify.com/s/files/1/1509/1638/files/ESP-32_NodeMCU_Developmentboard_Pinout.pdf?v=1609851295)
+for ASIN B074RGW2VQ. Both boards are viewed from above, with the antenna at the
+top and USB at the bottom. Each side has 19 pins. Count from the top:
+
+- GPIO25: left side, ninth pin.
+- GPIO26: left side, tenth pin.
+- GND shown: left side, fourteenth pin.
+- GPIO17: right side, eleventh pin.
+- GPIO16: right side, twelfth pin.
+
+EN/RST restarts the board; BOOT is used to enter programming mode. Neither
+button needs an external wire. Check the printed labels before connecting.
+
+The D1 Mini and Dev Kit C V2 can be mixed: use the appropriate A/B illustration
+for each board's firmware role and connect matching circled wire numbers.
+The GPIO connections below are the same for both board layouts.
+
+### Connect the five wires
+
 With both boards unplugged, connect five short jumper wires:
 
 | Board A | Board B | Purpose |
