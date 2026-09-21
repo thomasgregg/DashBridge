@@ -86,7 +86,6 @@ esp-web-install-button { display: block; }
 .help-content { padding: 0 0 10px; max-width: 650px; }
 .help h2 { font-size: 13px; margin: 14px 0 7px; font-weight: 600; }
 .help p { font-size: 12px; line-height: 1.75; color: var(--muted); margin: 0 0 20px; }
-.prototype { font-size: 10px; line-height: 1.7; color: #717970; margin: 18px 0 33px; }
 .footer { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 28px; color: var(--muted); font-size: 10px; }
 .footer nav { display: flex; gap: 18px; flex-wrap: wrap; }
 .footer a { text-decoration: none; }

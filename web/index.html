@@ -74,12 +74,12 @@
     </div>
     <div class="install-side">
     <section class="installer" aria-label="Firmware installer">
-      <div class="panel-heading"><h2>Choose your board</h2><span id="firmware-version" aria-live="polite">v{{phoneVersion}}</span></div>
+      <div class="panel-heading"><h2>Choose your board</h2><span id="firmware-version" aria-live="polite">v{{version}}</span></div>
       <fieldset>
         <legend>Board</legend>
         <div class="selector">
-          <label><input type="radio" name="board" value="phone" data-manifest="{{phone}}" data-version="{{phoneVersion}}" checked><span>A <span class="role">iPhone</span></span></label>
-          <label><input type="radio" name="board" value="car" data-manifest="{{car}}" data-version="{{carVersion}}"><span>B <span class="role">Tesla</span></span></label>
+          <label><input type="radio" name="board" value="phone" data-manifest="{{phone}}" data-release="{{version}}" data-version="{{phoneVersion}}" checked><span>A <span class="role">iPhone</span></span></label>
+          <label><input type="radio" name="board" value="car" data-manifest="{{car}}" data-release="{{version}}" data-version="{{carVersion}}"><span>B <span class="role">Tesla</span></span></label>
         </div>
       </fieldset>
       <p id="board-description">Receives iPhone calls and notifications.</p>
@@ -100,11 +100,10 @@
         <h2>Installing both boards</h2><p>Connect only one board at a time. Select A for the iPhone board or B for the Tesla board. Click Install, choose its USB port, and confirm. Wait for the success message, close the dialog and unplug the board. Label it A or B, then repeat with the other board. Follow the setup guide to connect both boards and pair your iPhone and Tesla.</p>
         <h2>No board in the USB list?</h2><p>Try a different data cable or USB port and close other apps using the board. Some boards need a USB driver: <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a> or <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html">CH340</a>, depending on the USB chip.</p>
         <h2>Connection failed?</h2><p>Hold BOOT as you start installation. Release it once the chip is detected or installation begins. If needed, press EN/reset and try again.</p>
-        <h2>Prototype status</h2><p>This is the two-board call relay alpha. Both images compile and software tests pass; calls and audio still need testing with both boards. Music, contacts and WhatsApp replies are not implemented. <a href="https://github.com/thomasgregg/DashBridge#current-boundaries">Known limitations</a> · <a href="https://github.com/thomasgregg/DashBridge/blob/main/docs/CALL_RELAY.md">Setup guide</a></p>
+        <h2>Release information</h2><p>See the <a id="release-notes" href="{{releaseNotes}}">release notes</a> for tested features, setup requirements and known limitations. The installer always resolves the current release before enabling installation.</p>
       </div>
     </details>
-    <p class="prototype">Call relay alpha. Two-board call testing is pending; music and contacts are not available.</p>
   </main>
-  <footer class="wrap footer"><span>MIT licensed</span><nav aria-label="Footer"><a href="./firmware/checksums.json">Firmware details</a><a href="./third-party-licenses.txt">Notices</a><a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a></nav></footer>
+  <footer class="wrap footer"><span>MIT licensed</span><nav aria-label="Footer"><a href="{{releaseNotes}}" data-release-notes>Release notes</a><a href="./firmware/checksums.json">Firmware details</a><a href="./third-party-licenses.txt">Notices</a><a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a></nav></footer>
 </body>
 </html>

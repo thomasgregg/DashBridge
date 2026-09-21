@@ -16,7 +16,10 @@ export async function prepareFirmware(repository, output) {
   await mkdir(path.join(output, 'firmware'), { recursive: true });
   const release = (await readFile(path.join(repository, 'firmware/version.txt'), 'utf8')).trim();
   if (manifest.version !== release) throw new Error('Manifest release differs from firmware/version.txt');
-  const result = { version: release };
+  const result = {
+    version: release,
+    releaseNotes: `https://github.com/thomasgregg/DashBridge/blob/main/docs/releases/${release}.md`,
+  };
   for (const [role, label] of [['phone', 'A — iPhone'], ['car', 'B — Tesla']]) {
     const entry = manifest.images[role];
     if (!entry) throw new Error(`Missing firmware image for ${role}`);
@@ -65,6 +68,8 @@ async function main() {
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
   const firmware = await prepareFirmware(root, output);
+  // A public release cannot be published without its matching versioned notes.
+  await readFile(path.join(root, 'docs/releases', `${firmware.version}.md`), 'utf8');
   const bundle = await build({
     absWorkingDir: path.join(root, 'web'),
     plugins: [installDialogPatch],
@@ -86,6 +91,7 @@ async function main() {
   await writeFile(path.join(output, 'index.html'), html);
   await writeFile(path.join(output, 'latest.json'), JSON.stringify({
     release: firmware.version,
+    releaseNotes: firmware.releaseNotes,
     phone: { manifest: firmware.phone, version: firmware.phoneVersion },
     car: { manifest: firmware.car, version: firmware.carVersion },
   }, null, 2) + '\n');

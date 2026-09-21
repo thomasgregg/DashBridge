@@ -5,13 +5,14 @@ const status = document.querySelector('#browser-status');
 const control = document.querySelector('#install-control');
 const description = document.querySelector('#board-description');
 const choices = [...document.querySelectorAll('input[name="board"]')];
+const releaseNotesLinks = [...document.querySelectorAll('#release-notes, [data-release-notes]')];
 const supported = window.isSecureContext && 'serial' in navigator;
 let ready = false;
 
 function selectBoard() {
   const choice = choices.find(input => input.checked);
   const label = choice.value === 'phone' ? 'A' : 'B';
-  document.querySelector('#firmware-version').textContent = `v${choice.dataset.version}`;
+  document.querySelector('#firmware-version').textContent = `v${choice.dataset.release || choice.dataset.version}`;
   for (const board of document.querySelectorAll('.board-marker')) {
     board.classList.toggle('is-selected', board.dataset.board === choice.value);
   }
@@ -53,7 +54,7 @@ async function start() {
   try {
     // Resolve the current release at runtime. The unique query bypasses the
     // browser and GitHub Pages' short cache for this small pointer file.
-    await refreshLatest(choices, window.fetch.bind(window), document.baseURI);
+    await refreshLatest(choices, releaseNotesLinks, window.fetch.bind(window), document.baseURI);
     selectBoard();
     // Load the dialog before enabling the button so the first click is ready.
     await import('esp-web-tools/dist/install-dialog.js');

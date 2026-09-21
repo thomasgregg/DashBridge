@@ -35,6 +35,8 @@ The `Web installer` workflow builds and tests on relevant pull requests. On `mai
 
 Browser checks can validate the page, manifest-to-image mapping, help, fallback states and USB-picker cancellation. They cannot establish that a physical flash completes or that the Tesla and iPhone accept the prototype. Validate those on the actual original ESP32-WROOM-32 boards using `docs/CALL_RELAY.md`.
 
-The main page installs the current two-board call relay alpha. The former
-`/message-only/` URL redirects here; the failed experiment is no longer offered
-for installation. Earlier firmware remains in the repository history/releases.
+The main page is a stable A/B installer shell. On each visit it resolves the
+current manifests, public release number and matching release-notes URL from
+`latest.json` before enabling installation. Firmware-specific test results,
+setup requirements and limitations belong in `docs/releases/`, not in the
+installer copy. Earlier firmware remains in the repository history.
