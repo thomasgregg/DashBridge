@@ -1,4 +1,4 @@
-# Two-board call relay — 0.3.0-call-alpha
+# Two-board call relay — 0.3.2-alpha
 
 **Development build. Not yet tested with two physical boards.** The second board
 has not arrived. Do not replace a working adapter expecting calls or music to be

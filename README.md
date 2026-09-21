@@ -25,7 +25,7 @@
 Two ESP32 boards connect your iPhone to the Tesla’s Bluetooth message interface. DashBridge forwards new WhatsApp notifications locally—without sending an SMS, signing in to WhatsApp, or routing message content through a server. The new call relay adds phone controls and audio between the same two boards.
 
 > [!IMPORTANT]
-> **Call relay alpha · v0.3.0.** Both board images compile and software tests pass. Real WhatsApp delivery worked on the earlier single-board prototype; the new two-board call relay still needs physical testing. Music, contacts and replies are not implemented. The Tesla uses **DashBridge B as its active phone**, with iPhone calls relayed through Board A. See the [test results](docs/CALL_RELAY_VALIDATION.md) and [setup guide](docs/CALL_RELAY.md).
+> **Call relay alpha · v0.3.2.** Both board images compile and software tests pass. Board B's Tesla wake reconnect, call profile and message sync are hardware verified; the complete two-board call/audio relay still needs physical testing. Music, contacts and replies are not implemented. The Tesla uses **DashBridge B as its active phone**, with iPhone calls relayed through Board A. See the [test results](docs/CALL_RELAY_VALIDATION.md) and [setup guide](docs/CALL_RELAY.md).
 
 ## Why DashBridge?
 

@@ -12,7 +12,7 @@ With the matching SDK installed, `bash tools/local_dev.sh check /absolute/path/t
 
 ## Native build setup
 
-Keep the SDK and its tools in an ignored directory, for example `build/local-sdk/esp-idf` and `build/local-sdk/tools`. Use the exact SDK pinned by the checkout: the comparison branch uses v5.5.5 at `b774170ff46c393eeb5e495ea37936038d3f4f4f`; the main release still uses v5.5.1. Use a supported Python version (this Mac has Python 3.12).
+Keep the SDK and its tools in an ignored directory, for example `build/local-sdk/esp-idf` and `build/local-sdk/tools`. Use the exact SDK pinned by the checkout: v5.5.5 at `b774170ff46c393eeb5e495ea37936038d3f4f4f`. Use a supported Python version (this Mac has Python 3.12).
 
 ```sh
 git clone --depth 1 --branch v5.5.5 --recursive --shallow-submodules --jobs 8 \
