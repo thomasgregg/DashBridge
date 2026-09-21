@@ -22,11 +22,14 @@ static calls::State self, other;
 static calls::CommandGate commands;
 static uint32_t boot, sequence = 0, other_boot = 0, other_sequence = 0, pending = 0;
 static uint32_t pending_peer = 0;
-static int64_t last_peer = 0, last_snapshot = 0, pending_deadline = 0, next_connect = 0, next_audio = 0;
-static unsigned reconnect_delay = 5000;
-static bool dirty = true, connecting = false, peer_saved = false;
-static unsigned reconnect_attempts = 0;
+static int64_t last_peer = 0, last_snapshot = 0, pending_deadline = 0, next_audio = 0;
+static bool dirty = true, peer_saved = false;
+#if CONFIG_BRIDGE_PHONE
+static int64_t next_connect = 0;
+static unsigned reconnect_delay = 5000, reconnect_attempts = 0;
+static bool connecting = false;
 static esp_err_t last_connect_result = ESP_OK;
+#endif
 static esp_bd_addr_t peer = {};
 static std::string previous_snapshot, previous_number;
 #if CONFIG_BRIDGE_PHONE
@@ -84,8 +87,8 @@ static void load_peer() {
     const bool valid = error == ESP_OK && size == sizeof peer;
     const bool bonded = valid && known(peer);
     peer_saved = valid && bonded;
-    ESP_LOGI("calls", "Reconnect diagnostics 3: stored=%d bonded=%d bonds=%d read=%s; auto reconnect=%s",
-             valid, bonded, esp_bt_gap_get_bond_device_num(), esp_err_to_name(error), peer_saved ? "enabled" : "disabled");
+    ESP_LOGI("calls", "Saved peer: stored=%d bonded=%d bonds=%d read=%s",
+             valid, bonded, esp_bt_gap_get_bond_device_num(), esp_err_to_name(error));
 }
 static void set_audio(bool active) {
     if (active != bool(self.audio)) self.audio = active ? token() : 0;
@@ -93,14 +96,25 @@ static void set_audio(bool active) {
     ESP_LOGI("calls", "Local call audio: %s", active ? "connected (8 kHz)" : "disconnected");
 }
 static void set_connected(bool connected, const uint8_t *address) {
+#if CONFIG_BRIDGE_PHONE
     connecting = false;
+#endif
     if (connected) {
-        save_peer(address); self.linked = 1; reconnect_delay = 5000;
+        save_peer(address); self.linked = 1;
+#if CONFIG_BRIDGE_PHONE
+        reconnect_delay = 5000;
+#endif
     } else {
         self = {}; call_audio_set(0, 0);
+#if CONFIG_BRIDGE_PHONE
         next_connect = now() + reconnect_delay;
         ESP_LOGI("calls", "Reconnect retry scheduled in %u ms", reconnect_delay);
         reconnect_delay = std::min(60000u, reconnect_delay * 2);
+#else
+        // Tesla is the connection initiator for a paired phone. Outgoing AG
+        // attempts are rejected by the car and can race its own auto-connect.
+        ESP_LOGI("calls", "Waiting for Tesla to reconnect to the listening HFP gateway");
+#endif
     }
     dirty = true;
     ESP_LOGI("calls", "Local phone profile: %s", connected ? "ready" : "disconnected");
@@ -348,29 +362,26 @@ void relay_poll() {
         ESP_LOGW("calls", "Call command timed out; no automatic retry");
     }
     if (dirty || now() - last_snapshot >= 1000) snapshot();
-    // Reconnect control: trace the previously failing outgoing service discovery.
+    // Reconnect policy: only the iPhone-facing HFP client initiates.
+#if CONFIG_BRIDGE_PHONE
+    // The iPhone-facing HFP client owns its outgoing reconnect policy. Board B
+    // is an HFP gateway and stays passive so Tesla can initiate its normal
+    // HFP + MAP auto-connect sequence.
     if (!self.linked && peer_saved && !connecting && now() >= next_connect) {
         ++reconnect_attempts;
         ESP_LOGI("calls", "Starting outgoing HFP reconnect attempt %u; bonded=%d", reconnect_attempts, known(peer));
-#if CONFIG_BRIDGE_PHONE
         auto error = esp_hf_client_connect(peer);
-#else
-        auto error = esp_hf_ag_slc_connect(peer);
-#endif
         last_connect_result = error;
         ESP_LOGI("calls", "Outgoing HFP reconnect request: %s; waiting up to 20 seconds", esp_err_to_name(error));
         connecting = error == ESP_OK; next_connect = now() + 20000;
     }
     if (connecting && now() >= next_connect) {
         ESP_LOGW("calls", "Outgoing HFP reconnect timed out; canceling, retry in %u ms", reconnect_delay);
-#if CONFIG_BRIDGE_PHONE
         esp_hf_client_disconnect(peer);
-#else
-        esp_hf_ag_slc_disconnect(peer);
-#endif
         connecting = false; next_connect = now() + reconnect_delay;
         reconnect_delay = std::min(60000u, reconnect_delay * 2);
     }
+#endif
     // Audio connection follows the real call state on both boards.
     if (peer_live() && self.linked && other.linked && other.audio && !self.audio && now() >= next_audio) {
         next_audio = now() + 5000;
@@ -392,15 +403,22 @@ void relay_poll() {
 void relay_status() {
     ESP_LOGI("calls", "Call profile: %s; other board: %s; one-call prototype", self.linked ? "ready" : "not ready",
              peer_live() ? (other.linked ? "ready" : "phone profile not ready") : "not connected");
+#if CONFIG_BRIDGE_PHONE
     ESP_LOGI("calls", "Reconnect: saved=%d in_progress=%d attempts=%u last_request=%s retry_in_ms=%lld",
              peer_saved, connecting, reconnect_attempts, esp_err_to_name(last_connect_result),
              (long long)((!self.linked && peer_saved) ? std::max<int64_t>(0, next_connect - now()) : 0));
+#else
+    ESP_LOGI("calls", "Reconnect: passive HFP gateway; saved=%d listening_for_tesla=%d",
+             peer_saved, !self.linked);
+#endif
     call_audio_status();
 }
 void relay_start() {
-    boot = token(); load_peer(); next_connect = now() + 5000;
-#if !CONFIG_BRIDGE_PHONE
-    ESP_LOGI("calls", "Tesla reconnect test 2: outgoing HFP with SDP trace");
+    boot = token(); load_peer();
+#if CONFIG_BRIDGE_PHONE
+    next_connect = now() + 5000;
+#else
+    ESP_LOGI("calls", "Tesla reconnect policy: passive HFP gateway with MAP enabled");
 #endif
     call_audio_start();
 #if CONFIG_BRIDGE_PHONE

@@ -67,7 +67,7 @@ jobs:
       matrix:
         board: ${{ fromJSON(needs.scope.outputs.roles) }}
     runs-on: ubuntu-24.04
-    container: espressif/idf:v5.5.1
+    container: espressif/idf:v5.5.5
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -79,6 +79,11 @@ jobs:
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
+          if [[ "$BOARD" == car || "$BOARD" == single ]]; then
+            python tools/test_sdp_attributes.py
+            python tools/test_acl_recovery.py
+            python tools/test_pairing_confirmation.py
+          fi
           bash tools/build.sh "$BOARD"
           if [[ "$BOARD" == phone || "$BOARD" == car ]]; then
             DASHBRIDGE_BUILD_ROLE="$BOARD" python tools/test_call_config.py
@@ -87,6 +92,7 @@ jobs:
             DASHBRIDGE_BUILD_ROLE="$BOARD" python tools/test_sdp.py
             python tools/test_sdp_attributes.py
             python tools/test_acl_recovery.py
+            python tools/test_pairing_confirmation.py
           fi
       - name: Preserve experimental firmware
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

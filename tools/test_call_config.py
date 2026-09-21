@@ -13,13 +13,22 @@ expected = {
     "BT_HFP_WBS_ENABLE": None, "BT_HFP_USE_EXTERNAL_CODEC": None,
     "BT_HFP_CLIENT_ENABLE": "y" if role == "phone" else None,
     "BT_HFP_AG_ENABLE": "y" if role == "car" else None,
+    "BTDM_CTRL_MODE_BR_EDR_ONLY": "y" if role == "car" else None,
+    "BTDM_CTRL_MODE_BTDM": "y" if role == "phone" else None,
+    "BT_BLE_ENABLED": "y" if role == "phone" else None,
 }
 for key, value in expected.items():
     line = f"CONFIG_{key}={value}" if value else f"# CONFIG_{key} is not set"
     assert line in text.splitlines(), f"Wrong {role} setting: expected {line}"
 if role == "car":
+    main = (root / "firmware" / "main" / "main.cpp").read_text()
+    assert "esp_bt_controller_mem_release(ESP_BT_MODE_BLE)" in main
+    assert "esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT)" in main
+    assert "Board B controller mode: Classic only (HFP + MAP)" in main
     commands = json.loads((root / "build" / role / "compile_commands.json").read_text())
+    assert not any("/dashbridge_sdp/" in item["file"] for item in commands), \
+        "Production car build compiled diagnostic replacement Bluetooth sources"
     source = next(item for item in commands if item["file"].endswith("/btc_hf_ag.c"))
-    definition = "BTC_HF_FEATURES=(BTA_AG_FEAT_REJECT|BTA_AG_FEAT_EXTERR|BTA_AG_FEAT_ESCO_S4|BTA_AG_FEAT_UNAT)"
-    assert "-D" + definition in shlex.split(source["command"]), "Gateway advertises features outside this prototype"
+    assert not any(item.startswith("-DBTC_HF_FEATURES=") for item in shlex.split(source["command"])), \
+        "Car build must retain the stock ESP-IDF HFP gateway feature advertisement"
 print(f"PASS {role}: correct HFP role, internal CVSD/PCM codec and audio worker tick")

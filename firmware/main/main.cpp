@@ -131,9 +131,18 @@ extern "C" void app_main() {
     b.mode = GPIO_MODE_INPUT;
     b.pull_up_en = GPIO_PULLUP_ENABLE;
     ESP_ERROR_CHECK(gpio_config(&b));
+#if CONFIG_BRIDGE_CAR
+    // Board B exposes only Classic HFP and MAP, so release unused BLE memory.
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
+#endif
     esp_bt_controller_config_t cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_bt_controller_init(&cfg));
+#if CONFIG_BRIDGE_CAR
+    ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT));
+    ESP_LOGI("bridge", "Board B controller mode: Classic only (HFP + MAP)");
+#else
     ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_BTDM));
+#endif
     ESP_ERROR_CHECK(esp_bluedroid_init());
     ESP_ERROR_CHECK(esp_bluedroid_enable());
     {

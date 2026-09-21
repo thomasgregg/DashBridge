@@ -2,9 +2,8 @@
 
 **Development build. Not yet tested with two physical boards.** The second board
 has not arrived. Do not replace a working adapter expecting calls or music to be
-proven. The [public installer](https://thomasgregg.github.io/DashBridge/) serves this
-two-board alpha, with separate A and B selections. The original two-board
-notification design is preserved in release **v0.1.4**.
+proven. The [public installer](https://thomasgregg.github.io/DashBridge/) is the
+single supported installer and offers separate A and B selections.
 
 This branch starts from the working single-board notification code, including the
 ANCS flag and Tesla SDP fixes. It restores two physical Bluetooth radios and adds

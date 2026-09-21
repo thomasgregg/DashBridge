@@ -8,12 +8,16 @@ if [[ -z "$selected" ]]; then
 fi
 read -r -a roles <<< "$selected"
 if ! command -v idf.py >/dev/null 2>&1; then
-  echo 'Activate ESP-IDF v5.5.1 using its export.sh first.' >&2
+  echo 'Activate ESP-IDF v5.5.5 using its export.sh first.' >&2
   exit 1
 fi
 idf_version="$(idf.py --version)"
-if [[ "$idf_version" != 'ESP-IDF v5.5.1' ]]; then
-  echo "Expected ESP-IDF v5.5.1; found: $idf_version" >&2
+if [[ "$idf_version" != 'ESP-IDF v5.5.5' ]]; then
+  echo "Expected ESP-IDF v5.5.5; found: $idf_version" >&2
+  exit 1
+fi
+if [[ "$(git -C "$IDF_PATH" rev-parse HEAD)" != b774170ff46c393eeb5e495ea37936038d3f4f4f ]]; then
+  echo 'ESP-IDF checkout does not match the pinned v5.5.5 release commit.' >&2
   exit 1
 fi
 cd "$project_dir/firmware"

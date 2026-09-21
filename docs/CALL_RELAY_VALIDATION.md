@@ -134,6 +134,37 @@ all new diagnostic markers; A contains no added SDK packet tracing. Both images
 match their source hashes and binary checksums, and all 11 installer tests pass.
 The diagnostic firmware has not yet been tested on the physical board.
 
+### Verified Tesla-owned reconnect fix — 21 September 2026
+
+The completed isolation used the same ESP32, saved bond, and Tesla with full
+HFP + MAP enabled. ESP-initiated HFP attempts consistently opened an ACL and
+were closed by Tesla about 150–160 ms later with HCI reason `0x13`. The result
+was unchanged with a Classic-only controller, the untouched ESP-IDF v5.5.5
+Bluetooth component, stable scan mode, and the stock HFP feature mask.
+
+A Tesla-initiated connection on that firmware immediately reached HFP ready,
+opened the MAP transport, completed the car's MAP requests, and reached ready
+for new-message notifications. Board B therefore remains a connectable HFP
+gateway and no longer initiates HFP reconnects; Board A retains its outgoing
+iPhone reconnect policy.
+
+After `DashBridge B` was enabled as **Priority Device** for the active Tesla
+driver profile, Tesla initiated HFP + MAP automatically. A subsequent ESP32
+hard reset recovered without selecting **Connect**. The post-reset status
+reported `Call profile: ready` and `Tesla notifications: ready`, with the saved
+bond and **Sync Messages** setting preserved. This is the first successful
+stationary hardware validation of Board B automatic reconnect in this record.
+
+The final production image `0.3.2-alpha+fe2ca23d30a7` was then installed with
+the stock ESP-IDF Bluetooth component and no diagnostic patches in its active
+build. Tesla was re-paired under the production name `DashBridge B`, with
+**Sync Messages** and **Priority Device** enabled. After an official Tesla power
+cycle, waking the vehicle caused Tesla to open HFP and MAP automatically; the
+adapter reported both `Call profile: ready` and `Tesla notifications: ready`.
+This validates the normal vehicle-wake reconnect path. Tesla did not repeatedly
+retry during the same already-awake vehicle session after only the adapter was
+reset, so that scenario must not be presented as the normal wake-path result.
+
 ### Pairing lost after a failed controller feature query
 
 The diagnostic build subsequently connected HFP and MAP at 21:31:49. After a

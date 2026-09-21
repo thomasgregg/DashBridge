@@ -6,7 +6,7 @@ import tempfile
 
 root = Path(__file__).resolve().parent.parent
 source = (root / 'firmware/main/call_relay.cpp').read_text()
-start = source.index('    // Reconnect control:')
+start = source.index('    // Reconnect policy:')
 end = source.index('    // Audio connection follows', start)
 poll = source[start:end]
 harness = r'''
@@ -35,9 +35,6 @@ POLL_CODE
 int main() {
 #if CONFIG_BRIDGE_PHONE
     auto &opens = client_opens; auto &closes = client_closes;
-#else
-    auto &opens = gateway_opens; auto &closes = gateway_closes;
-#endif
     tick = 4999; poll(); assert(opens == 0);
     tick = 5000; poll(); assert(opens == 1 && connecting);
     tick = 24000; poll(); assert(opens == 1 && closes == 0);
@@ -48,9 +45,14 @@ int main() {
     tick = 49999; poll(); assert(opens == 2);
     self.linked = true; tick = 70000; poll(); assert(opens == 2);
     self.linked = false; peer_saved = false; poll(); assert(opens == 2);
-#if CONFIG_BRIDGE_PHONE
     assert(gateway_opens == 0 && gateway_closes == 0);
 #else
+    // Board B is a listening HFP gateway. Tesla initiates both HFP and MAP;
+    // an outgoing AG request is rejected by the car and races auto-connect.
+    for (int64_t value : {INT64_C(4999), INT64_C(5000), INT64_C(25000), INT64_C(90000)}) {
+        tick = value; poll();
+    }
+    assert(gateway_opens == 0 && gateway_closes == 0 && !connecting);
     assert(client_opens == 0 && client_closes == 0);
 #endif
 }
@@ -65,4 +67,4 @@ with tempfile.TemporaryDirectory() as temporary:
                         '-fsanitize=address,undefined', f'-DCONFIG_BRIDGE_PHONE={phone}',
                         str(path / 'test.cpp'), '-o', str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
-print('PASS reconnect policy: timed retries, timeout cancellation and correct A/B Bluetooth role')
+print('PASS reconnect policy: active iPhone client retries; Tesla gateway remains passive')

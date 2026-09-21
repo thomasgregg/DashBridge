@@ -3,10 +3,10 @@
     "phone": {
       "file": "phone-merged.bin",
       "flash_address": "0x0",
-      "sha256": "c181daf6093879e00f5ef505fd12c445476d998bbbec82540e0af8d049416f3a",
-      "bytes": 1106592,
+      "sha256": "a84d5ead102bafd898d365924a9aac05318d9c6efaa9fc0d819e1a683f109b51",
+      "bytes": 1120624,
       "source_sha256": {
-        "firmware/CMakeLists.txt": "15d96a8bb6614901d79880532b33e9144a0e4507907690a8928c7a98e1faedb1",
+        "firmware/CMakeLists.txt": "60d4355080d38c84cf204206870a8bb37a8e6945e8aba97fd8f16acd85f0a30a",
         "firmware/components/bridge_core/CMakeLists.txt": "49ee6986d910f8b0f798656296d141a713181ccfbe1a3c6967751a36399d4b76",
         "firmware/components/bridge_core/bridge_core.cpp": "0e48ac7e76a249d335e0c4c7bf2ace54358b1bddea4a9b9d819ae00a5b754c78",
         "firmware/components/bridge_core/include/bridge_core.hpp": "ab4bb00dcfed99dcef451161eb281bed060ae0d8567f01f9844beda1e9d8a06d",
@@ -14,31 +14,33 @@
         "firmware/main/Kconfig.projbuild": "8fcbf88388e91b47576c25cc1998cd80481d32cae4cc588eb924d3f618fe3b69",
         "firmware/main/call_audio.cpp": "06cc0f0457ad657aeb247505de48a59328fdc9085e03910b7462a2b93ccd39fe",
         "firmware/main/call_protocol.hpp": "e6fda78df71938d41436ad8d7061be7cd7c266a77144b7cf8e4aadce6f8729cd",
-        "firmware/main/call_relay.cpp": "e4b37d98a62a38d4dac7e9f90cdd828cf2f0e141c32aac62e188c370f6475c81",
+        "firmware/main/call_relay.cpp": "e3b0f599118fbbbb4bed08c8e3af0ef2b8f667a8b3e135f13de6ad5d438bf44e",
         "firmware/main/call_relay.hpp": "4c57f395b733cd0009ce58ccf3682a5c6b1c751521b3dac60a9ed0ee98b82037",
         "firmware/main/console_commands.hpp": "e4bec16205847906f1a9d786d1b091b79258815935b928e80edd5ee84085e20e",
         "firmware/main/local_bridge.hpp": "9b4362de45da099f4972875e47f59161dec2e20f62b7f3bffc4277f338f31978",
-        "firmware/main/main.cpp": "96d920b61865e89d60b1f42b392a3d8a96de508e0f9d1d4e2571076353d0c1ad",
+        "firmware/main/main.cpp": "07f537118cda34498ddec7cb55c994109e7fa8ac731392693170af05c3085a48",
         "firmware/main/phone.cpp": "806eb79e28ae299e72e98ee486e67616b93bda4c48af98085f4747f228757773",
         "firmware/main/runtime.hpp": "c30a6d2703719828d9fe2d4072026fc97c73d476913fa64caf486ff24c96d80a",
         "firmware/sdkconfig.defaults": "78a27956a9990558aad3155cfc844b200a7773148c69e54c22885ff9554b58c6",
         "firmware/sdkconfig.phone": "d1dfcfe151dd93357047cf5b0fce851fa0b3a0b47a3dcd1d047a79299cd173a0",
-        "firmware/version.txt": "30e6d91a30bb2a95ddc2ae373da8c46ecf88d5791866a8fd00f6bd7ba37912cd",
-        "tools/build.sh": "c27fea2b0055b4b911049905fd63819c33675819d9bc7e817fa33c8f77216eb1",
+        "firmware/version.txt": "458b1223742b8accc1cf66f26da501c8015493519fe302be6599bb259a8c6ff1",
+        "tools/build.sh": "6a55f8a10a52b44c6dd0cb5ff7ec8328cf7c4d9ebe2586b8acb8835b52fff475",
         "tools/build_scope.py": "700295f55c39cfb13c6e6d554f48ac7013d1585dd6b192c932b390ca0e671a1d",
-        "tools/package.py": "4d78b052a1e3aa33439834496eacb4e0980c2e2e10e091a36ee3a0295ef5a6ea"
+        "tools/package.py": "a1969c53500a533fd28575c18a2c1cd966dc6bb769503eb3931012a309a3f5b6"
       },
-      "sdkconfig_sha256": "eb8c56a4ffcb2c001ffd768cabf81c50b6522930bb657f955adf52a9d7630115",
+      "sdkconfig_sha256": "65549535a59afa1e8f83392e1163e2bf80918fbd0d785d9ff37b0ae91b3e4e78",
       "hardware_tested": false,
-      "version": "0.3.1-alpha+c7b2850b78fe"
+      "version": "0.3.2-alpha+93fcd52cc2b3",
+      "esp_idf": "v5.5.5",
+      "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f"
     },
     "car": {
       "file": "car-merged.bin",
       "flash_address": "0x0",
-      "sha256": "54f7f289bd677ff9d28f53fcf6e37b0fbabb55f88c446676507a86deacdd5f51",
-      "bytes": 1122432,
+      "sha256": "15d0ca600523d06fc5bd87866762c139747363249dd37e4c6ed17f9507014fd8",
+      "bytes": 860960,
       "source_sha256": {
-        "firmware/CMakeLists.txt": "15d96a8bb6614901d79880532b33e9144a0e4507907690a8928c7a98e1faedb1",
+        "firmware/CMakeLists.txt": "60d4355080d38c84cf204206870a8bb37a8e6945e8aba97fd8f16acd85f0a30a",
         "firmware/components/bridge_core/CMakeLists.txt": "49ee6986d910f8b0f798656296d141a713181ccfbe1a3c6967751a36399d4b76",
         "firmware/components/bridge_core/bridge_core.cpp": "0e48ac7e76a249d335e0c4c7bf2ace54358b1bddea4a9b9d819ae00a5b754c78",
         "firmware/components/bridge_core/include/bridge_core.hpp": "ab4bb00dcfed99dcef451161eb281bed060ae0d8567f01f9844beda1e9d8a06d",
@@ -46,32 +48,43 @@
         "firmware/main/Kconfig.projbuild": "8fcbf88388e91b47576c25cc1998cd80481d32cae4cc588eb924d3f618fe3b69",
         "firmware/main/call_audio.cpp": "06cc0f0457ad657aeb247505de48a59328fdc9085e03910b7462a2b93ccd39fe",
         "firmware/main/call_protocol.hpp": "e6fda78df71938d41436ad8d7061be7cd7c266a77144b7cf8e4aadce6f8729cd",
-        "firmware/main/call_relay.cpp": "e4b37d98a62a38d4dac7e9f90cdd828cf2f0e141c32aac62e188c370f6475c81",
+        "firmware/main/call_relay.cpp": "e3b0f599118fbbbb4bed08c8e3af0ef2b8f667a8b3e135f13de6ad5d438bf44e",
         "firmware/main/call_relay.hpp": "4c57f395b733cd0009ce58ccf3682a5c6b1c751521b3dac60a9ed0ee98b82037",
-        "firmware/main/car.cpp": "b42db70475498e4a0a99617af06b0e5c7de782ecf5465fefc93248064ea6bb66",
+        "firmware/main/car.cpp": "6d91bc3ee0ca15086b705a2bcf1cc4c25150e2769a5d5e35a26ea36fc5c00103",
         "firmware/main/console_commands.hpp": "e4bec16205847906f1a9d786d1b091b79258815935b928e80edd5ee84085e20e",
         "firmware/main/local_bridge.hpp": "9b4362de45da099f4972875e47f59161dec2e20f62b7f3bffc4277f338f31978",
-        "firmware/main/main.cpp": "96d920b61865e89d60b1f42b392a3d8a96de508e0f9d1d4e2571076353d0c1ad",
+        "firmware/main/main.cpp": "07f537118cda34498ddec7cb55c994109e7fa8ac731392693170af05c3085a48",
         "firmware/main/runtime.hpp": "c30a6d2703719828d9fe2d4072026fc97c73d476913fa64caf486ff24c96d80a",
-        "firmware/sdkconfig.car": "c14306d73c506e9dcf4232d1e0388b32b09837d7f00246ac52ca74c5da3af3ba",
+        "firmware/sdkconfig.car": "9f9712e223ff15d3810f4e7683a2051af3909464703232886656aaa39db221b0",
         "firmware/sdkconfig.defaults": "78a27956a9990558aad3155cfc844b200a7773148c69e54c22885ff9554b58c6",
-        "firmware/sdp_diagnostics/CMakeLists.txt": "95aedc2a5e4ff16af0de63aaea9a3dafd5dae93c36ee65b60e6c92eb8278c0e1",
+        "firmware/sdp_diagnostics/CMakeLists.txt": "2c4c33d674b75365e7e4838db9f629f4b2b0956f65d526d907615aa88f20e1ec",
         "firmware/sdp_diagnostics/connection_trace.h": "d046c4d7f741db6faa205835d1fb842e8ec3dc6f43b67b6791f1730235a351ae",
-        "firmware/sdp_diagnostics/patch.py": "1ad3069371328cd02c8014292f0c3597e813212f4c9147624d47d230c3f81c7b",
-        "firmware/version.txt": "30e6d91a30bb2a95ddc2ae373da8c46ecf88d5791866a8fd00f6bd7ba37912cd",
-        "tools/build.sh": "c27fea2b0055b4b911049905fd63819c33675819d9bc7e817fa33c8f77216eb1",
+        "firmware/sdp_diagnostics/patch.py": "d6fac1995e8850f7ee41ae3519a07a785623684b2f5dcb52c2e07762a06eb1ef",
+        "firmware/version.txt": "458b1223742b8accc1cf66f26da501c8015493519fe302be6599bb259a8c6ff1",
+        "tools/build.sh": "6a55f8a10a52b44c6dd0cb5ff7ec8328cf7c4d9ebe2586b8acb8835b52fff475",
         "tools/build_scope.py": "700295f55c39cfb13c6e6d554f48ac7013d1585dd6b192c932b390ca0e671a1d",
-        "tools/package.py": "4d78b052a1e3aa33439834496eacb4e0980c2e2e10e091a36ee3a0295ef5a6ea"
+        "tools/package.py": "a1969c53500a533fd28575c18a2c1cd966dc6bb769503eb3931012a309a3f5b6"
       },
-      "sdkconfig_sha256": "5e67b52460c21a964540ea9955e4c2a600ca27a6ab54a4144442cd26d59d2cff",
-      "hardware_tested": false,
-      "version": "0.3.1-alpha+d460f0158324"
+      "sdkconfig_sha256": "3b5fb24054ddd04579a13c6dd7b60b5d35d9853971311085f392bb59d88f2bf6",
+      "hardware_tested": true,
+      "version": "0.3.2-alpha+fe2ca23d30a7",
+      "esp_idf": "v5.5.5",
+      "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f",
+      "hardware_test": {
+        "date": "2026-09-21",
+        "vehicle_path": "Tesla wake with DashBridge B set as Priority Device",
+        "verified": [
+          "automatic HFP reconnect",
+          "automatic MAP reconnect",
+          "new-message notifications ready"
+        ]
+      }
     }
   },
   "project": "DashBridge prototype",
-  "version": "0.3.1-alpha",
+  "version": "0.3.2-alpha",
   "target": "esp32",
   "flash_size": "4MB",
-  "esp_idf": "v5.5.1",
-  "esp_idf_commit": "fcae32885b0296b32044cb99ecbdc50d98dddb83"
+  "esp_idf": "v5.5.5",
+  "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f"
 }

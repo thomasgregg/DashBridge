@@ -137,7 +137,7 @@ The [`dist/`](dist/) directory contains the prebuilt prototype images:
 | **A — iPhone** | [`phone-merged.bin`](dist/phone-merged.bin) | `DashBridge A` |
 | **B — Tesla** | [`car-merged.bin`](dist/car-merged.bin) | `DashBridge B` |
 
-The [manifest](dist/manifest.json) records image and source checksums. These are experimental builds, not a hardware-validated release.
+The [manifest](dist/manifest.json) records image and source checksums. Board B's Tesla wake reconnect, HFP profile, MAP transport and message notifications have been hardware tested. The complete two-board call/audio relay remains an alpha until Board A and wired audio are tested together.
 
 ### 2. Wire and pair the boards
 
@@ -149,13 +149,9 @@ While parked, open **Logs & Console** for Board B and enter `test`. A message fr
 
 For the first call test, have someone call the iPhone. Answer on the Tesla and check that you can hear them through the speakers **and they can hear the Tesla microphone**. Save logs from both boards if either direction fails. See the [complete test sequence](docs/CALL_RELAY.md#first-physical-test-parked).
 
-### Earlier versions
-
-The [v0.1.4 release](https://github.com/thomasgregg/DashBridge/releases/tag/v0.1.4) preserves the original two-board notification design, firmware and installer. The [single-board prototype](https://github.com/thomasgregg/DashBridge/tree/archive/single-board) and [message-only experiment](https://github.com/thomasgregg/DashBridge/tree/archive/message-only) are retained as archive tags. The default installer now serves the two-board call relay alpha.
-
 ## Build from source
 
-Use **ESP-IDF v5.5.1** targeting the original `esp32`. The pinned SDK revision is [`fcae328`](https://github.com/espressif/esp-idf/tree/fcae32885b0296b32044cb99ecbdc50d98dddb83).
+Use **ESP-IDF v5.5.5** targeting the original `esp32`. The pinned SDK revision is [`b774170`](https://github.com/espressif/esp-idf/tree/b774170ff46c393eeb5e495ea37936038d3f4f4f).
 
 After [installing ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/v5.5.1/esp32/get-started/index.html) and activating its environment, run from the repository root:
 
