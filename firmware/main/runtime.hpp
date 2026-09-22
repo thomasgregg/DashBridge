@@ -13,8 +13,8 @@ struct Guard {
 inline int64_t now() {
     return esp_timer_get_time() / 1000;
 }
-void send_to_phone(const bridge::WireMessage &m);
-void send_to_car(const bridge::WireMessage &m);
+bool send_to_phone(const bridge::WireMessage &m);
+bool send_to_car(const bridge::WireMessage &m);
 bool pairing_allowed(Peer peer);
 void paired(Peer peer);
 void phone_start();
@@ -27,4 +27,6 @@ void car_poll();
 void car_receive(const bridge::WireMessage &m);
 void car_test();
 bool car_notifications_ready();
+void contacts_receive(const bridge::WireMessage &m);
+bridge::Phonebook &contacts_phonebook();
 } // namespace runtime

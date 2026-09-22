@@ -10,7 +10,14 @@ text = (root / "build" / role / "sdkconfig").read_text()
 expected = {
     "BRIDGE_CALL_RELAY": "y", "BT_HFP_ENABLE": "y",
     "BT_HFP_AUDIO_DATA_PATH_HCI": "y", "FREERTOS_HZ": "1000",
-    "BT_HFP_WBS_ENABLE": "y", "BT_HFP_USE_EXTERNAL_CODEC": None,
+    "BT_HFP_WBS_ENABLE": "y",
+    "BT_HFP_USE_EXTERNAL_CODEC": "y",
+    "BRIDGE_MUSIC_RELAY": "y",
+    "BT_A2DP_ENABLE": "y",
+    "BT_A2DP_USE_EXTERNAL_CODEC": "y",
+    "BRIDGE_CONTACT_SYNC": "y",
+    "BT_PBAC_ENABLED": "y" if role == "phone" else None,
+    "BT_GOEPC_ENABLED": "y",
     "BT_HFP_CLIENT_ENABLE": "y" if role == "phone" else None,
     "BT_HFP_AG_ENABLE": "y" if role == "car" else None,
     "BTDM_CTRL_MODE_BR_EDR_ONLY": "y" if role == "car" else None,
@@ -31,4 +38,4 @@ if role == "car":
     source = next(item for item in commands if item["file"].endswith("/btc_hf_ag.c"))
     assert not any(item.startswith("-DBTC_HF_FEATURES=") for item in shlex.split(source["command"])), \
         "Car build must retain the stock ESP-IDF HFP gateway feature advertisement"
-print(f"PASS {role}: correct HFP role, internal mSBC/CVSD PCM codecs and audio worker tick")
+print(f"PASS {role}: correct HFP/A2DP roles and external codec-transparent audio paths")

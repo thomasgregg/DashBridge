@@ -37,9 +37,10 @@ public:
         to_car_.push_back({message.op, message.session, bridge::bounded_notice(message.notice)});
         return true;
     }
-    void send_to_phone(const bridge::WireMessage &message) {
+    bool send_to_phone(const bridge::WireMessage &message) {
         to_phone_ = message;
         phone_pending_ = true;
+        return true;
     }
     bool pop_for_phone(bridge::WireMessage &message) {
         if (!phone_pending_) return false;

@@ -14,18 +14,18 @@
   <a href="#get-started">Get started</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#project-status">Project status</a> ·
-  <a href="docs/CALL_RELAY.md">Setup guide</a> ·
+  <a href="docs/SETUP.md">Setup guide</a> ·
   <a href="CONTRIBUTING.md">Contribute</a>
 </p>
 
 # DashBridge
 
-**Your iPhone notifications, on your Tesla dashboard.**
+**An experimental iPhone-to-Tesla Bluetooth bridge.**
 
-Two ESP32 boards connect your iPhone to the Tesla’s Bluetooth message interface. DashBridge forwards new WhatsApp notifications locally—without sending an SMS, signing in to WhatsApp, or routing message content through a server. The new call relay adds phone controls and audio between the same two boards.
+Two wired ESP32 boards expose WhatsApp notifications, calls, music, and a phonebook interface to the Tesla. Notifications come from iOS, not a WhatsApp login or a real SMS. The Tesla selects **Dash Tesla as its active phone**; the iPhone connects separately to Board A. The existing Tesla phone-key pairing stays directly on the iPhone.
 
 > [!IMPORTANT]
-> **Call relay alpha · v0.3.3.** Both board images build with ESP-IDF v5.5.5 and software tests pass. WhatsApp text delivery has worked through the two-board setup. Answered calls have been tested, but robotic audio and unclear microphone audio remain unresolved. Music, media controls, contacts and replies are not implemented. The Tesla uses **Dash Tesla as its active phone**, with iPhone calls relayed through Board A. This release includes per-side tone and loopback diagnostics, which remain off until explicitly activated during a call. See the [current test results](docs/CALL_RELAY_VALIDATION.md) and [setup guide](docs/CALL_RELAY.md).
+> **v0.4.0-alpha is a prototype, not a verified daily-use adapter.** The current firmware implements more than the earlier call-only build, but many features have passed only software tests. In the latest hardware check, both boards booted and iPhone notification/music links connected; **all six phonebook/history downloads failed and returned zero records**. Music playback through the Tesla, media buttons, conference controls, and the latest call-audio path still need end-to-end tests. Earlier calls had robotic or unclear audio; do not assume the new audio implementation fixed it. See [what is tested](#project-status) and [how to test](#parked-car-test-checklist).
 
 ## Why DashBridge?
 
@@ -48,49 +48,49 @@ flowchart TB
     gateway["Board B<br/>Dash Tesla"]
     car["Tesla"]
 
-    phone <-->|"Bluetooth · calls + notifications"| receiver
-    receiver <-->|"Wired data + audio · 5 connections"| gateway
-    gateway <-->|"Bluetooth · calls + messages"| car
+    phone <-->|"Bluetooth · ANCS, HFP, A2DP, AVRCP, PBAP"| receiver
+    receiver <-->|"Wired data + encoded audio · 5 connections"| gateway
+    gateway <-->|"Bluetooth · MAP, HFP, A2DP, AVRCP, PBAP"| car
 ```
 
-**Board A** receives iPhone notifications through Apple ANCS, filters for WhatsApp and WhatsApp Business, and acts as a Bluetooth headset for calls. **Board B** presents a phone and message inbox to the Tesla. Separate wired links carry call audio and message/control data between the boards.
+**Board A** receives iPhone notifications through Apple ANCS, filters for WhatsApp and WhatsApp Business, and connects to iPhone call, music, and phonebook services. **Board B** presents a Bluetooth phone, message inbox, music source, and phonebook server to the Tesla. The five wires include separate serial paths for encoded call/music audio and message/control data, plus ground.
 
-The single-board design delivered WhatsApp notifications but displaced the iPhone’s active phone connection. A message-only experiment did not solve that. This two-board design adds the call relay so the iPhone’s calls can pass through DashBridge. Calls have now been tested on hardware, with unresolved audio distortion in both directions.
+The original single-board design delivered notifications but displaced the iPhone as the Tesla's active phone. Two boards give each side its own Bluetooth radio, with the bridge relaying the services between them. Earlier hardware calls exposed audio distortion; the latest audio path has not yet been validated by listening.
 
-The Tesla phone key stays paired directly with the iPhone. DashBridge does not change that pairing. The iPhone call and notification connections have reconnected after firmware updates. Broader reconnect and daily-use reliability remain unproven.
+The iPhone call and notification connections have reconnected after firmware updates. Broader reconnect, wake-up, and daily-use reliability remain unproven.
 
-See the [call-relay guide](docs/CALL_RELAY.md) for the architecture and test sequence, and the [notification implementation notes](docs/DEVELOPMENT.md) for ANCS and MAP details.
+See the [call-relay guide](docs/CALL_RELAY.md) for wiring and pairing details and the [implementation notes](docs/DEVELOPMENT.md) for ANCS and MAP. Those guides describe an earlier milestone; this README is the current feature/test snapshot.
 
 ## Project status
 
-The following describes **0.3.3-alpha** and the observed tests as of **21 September 2026**. Listening results were collected on the development builds listed in the validation record.
+Snapshot as of **22 September 2026**. The latest paired **development** images tested on hardware were Board A **`0.3.3-alpha+b17b3e8526f7`** and Board B **`0.3.3-alpha+10c949ad3020`**. They built with ESP-IDF v5.5.5, were flashed, and booted after a Board B stack-size fix. The new **0.4.0-alpha release images** in the [manifest](dist/manifest.json) contain the same feature work with a new version identity; they have **not** been installed or end-to-end tested. The manifest's `hardware_tested: false` reflects that limit.
 
-| Area | Current state |
-| :--- | :--- |
-| Firmware builds | Both original-ESP32 targets compile with ESP-IDF v5.5.5; development diagnostic images installed and startup verified on A and B; release rebuild changes only the version identifier |
-| Host tests | Notification, call-control, audio transport, tone/loopback and diagnostic-control tests pass with sanitizers |
-| WhatsApp delivery | User confirmed text delivery through both boards when Tesla was connected; long-term delivery reliability remains unproven |
-| Call controls | Answer, reject/end, explicit-number dialing and DTMF implemented; answered FaceTime Audio calls exercised, but not every control is hardware-verified |
-| Call audio | 16 kHz mSBC negotiated on both sides in captured calls; 8 kHz fallback implemented. **Hardware-tested with unresolved robotic/unclear audio** |
-| Audio isolation tests | Per-side test tone, loopback and Bluetooth error counters installed; remote stop command verified. **Tone/loopback listening tests pending** |
-| Reconnection | iPhone calls and notifications restored after updates; Tesla-owned wake reconnect verified in an earlier B build. Latest B build still awaiting Tesla reconnection/test |
-| Daily reliability | **Not established**; no sustained-use validation |
-| Music, media controls, contacts and replies | **Not implemented**; fixing call audio does not add music support |
+| Feature | Implemented in firmware | Evidence and remaining gap |
+| :--- | :--- | :--- |
+| WhatsApp messages | ANCS filtering for WhatsApp and WhatsApp Business; read-only Tesla MAP inbox and new-message alerts | Real text appeared on the Tesla in an earlier two-board build. ANCS was linked/encrypted/ready after the latest flash, but fresh end-to-end delivery on these exact images is pending. |
+| Recent message history | Silently imports still-present iOS ANCS notifications into the RAM inbox on reconnect | Host tests pass. **Not** full WhatsApp history, and not yet checked on the Tesla with this build. |
+| Calls and caller ID | HFP answer, reject/end, dial, DTMF, caller number/name when available, and call-state relay | Answered calls were exercised on earlier builds. Latest build's controls and displayed names need retesting. |
+| HD call audio | Encoded mSBC relay at 16 kHz when negotiated; CVSD 8 kHz fallback | mSBC was observed on both Bluetooth sides in prior logs. Earlier listening revealed robotic/unclear audio. New encoded relay builds and boots, but **has not had a listening test or been proven clear**. |
+| Call waiting, conference, redial | HFP call-list and hold/multiparty commands, plus last-number redial | Software validation passes. iPhone/Tesla support and real call behavior are unverified. |
+| Music and Tesla media buttons | A2DP SBC audio relay; AVRCP play/pause/stop, next/previous, seek, and track/playback metadata | iPhone A2DP/AVRCP linked and metadata callbacks were observed. No streaming audio or Tesla button press was confirmed on the latest images. |
+| Contacts, favorites, call lists | PBAP client/server for contacts, favorites, and incoming/outgoing/missed/combined calls; grouped numbers/addresses in vCards | Parser/server tests pass, but the latest iPhone pull failed for **all six repositories**: `entries=0`, `bytes=0`, `discarded=6`. Names, Tesla contact browsing, and redial from history are not demonstrated. |
+| Reconnection and sustained use | Bonding and reconnection paths | iPhone call/ANCS links recovered after updates; an earlier Tesla-wake reconnection worked. No extended reliability or phone-key coexistence test on this build. |
 
-Passing software tests does not establish audio quality or daily reliability. See the [current validation record](docs/CALL_RELAY_VALIDATION.md) for the installed versions and the [audio test guide](docs/AUDIO_ISOLATION_TESTS.md) for pending checks.
+`bash tools/test.sh` passes the host checks for notification history, contacts, PBAP, call controls, music control/transport, and audio replay; both firmware targets also built. These are implementation checks, **not** proof that iOS and Tesla expose or accept every feature.
 
 ### Current boundaries
 
-- This is a **one-call prototype**. Siri, redial, call waiting and conferences are not supported.
-- The Tesla selects Dash Tesla as its active phone. It does not keep the iPhone as a second active phone for calls.
-- Only new notifications received while the car connection is ready are forwarded. There is no offline backlog or replay of old messages.
-- The inbox holds up to **32 notifications**, with up to **768 UTF-8 bytes** of message body per notification.
+- The Tesla selects Dash Tesla as its active phone; it does not keep the iPhone as a second active phone for calls. The phone key remains a separate direct pairing.
+- Recent message import means notifications still available through ANCS when Board A reconnects. It does **not** read WhatsApp chats, recover cleared notifications, or persist a backlog through a board restart.
+- The inbox holds up to **32 notifications**, with up to **768 UTF-8 bytes** of body per notification; older entries can be evicted. It is read-only: replies and sending WhatsApp messages are not supported.
 - Repeated adds and edits to a retained notification ID update its entry without another alert. iOS grouping can affect how many alerts reach the car.
-- iPhone previews, Focus settings, locking and app behavior affect the available notification content. Direct pairing in iPhone Settings has worked with the current two-board setup; no extra iPhone app was needed. A has separate call and notification pairings (Dash Calls and Dash Messages).
+- iPhone previews, Focus settings, locking and app behavior affect the available notification content. Direct pairing in iPhone Settings has worked; no extra iPhone app is needed. Board A has separate call and notification pairings (`Dash Calls` and `Dash Messages`). `Dash Messages` may not display “Connected” in iOS even when ANCS is ready; check Board A's `status` output.
+- Music is audio and basic transport/metadata only. Album artwork, browsing the iPhone library/playlists, search, queue management, shuffle, repeat, Siri, and voice-assistant integration are not implemented.
+- Call waiting, conference, and redial are conditional on the iPhone/Tesla HFP behavior and remain unverified on real calls. The firmware is not a general-purpose multiparty mixer.
 
 ## Hardware
 
-The initial test target is an **iPhone and an approximately 2021 Tesla Model 3**. Notifications have worked on that setup; call tests have exposed unresolved audio quality problems.
+The initial test target is an **iPhone and an approximately 2021 Tesla Model 3**. Earlier notifications worked on that setup; earlier call tests exposed audio quality problems. The latest feature set still needs a complete parked-car test.
 
 | Part | Quantity | Notes |
 | :--- | :---: | :--- |
@@ -125,11 +125,11 @@ Power both boards over USB. Do **not** connect their 5V, VIN, or 3V3 pins togeth
 
 ## Get started
 
-### 1. Install from your browser
+### 1. Install matching A and B images
 
 [![Install DashBridge](docs/assets/install-button.svg)](https://thomasgregg.github.io/DashBridge/)
 
-Use **Chrome or Edge on a computer**. Connect one board with a USB data cable, select **A — iPhone** or **B — Tesla**, click **Install**, and select its USB port. The page selects the correct firmware and settings for you. Repeat for the other board. Installation clears the selected board’s saved pairings.
+The public installer supports **Chrome or Edge on a computer**: connect one board by USB, choose its A or B role, click **Install**, and repeat for the other board. It serves the published GitHub build, which **may lag behind this local snapshot**. Check its image versions against the [manifest](dist/manifest.json) before using it to test the features in this README. A full-image installation clears saved pairings.
 
 Prefer a manual installation? [Download the project ZIP](https://github.com/thomasgregg/DashBridge/archive/refs/heads/main.zip), or clone the repository:
 
@@ -138,24 +138,47 @@ git clone https://github.com/thomasgregg/DashBridge.git
 cd DashBridge
 ```
 
-The [`dist/`](dist/) directory contains the prebuilt prototype images:
+The local [`dist/`](dist/) directory contains the matching A/B images for this release:
 
 | Board | Firmware | Bluetooth name |
 | :--- | :--- | :--- |
 | **A — iPhone** | [`phone-merged.bin`](dist/phone-merged.bin) | `Dash Calls` and `Dash Messages` |
 | **B — Tesla** | [`car-merged.bin`](dist/car-merged.bin) | `Dash Tesla` |
 
-The [manifest](dist/manifest.json) records image and source checksums. Board B's Tesla wake reconnect, HFP profile, MAP transport and message notifications have been hardware tested. The complete two-board call/audio relay has been tested together but remains an alpha with unresolved audio distortion. The latest diagnostic listening tests are pending.
+The [manifest](dist/manifest.json) records versions, image hashes, and source hashes. `phone-merged.bin` and `car-merged.bin` are full images flashed at `0x0`; they can erase Bluetooth pairings. For an update that preserves pairings, use the matching application-only build image at `0x10000` with the existing partition layout. Do not mix a newly built A image with an older B image. The release images build and pass host checks; the **0.4.0-alpha files have not yet been flashed or hardware-tested**.
+
+To install these **exact local images**, use the repository's checksum-checking flash helper with `esptool==4.12.0` in a Python environment. Identify each board's serial port first, then flash them one at a time (replace `YOUR_A_PORT` and `YOUR_B_PORT` with the ports you found):
+
+```sh
+python3 tools/flash.py --list
+python3 tools/flash.py --board phone --port YOUR_A_PORT
+python3 tools/flash.py --board car --port YOUR_B_PORT
+```
+
+This is a full-image flash and may require pairing the iPhone and Tesla again. The [setup notes](docs/SETUP.md) explain the application-only layout caveat; never flash an application-only binary at `0x0`.
 
 ### 2. Wire and pair the boards
 
-Unplug both boards and connect the five wires shown above. Power them again, pair **Dash Calls** and **Dash Messages** with the iPhone, then pair **Dash Tesla** with the Tesla and enable message syncing. The [setup guide](docs/CALL_RELAY.md#first-physical-test-parked) covers the pairing commands and notification permissions.
+Unplug both boards and connect the five wires shown above. Power them again. In Board A's USB console, enter `pair phone` (a 120-second window) and pair both **Dash Calls** and **Dash Messages** with the iPhone. Allow notification sharing when prompted. In Board B's console, enter `pair car`; pair **Dash Tesla** with the Tesla and enable message and contact syncing where offered. Use `status` on each board to check the actual Bluetooth profile states. The [setup guide](docs/CALL_RELAY.md#first-physical-test-parked) has more pairing detail, though its feature list predates this build.
 
-### 3. Test messages, then a call
+### 3. Run the parked-car checks
 
-While parked, open **Logs & Console** for Board B and enter `test`. A message from **DashBridge test** should appear in the Tesla. Then test a new WhatsApp notification.
+Start with `status` on both boards. Board A should report the iPhone call profile and ANCS ready; Board B should report the Tesla phone/message connections. An iPhone showing `Dash Messages` as not connected is not by itself a failure—Board A's ANCS state is the useful check. Then enter `test` in Board B's **Logs & Console**; a **DashBridge test** message should appear on the Tesla. Send a new WhatsApp notification.
 
-For the first call test, have someone call the iPhone. Answer on the Tesla and check that you can hear them through the speakers **and they can hear the Tesla microphone**. Save logs from both boards if either direction fails. See the [complete test sequence](docs/CALL_RELAY.md#first-physical-test-parked).
+Use the [checklist below](#parked-car-test-checklist) to distinguish visible features from features still awaiting real-device validation. Save logs from **both** boards when something fails; `status` counters and the exact A/B firmware versions help reproduce it.
+
+### Parked-car test checklist
+
+Test only while parked, with the iPhone, both boards, and the Tesla connected. Check each item independently; a Bluetooth link alone does not mean its data path works.
+
+1. **Messages:** confirm Board B's `test` message, then a new WhatsApp notification. Leave another notification in iPhone Notification Center, reconnect Board A, and check whether it appears as silent recent history in the Tesla inbox. Cleared/older chats are outside this feature.
+2. **Calls and audio:** receive a call, answer/end from the Tesla, and listen in both directions for at least a few minutes. Try a normal outgoing call and note whether HD/mSBC or CVSD was negotiated in each board's logs. Earlier builds had robotic audio; this build still needs a listening verdict.
+3. **Music:** start playback on the iPhone, select Dash Tesla Bluetooth audio in the Tesla, and confirm actual speaker sound, title/artist/album, play/pause, next/previous, and seek. Connected A2DP or metadata without sound is only partial success.
+4. **Contacts and call lists:** check `status` on Board A for nonzero phonebook `entries` and zero failed/discarded repository pulls. Then look for named contacts, favorites, and incoming/outgoing/missed calls on the Tesla. The last check had `entries=0`, `bytes=0`, `discarded=6`; do not infer success from a connected PBAP link.
+5. **Advanced call controls:** only after ordinary calls work, try redial and a real call-waiting/conference scenario if your phone plan and Tesla expose those controls. Record each result separately; these paths have software tests but no confirmed Tesla result.
+6. **Reconnect:** power-cycle each board, then wake/reconnect the Tesla and verify messages, calls, and music again. Check that the separate phone key still behaves as expected.
+
+If contact downloads still fail, capture Board A's PBAP/phonebook log and the iPhone/Tesla contact-sharing settings; the problem is not currently diagnosed. Avoid putting real phone numbers or message bodies in a public issue.
 
 ## Build from source
 
@@ -167,36 +190,37 @@ After [installing ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/v5.5.5
 # Host tests: requires Clang with AddressSanitizer and UndefinedBehaviorSanitizer.
 bash tools/test.sh
 
-# Build and package firmware for both boards.
-bash tools/build.sh
+# Build and package firmware for both boards, even if an image looks current.
+bash tools/build.sh both
 
-# Or build one board only.
+# Or build only stale roles (default), or one board.
+bash tools/build.sh
 bash tools/build.sh phone
 bash tools/build.sh car
 ```
 
-Build outputs stay in `build/`. Packaged flash images and their manifest are written to `dist/`. The [CI workflow](.github/workflows/ci.yml) runs host tests and builds only stale firmware roles; a green check does not establish hardware compatibility.
+Build outputs stay in `build/`. Packaged full flash images and their manifest are written to `dist/`; `build/phone/dashbridge.bin` and `build/car/dashbridge.bin` are the application-only binaries. The [CI workflow](.github/workflows/ci.yml) runs host tests and builds stale firmware roles; a green check does not establish hardware compatibility. Rebuilding after source changes gives the images new hashes, so compare the installed firmware versions to the resulting manifest when reporting tests.
 
-## Privacy and notification behavior
+## Privacy and data behavior
 
-DashBridge keeps notification content in RAM and on the local Bluetooth/UART links. It does not write message bodies to its logs or flash storage. Bluetooth bonding keys are stored on the boards so paired devices can reconnect.
+DashBridge keeps notification content in RAM and on the local Bluetooth/wired links. Phonebook and call-history records fetched from the iPhone are also held in RAM and sent to Board B for the Tesla phonebook service. The firmware does not write message bodies or phonebook contents to logs or flash. Bluetooth bonding keys are stored in board flash so devices can reconnect. The Tesla may retain its own synchronized message/contact cache.
 
 ANCS event headers do not identify the source app, so Board A must request notification attributes before it can filter for WhatsApp. Attributes from other apps are not forwarded to Board B.
 
-Disconnects clear the adapter's inbox. The Tesla may maintain its own cache; clearing a board cannot guarantee deletion of that cache. DashBridge also does not dismiss or silence the original WhatsApp notification on your iPhone.
+Disconnects clear the adapter's message inbox; a board restart also loses any imported recent notifications and fetched phonebook data. Clearing a board cannot guarantee deletion of the Tesla's cache. DashBridge does not dismiss or silence the original WhatsApp notification on the iPhone.
 
 ## Roadmap
 
 - [x] Implement local notification filtering and the Tesla message gateway.
 - [x] Display a test message and a real WhatsApp notification on the Tesla.
-- [x] Add the two-board call controls and audio transport.
-- [x] Compile both call-relay images and pass software checks.
-- [x] Exercise notifications and answered calls with both physical boards.
-- [ ] Resolve robotic call audio and unclear microphone delivery.
-- [ ] Run the installed per-side tone and loopback listening tests.
-- [ ] Validate power cycles, reconnection, audio quality and phone-key coexistence.
-- [ ] Add music and media controls.
-- [ ] Add contacts and call history.
+- [x] Implement the two-board call, music, and data transport paths.
+- [x] Implement recent ANCS history import, PBAP contacts/favorites/call lists, and basic AVRCP metadata/controls.
+- [x] Build both release images and pass host software checks; install and boot the preceding development images.
+- [x] Exercise notifications and answered calls on earlier physical builds.
+- [ ] Demonstrate clear bidirectional call audio on the current encoded path.
+- [ ] Demonstrate music sound and Tesla media controls end to end.
+- [ ] Resolve the failed iPhone phonebook/history pulls, then verify names, favorites, and call lists on the Tesla.
+- [ ] Flash and verify the release images, then test recent-notification import, redial, call waiting/conference, reconnect, and sustained use.
 - [ ] Add configurable notification app selection.
 
 Hardware test results will determine the next changes.
@@ -211,10 +235,10 @@ Protocol fixes, parser tests, and documentation improvements are welcome too. Re
 
 | Guide | What you will find |
 | :--- | :--- |
-| [Setup](docs/CALL_RELAY.md) | Flashing, pairing, wiring, test sequence, and reset |
-| [Implementation](docs/DEVELOPMENT.md) | ANCS, MAP subset, wire format, and state handling |
-| [Validation](docs/CALL_RELAY_VALIDATION.md) | Current software evidence, observed hardware results and outstanding tests |
-| [Audio tests](docs/AUDIO_ISOLATION_TESTS.md) | Per-side tone and loopback commands, expected sound and diagnostic limits |
+| [Setup](docs/SETUP.md) | Current pairing, installation layout, and links to the parked-car checklist |
+| [Implementation](docs/DEVELOPMENT.md) | ANCS, MAP subset, wire format, and state handling; earlier milestone |
+| [Validation](docs/CALL_RELAY_VALIDATION.md) | Historical call-audio and hardware results from earlier images |
+| [Audio tests](docs/AUDIO_ISOLATION_TESTS.md) | Historical tone/loopback diagnostics; those modes are **not active** in the current encoded-audio image |
 | [Sources](docs/SOURCES.md) | Specifications, upstream references, and project provenance |
 | [Contributing](CONTRIBUTING.md) | Development workflow and useful hardware reports |
 

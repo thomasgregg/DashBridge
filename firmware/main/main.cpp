@@ -20,24 +20,27 @@ SemaphoreHandle_t mutex;
 static PairingWindows pairing;
 #if CONFIG_BRIDGE_SINGLE
 static LocalBridge local;
-void send_to_car(const bridge::WireMessage &m) {
+bool send_to_car(const bridge::WireMessage &m) {
     Guard g;
-    if (!local.send_to_car(m)) ESP_LOGW("bridge", "Local queue full; notification dropped");
+    const bool accepted = local.send_to_car(m);
+    if (!accepted) ESP_LOGW("bridge", "Local queue full; notification dropped");
+    return accepted;
 }
-void send_to_phone(const bridge::WireMessage &m) {
+bool send_to_phone(const bridge::WireMessage &m) {
     Guard g;
-    local.send_to_phone(m);
+    return local.send_to_phone(m);
 }
 #else
 static std::deque<bridge::Bytes> outgoing, call_outgoing;
-static void send_wire(const bridge::WireMessage &m) {
+static bool send_wire(const bridge::WireMessage &m) {
     Guard g;
     auto &queue = m.op == bridge::Op::call ? call_outgoing : outgoing;
-    if (queue.size() < 32) queue.push_back(bridge::encode(m));
-    else ESP_LOGW("wire", "Queue full; notification dropped");
+    if (queue.size() < 32) { queue.push_back(bridge::encode(m)); return true; }
+    ESP_LOGW("wire", "Queue full; notification dropped");
+    return false;
 }
-void send_to_car(const bridge::WireMessage &m) { send_wire(m); }
-void send_to_phone(const bridge::WireMessage &m) { send_wire(m); }
+bool send_to_car(const bridge::WireMessage &m) { return send_wire(m); }
+bool send_to_phone(const bridge::WireMessage &m) { return send_wire(m); }
 #endif
 bool pairing_allowed(Peer peer) { return pairing.allowed(peer, now()); }
 void paired(Peer peer) {
@@ -202,8 +205,16 @@ extern "C" void app_main() {
         #if !CONFIG_BRIDGE_SINGLE
             if (n > 0)
                 decoder.feed(buf, n, [](const bridge::WireMessage &m) {
+#if CONFIG_BRIDGE_CONTACT_SYNC
+                    if (bridge::contact_op(m.op)) { contacts_receive(m); return; }
+#endif
 #if CONFIG_BRIDGE_CALL_RELAY
                     if (m.op == bridge::Op::call) { relay_receive(m); return; }
+#if CONFIG_BRIDGE_MUSIC_RELAY
+                    if (m.op == bridge::Op::media_state || m.op == bridge::Op::media_command) {
+                        music_control_receive(m); return;
+                    }
+#endif
 #endif
 #if CONFIG_BRIDGE_PHONE
                     phone_receive(m);

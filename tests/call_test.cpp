@@ -1,5 +1,8 @@
 #include "call_protocol.hpp"
 #include "call_resampler.hpp"
+#include "music_protocol.hpp"
+#include "music_control_protocol.hpp"
+#include "contacts_protocol.hpp"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -26,6 +29,192 @@ static double component(const std::vector<uint8_t> &pcm, double frequency) {
         im += pcm_read(pcm.data() + i) * std::sin(phase);
     }
     return std::sqrt(re * re + im * im);
+}
+static EncodedAudio encoded_sample(uint8_t marker) {
+    EncodedAudio audio;
+    audio.codec = AudioCodec::msbc; audio.size = msbc_frame_size;
+    audio.data.fill(marker); return audio;
+}
+static void contact_parser_tests() {
+    const std::string cards = "BEGIN:VCARD\r\nVERSION:3.0\r\nN:Doe;Jane;;;\r\nFN:Jane Doe\r\n"
+        "TEL;TYPE=CELL:+49 (123) 45-67\r\nTEL;TYPE=WORK:555-0100\r\n"
+        "ADR;TYPE=HOME:;;Main Street 1;Berlin;;10115;Germany\r\nEND:VCARD\r\n"
+        "BEGIN:VCARD\nN:Smith;John;;;\nTEL:12345\nX-IRMC-CALL-DATETIME:20260922T101500\nEND:VCARD\n";
+    contacts::Parser parser;
+    std::vector<contacts::Contact> parsed;
+    for (size_t i = 0; i < cards.size(); i += 7) {
+        const size_t n = std::min<size_t>(7, cards.size() - i);
+        parser.feed(reinterpret_cast<const uint8_t *>(cards.data() + i), n,
+                    [&](const contacts::Contact &contact) { parsed.push_back(contact); });
+    }
+    assert(parsed.size() == 2);
+    assert(parsed[0].name == "Jane Doe" && parsed[0].numbers.size() == 2);
+    assert(parsed[0].numbers[0].type == "CELL" && parsed[0].numbers[0].value == "+491234567");
+    assert(parsed[0].numbers[1].type == "WORK" && parsed[0].numbers[1].value == "5550100");
+    assert(parsed[0].addresses.size() == 1 && parsed[0].addresses[0] == "Main Street 1, Berlin, 10115, Germany");
+    assert(parsed[1].name == "John Smith" && parsed[1].numbers[0].value == "12345");
+    assert(parsed[1].timestamp == "20260922T101500");
+    std::string huge = "BEGIN:VCARD\nFN:" + std::string(600, 'x') + "\nTEL:1\nEND:VCARD\n";
+    parser.feed(reinterpret_cast<const uint8_t *>(huge.data()), huge.size(), [](const contacts::Contact &) {});
+    assert(parser.overflow() == 1);
+}
+static void music_transport_tests() {
+    music::Audio audio;
+    audio.stream = 0x10203040;
+    audio.sequence = 65535;
+    audio.frames = 5;
+    audio.timestamp = 0xaabbccdd;
+    audio.size = 733;
+    for (unsigned i = 0; i < audio.size; ++i)
+        audio.data[i] = uint8_t(i * 17);
+    music::Frame frame;
+    const size_t size = music::encode(audio, frame);
+    assert(size == music::header_size + audio.size + 2);
+
+    music::Decoder decoder;
+    unsigned received = 0;
+    auto accept = [&](const music::Audio &out) {
+        assert(out.stream == audio.stream && out.sequence == audio.sequence);
+        assert(out.frames == audio.frames && out.timestamp == audio.timestamp && out.size == audio.size);
+        assert(!memcmp(out.data.data(), audio.data.data(), audio.size));
+        ++received;
+    };
+    for (size_t i = 0; i < size; ++i)
+        decoder.feed(frame[i], accept);
+    assert(received == 1);
+
+    auto corrupt = frame;
+    corrupt[100] ^= 1;
+    for (size_t i = 0; i < size; ++i)
+        decoder.feed(corrupt[i], accept);
+    assert(received == 1 && decoder.crc_failures() == 1);
+
+    // A truncated packet followed by a complete one must resynchronize without
+    // ever emitting partial or corrupted music.
+    for (size_t i = 0; i < 100; ++i)
+        decoder.feed(frame[i], accept);
+    for (size_t i = 0; i < size; ++i)
+        decoder.feed(frame[i], accept);
+    assert(received == 2);
+
+    music::Audio invalid;
+    assert(music::encode(invalid, frame) == 0);
+    invalid.stream = 1;
+    invalid.frames = 1;
+    invalid.size = music::max_payload + 1;
+    assert(music::encode(invalid, frame) == 0);
+}
+static void music_control_tests() {
+    music::State state;
+    state.session = 0x10203040;
+    state.revision = 17;
+    state.playback = 1;
+    state.length_ms = 234567;
+    state.position_ms = 45678;
+    state.title = "A title";
+    state.artist = "An artist";
+    state.album = "An album";
+    state.track = "3";
+    state.track_count = "12";
+    state.genre = "Electronic";
+    const auto message = music::state_message(state);
+    music::State decoded;
+    assert(music::parse_state(message, decoded));
+    assert(decoded.session == state.session && decoded.revision == state.revision);
+    assert(decoded.playback == state.playback && decoded.length_ms == state.length_ms);
+    assert(decoded.position_ms == state.position_ms && decoded.title == state.title);
+    assert(decoded.artist == state.artist && decoded.album == state.album);
+    assert(decoded.track == state.track && decoded.track_count == state.track_count && decoded.genre == state.genre);
+
+    auto wire = bridge::encode(message);
+    bridge::WireDecoder decoder;
+    bool delivered = false;
+    decoder.feed(wire.data(), wire.size(), [&](const bridge::WireMessage &out) {
+        music::State roundtrip;
+        assert(music::parse_state(out, roundtrip));
+        assert(roundtrip.title == state.title && roundtrip.position_ms == state.position_ms);
+        delivered = true;
+    });
+    assert(delivered);
+
+    uint8_t key = 0, key_state = 0;
+    const auto command = music::command_message(99, 5, 0x4b, 1);
+    assert(music::parse_command(command, key, key_state) && key == 0x4b && key_state == 1);
+    auto invalid = command;
+    invalid.notice.body = "75,2";
+    assert(!music::parse_command(invalid, key, key_state));
+}
+static void encoded_playout_tests() {
+    const auto silence = msbc_silence_audio();
+    assert(silence.codec == AudioCodec::msbc && silence.size == msbc_frame_size);
+    assert(!memcmp(silence.data.data(), msbc_silence_frame.data(), msbc_frame_size));
+    assert(silence.data[0] == 0xad); // mSBC syncword; real decoder coverage is in test_audio_codec.py.
+
+    EncodedJitterBuffer jitter;
+    EncodedAudio output;
+    size_t trimmed = 0;
+    const auto speech = encoded_sample(0x42);
+    for (int i = 0; i < 5; ++i) assert(jitter.push(speech));
+    assert(jitter.pop(AudioCodec::msbc, output, trimmed) == EncodedPlayout::wait && trimmed == 0);
+    assert(jitter.push(speech));
+    assert(jitter.pop(AudioCodec::msbc, output, trimmed) == EncodedPlayout::audio);
+    assert(output.data == speech.data && jitter.size() == 5);
+    assert(jitter.pop(AudioCodec::msbc, output, trimmed) == EncodedPlayout::audio && jitter.size() == 4);
+    assert(jitter.pop(AudioCodec::msbc, output, trimmed) == EncodedPlayout::conceal);
+    assert(jitter.size() == 4); // Concealment must not consume queued speech.
+    assert(jitter.push(speech));
+    assert(jitter.pop(AudioCodec::msbc, output, trimmed) == EncodedPlayout::audio && jitter.size() == 4);
+
+    jitter.clear();
+    for (int i = 0; i < 20; ++i) assert(jitter.push(encoded_sample(uint8_t(i))));
+    assert(jitter.pop(AudioCodec::msbc, output, trimmed) == EncodedPlayout::audio);
+    assert(trimmed == 8 && jitter.size() == 11 && output.data[0] == 8); // Bound latency to 90 ms before playout.
+    for (int i = 20; i < 32; ++i) assert(jitter.push(encoded_sample(uint8_t(i))));
+    for (int i = 32; i < 44; ++i) jitter.push(encoded_sample(uint8_t(i)));
+    assert(jitter.size() == 32); // Overflow always drops oldest, never grows latency.
+
+    EncodedAudio wrong = speech; wrong.codec = AudioCodec::cvsd;
+    jitter.clear(); for (int i = 0; i < 6; ++i) assert(jitter.push(wrong));
+    assert(jitter.pop(AudioCodec::msbc, output, trimmed) == EncodedPlayout::codec_mismatch);
+    assert(jitter.size() == 0);
+
+    // Ten simulated minutes per clock direction. Reproduce the measured 1.8%
+    // radio impairment, two-tick scheduler stalls and +/-400 ppm SCO clock drift.
+    for (int drift_ppm : {-400, 400}) {
+        jitter.clear();
+        double source_phase = 0;
+        unsigned held = 0, startup_wait = 0, concealed = 0, trims = 0;
+        unsigned consecutive_conceal = 0, longest_conceal = 0, radio_silence = 0;
+        for (unsigned tick = 0; tick < 80000; ++tick) { // 600 seconds at 7.5 ms/frame.
+            source_phase += 1.0 + drift_ppm / 1000000.0;
+            unsigned arrivals = unsigned(source_phase); source_phase -= arrivals;
+            const unsigned stall_phase = tick % 9973;
+            if (stall_phase == 1234 || stall_phase == 1235) {
+                held += arrivals; arrivals = 0;
+            } else {
+                arrivals += held; held = 0;
+            }
+            for (unsigned i = 0; i < arrivals; ++i) {
+                const bool bad = ((tick * 17 + i * 43) % 1000) < 18;
+                assert(jitter.push(bad ? silence : speech));
+                radio_silence += bad;
+            }
+            const auto action = jitter.pop(AudioCodec::msbc, output, trimmed);
+            trims += trimmed;
+            if (action == EncodedPlayout::wait) {
+                ++startup_wait; consecutive_conceal = 0;
+            } else if (action == EncodedPlayout::conceal) {
+                ++concealed; longest_conceal = std::max(longest_conceal, ++consecutive_conceal);
+            } else {
+                assert(action == EncodedPlayout::audio); consecutive_conceal = 0;
+            }
+            assert(jitter.size() <= 12);
+        }
+        assert(startup_wait <= 6 && radio_silence > 1000);
+        assert(longest_conceal <= 1); // No post-start mute burst longer than 7.5 ms.
+        if (drift_ppm < 0) assert(concealed > 0);
+        if (drift_ppm > 0) assert(trims > 0);
+    }
 }
 static void resampler_tests() {
     auto input = tone(8000, 1000);
@@ -65,13 +254,31 @@ static void resampler_tests() {
     for (size_t i = 100; i < wide.size(); i += 2) assert(pcm_read(wide.data() + i) < -32000);
 }
 int main() {
+    contact_parser_tests();
+    music_transport_tests();
+    music_control_tests();
     resampler_tests();
-    State a{1, 0xdeadbeef, 0x12345678, 0, 1, 0, 1, 4, 0, 5, 1, "+491234"}, b;
-    assert(decode_state(encode_state(a), a.number, b) && b.audio == a.audio && b.generation == a.generation);
+    encoded_playout_tests();
+    State a;
+    a.linked = 1; a.audio = 0xdeadbeef; a.generation = 0x12345678; a.setup = 1;
+    a.service = 1; a.signal = 4; a.battery = 5; a.incoming = 1; a.chld = 0x3f;
+    a.number = "+491234"; a.current_count = 2;
+    a.current[0] = {1, 1, 4, 0, "+491234"};
+    a.current[1] = {2, 0, 0, 1, "5550100"};
+    State b;
+    assert(decode_state(encode_state(a), "", b) && b.audio == a.audio && b.generation == a.generation);
+    assert(b.number == a.number && b.current_count == 2 && b.current[0].number == "+491234");
+    assert(b.current[1].index == 2 && b.current[1].multiparty == 1);
     for (const auto &bad : {"", "1 2", "1 0 0 0 4 0 1 4 0 5 1", "1 4294967296 0 0 0 0 0 0 0 0 0",
                            "1 0 0 0 0 0 0 0 0 0 0 junk", "1 0 0 0 0 0 0 0 0 0 -1"})
         assert(!decode_state(bad, "", b));
     assert(!decode_state(encode_state(a), "x\r\nATD123;", b));
+    std::string chld;
+    assert(chld_argument("+CHLD=3", chld) && chld == "3");
+    assert(chld_argument("+CHLD=12", chld) && chld == "12");
+    assert(chld_argument("+CHLD=24", chld) && chld == "24");
+    for (const auto &invalid : {"CHLD=3", "+CHLD=", "+CHLD=5", "+CHLD=10", "+CHLD=2999", "+CHLD=2x"})
+        assert(!chld_argument(invalid, chld));
     assert(command_allowed(a, "answer", ""));
     assert(!command_allowed(a, "dial", "123"));
     assert(!command_allowed(a, "answer", "extra"));
@@ -80,14 +287,25 @@ int main() {
     assert(command_allowed(a, "hangup", ""));
     assert(command_allowed(a, "dtmf", "#"));
     assert(!command_allowed(a, "dtmf", "12"));
-    a.held = 1; assert(!command_allowed(a, "hangup", ""));
+    a.held = 1; a.call = 1; a.setup = 0;
+    assert(!command_allowed(a, "hangup", ""));
+    assert(command_allowed(a, "chld", "0"));
+    assert(command_allowed(a, "chld", "1"));
+    assert(command_allowed(a, "chld", "2"));
+    assert(command_allowed(a, "chld", "3"));
+    assert(command_allowed(a, "chld", "12"));
+    assert(command_allowed(a, "chld", "22"));
+    assert(!command_allowed(a, "chld", "13"));
+    assert(!command_allowed(a, "chld", "4")); // Not advertised in 0x3f.
     a.held = 0; a.linked = 0; assert(!command_allowed(a, "hangup", ""));
     State idle; idle.linked = 1;
     assert(command_allowed(idle, "dial", "+491234"));
     for (const auto &invalid : {"", "+", "+49+12", "123;ATD456", "123\r\n", "123;"})
         assert(!command_allowed(idle, "dial", invalid));
-    assert(!command_allowed(idle, "redial", ""));
-    idle.setup = 1; assert(!command_allowed(idle, "dial", "123"));
+    assert(command_allowed(idle, "redial", ""));
+    assert(!command_allowed(idle, "redial", "123"));
+    idle.setup = 1;
+    assert(!command_allowed(idle, "dial", "123") && !command_allowed(idle, "redial", ""));
     CommandGate gate; gate.reset(10);
     assert(!gate.accept(9, 1)); assert(!gate.accept(10, 0)); assert(gate.accept(10, 5));
     assert(!gate.accept(10, 5)); assert(!gate.accept(10, 4)); assert(gate.accept(10, 6));
@@ -116,6 +334,22 @@ int main() {
     assert(received == 2);
     std::mt19937 random(42);
     for (int i = 0; i < 100000; ++i) decoder.feed(uint8_t(random()), [](const Frame &) {});
+    EncodedAudio encoded;
+    encoded.codec = AudioCodec::msbc; encoded.size = 57;
+    for (unsigned i = 0; i < encoded.size; ++i) encoded.data[i] = uint8_t(i * 7);
+    auto encoded_frame = encoded_audio_frame(0x10203040, 0x50607080, 42, encoded);
+    EncodedAudioDecoder encoded_decoder;
+    unsigned encoded_received = 0;
+    for (auto c : encoded_frame) encoded_decoder.feed(c, [&](const EncodedFrame &f) {
+        assert(get32(f.data() + 4) == 0x10203040 && get32(f.data() + 8) == 0x50607080);
+        assert(f[14] == uint8_t(AudioCodec::msbc) && f[15] == 57);
+        assert(!memcmp(f.data() + 16, encoded.data.data(), encoded.size)); ++encoded_received;
+    });
+    assert(encoded_received == 1);
+    auto encoded_corrupt = encoded_frame; encoded_corrupt[20] ^= 1;
+    for (auto c : encoded_corrupt) encoded_decoder.feed(c, [&](const EncodedFrame &) { ++encoded_received; });
+    assert(encoded_received == 1 && encoded_decoder.crc_failures() == 1);
+    for (int i = 0; i < 100000; ++i) encoded_decoder.feed(uint8_t(random()), [](const EncodedFrame &) {});
     AudioSequence order;
     assert(order.accept(65535, 1000) == 2);
     assert(order.accept(0, 8500) == 1); // Normal 16-bit sequence wrap.
@@ -148,5 +382,5 @@ int main() {
         assert(out.op == bridge::Op::call && out.session == 33 && out.notice.body == m.notice.body); delivered = true;
     });
     assert(delivered);
-    std::cout << "Call control, 16 kHz PCM transport and filtered 8/16 kHz conversion tests passed\n";
+    std::cout << "Call control, codec-transparent transport, jitter buffer, PCM fallback and rate conversion tests passed\n";
 }

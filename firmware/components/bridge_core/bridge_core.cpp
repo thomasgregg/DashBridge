@@ -1,6 +1,7 @@
 #include "bridge_core.hpp"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <limits>
@@ -69,7 +70,7 @@ void WireDecoder::feed(const uint8_t *p, size_t n, const std::function<void(cons
         if (data_.size() < 6)
             continue;
         size_t len = be16(data_.data() + 4), total = len + 10;
-        if (data_[2] != 1 || data_[3] < 1 || data_[3] > 6 || len > 1302 || len < 18) {
+        if (data_[2] != 1 || data_[3] < 1 || data_[3] > uint8_t(Op::history_add) || len > 1302 || len < 18) {
             data_.erase(data_.begin());
             continue;
         }
@@ -205,6 +206,8 @@ static const Bytes mas_target = {0xbb, 0x58, 0x2b, 0x40, 0x42, 0x0c, 0x11, 0xdb,
                                  0xb0, 0xde, 0x08, 0x00, 0x20, 0x0c, 0x9a, 0x66};
 static const Bytes mns_target = {0xbb, 0x58, 0x2b, 0x41, 0x42, 0x0c, 0x11, 0xdb,
                                  0xb0, 0xde, 0x08, 0x00, 0x20, 0x0c, 0x9a, 0x66};
+static const Bytes pbap_target = {0x79, 0x61, 0x35, 0xf0, 0xf0, 0xc5, 0x11, 0xd8,
+                                  0x09, 0x66, 0x08, 0x00, 0x20, 0x0c, 0x9a, 0x66};
 Bytes mns_connect() {
     Bytes h = {0x10, 0, 0x04, 0};
     byte_header(h, 0x46, mns_target);
@@ -269,6 +272,21 @@ static Headers parse_headers(const Bytes &b, size_t pos = 0) {
         pos += len;
     }
     return h;
+}
+ObexService obex_service(const Bytes &b) {
+    if (b.size() < 7 || b[0] != 0x80 || be16(b.data() + 1) != b.size() || be16(b.data() + 5) < 255)
+        return ObexService::unknown;
+    auto h = parse_headers(b, 7);
+    if (!h.ok)
+        return ObexService::unknown;
+    auto target = h.values.find(0x46);
+    if (target == h.values.end())
+        return ObexService::unknown;
+    if (target->second == mas_target)
+        return ObexService::map;
+    if (target->second == pbap_target)
+        return ObexService::pbap;
+    return ObexService::unknown;
 }
 bool obex_connection_id(const Bytes &b, uint32_t &id) {
     if (b.size() < 7 || b[0] != 0xa0 || be16(b.data() + 1) != b.size() || be16(b.data() + 5) < 255)
@@ -381,14 +399,15 @@ uint64_t Inbox::apply(const WireMessage &m) {
         it->notice = clean;
         return 0;
     }
-    // Updates to notifications from before the trip must not resurrect old messages.
-    if (m.op != Op::add)
+    // Updates must not resurrect removed messages. A history add is stored but
+    // deliberately yields no handle, so MAP notification registration stays quiet.
+    if (m.op != Op::add && m.op != Op::history_add)
         return 0;
     if (messages_.size() >= 32)
         messages_.erase(messages_.begin());
     const uint64_t handle = next_++;
     messages_.push_back({handle, clean, false});
-    return handle;
+    return m.op == Op::add ? handle : 0;
 }
 Stored *Inbox::find(uint64_t h) {
     for (auto &s : messages_)
@@ -668,6 +687,308 @@ Bytes MasServer::request(const Bytes &b) {
         if (type == "x-bt/MAP-messageUpdate")
             return obex_packet(0xa0);
         return obex_packet(0xc3); // No outgoing messages; never fake successful delivery.
+    }
+    return obex_packet(0xd1);
+}
+
+void Phonebook::clear() {
+    entries_.clear();
+    text_.clear();
+    ready_ = false;
+}
+static bool phone_lines_valid(const std::string &phones) {
+    if (phones.empty() || phones.size() > 128 || phones.front() == '\n' || phones.back() == '\n') return false;
+    size_t at = 0;
+    while (at < phones.size()) {
+        const size_t end = phones.find('\n', at), stop = end == std::string::npos ? phones.size() : end;
+        const size_t tab = phones.find('\t', at);
+        if (tab == std::string::npos || tab >= stop || tab == at || tab + 1 == stop) return false;
+        for (size_t i = at; i < tab; ++i)
+            if (!(std::isalnum(uint8_t(phones[i])) || phones[i] == '-')) return false;
+        for (size_t i = tab + 1; i < stop; ++i)
+            if (!std::isdigit(uint8_t(phones[i])) && phones[i] != '+' && phones[i] != '*' && phones[i] != '#')
+                return false;
+        at = stop + 1;
+    }
+    return true;
+}
+bool Phonebook::add(const PhonebookEntry &entry) {
+    const unsigned repository = unsigned(entry.repository);
+    if (repository > unsigned(PhonebookRepository::combined) || entry.name.empty() || entry.name.size() > 80 ||
+        !phone_lines_valid(entry.phones) || entry.addresses.size() > 640 || entry.timestamp.size() > 32 ||
+        entries_.size() >= max_entries ||
+        text_.size() + entry.name.size() + entry.phones.size() + entry.addresses.size() + entry.timestamp.size() > max_text)
+        return false;
+    for (char c : entry.addresses)
+        if (uint8_t(c) < 32 && c != '\n') return false;
+    for (char c : entry.timestamp)
+        if (uint8_t(c) < 32) return false;
+    for (size_t i = 0; i < entries_.size(); ++i) {
+        auto existing = at(i);
+        if (existing.repository == entry.repository && existing.name == entry.name &&
+            existing.phones == entry.phones && existing.addresses == entry.addresses &&
+            existing.timestamp == entry.timestamp) return true;
+    }
+    Ref r{};
+    r.repository = uint8_t(entry.repository);
+    r.name_at = uint16_t(text_.size()); r.name_size = uint8_t(entry.name.size());
+    text_.insert(text_.end(), entry.name.begin(), entry.name.end());
+    r.phones_at = uint16_t(text_.size()); r.phones_size = uint8_t(entry.phones.size());
+    text_.insert(text_.end(), entry.phones.begin(), entry.phones.end());
+    r.addresses_at = uint16_t(text_.size()); r.addresses_size = uint16_t(entry.addresses.size());
+    text_.insert(text_.end(), entry.addresses.begin(), entry.addresses.end());
+    r.timestamp_at = uint16_t(text_.size()); r.timestamp_size = uint8_t(entry.timestamp.size());
+    text_.insert(text_.end(), entry.timestamp.begin(), entry.timestamp.end());
+    entries_.push_back(r);
+    return true;
+}
+bool Phonebook::add(const std::string &name, const std::string &number) {
+    return add({PhonebookRepository::contacts, name, "VOICE\t" + number, {}, {}});
+}
+size_t Phonebook::size(PhonebookRepository repository) const {
+    return std::count_if(entries_.begin(), entries_.end(), [&](const Ref &r) {
+        return r.repository == uint8_t(repository);
+    });
+}
+PhonebookEntry Phonebook::at(size_t index) const {
+    if (index >= entries_.size()) return {};
+    const auto &r = entries_[index];
+    return {PhonebookRepository(r.repository),
+            std::string(text_.data() + r.name_at, r.name_size),
+            std::string(text_.data() + r.phones_at, r.phones_size),
+            std::string(text_.data() + r.addresses_at, r.addresses_size),
+            std::string(text_.data() + r.timestamp_at, r.timestamp_size)};
+}
+
+static std::string vcard_escape(const std::string &value) {
+    std::string result;
+    result.reserve(value.size() + 8);
+    for (char c : value) {
+        if (c == '\\' || c == ';' || c == ',') result += '\\';
+        if (c == '\r' || c == '\n') result += "\\n";
+        else if (uint8_t(c) >= 32) result += c;
+    }
+    return result;
+}
+static std::string lower_ascii(std::string value) {
+    for (char &c : value)
+        if (c >= 'A' && c <= 'Z') c = char(c - 'A' + 'a');
+    return value;
+}
+static std::string contact_vcard(const Phonebook &book, size_t index, uint8_t format) {
+    auto contact = book.at(index);
+    auto name = vcard_escape(contact.name);
+    std::string result = "BEGIN:VCARD\r\nVERSION:" + std::string(format ? "3.0" : "2.1") +
+                         "\r\nN:" + name + ";;;;\r\nFN:" + name + "\r\n";
+    size_t at = 0;
+    while (at < contact.phones.size()) {
+        size_t end = contact.phones.find('\n', at);
+        if (end == std::string::npos) end = contact.phones.size();
+        const size_t tab = contact.phones.find('\t', at);
+        if (tab != std::string::npos && tab < end)
+            result += "TEL;TYPE=" + contact.phones.substr(at, tab - at) + ":" +
+                      vcard_escape(contact.phones.substr(tab + 1, end - tab - 1)) + "\r\n";
+        at = end + 1;
+    }
+    at = 0;
+    while (at < contact.addresses.size()) {
+        size_t end = contact.addresses.find('\n', at);
+        if (end == std::string::npos) end = contact.addresses.size();
+        result += "ADR;TYPE=OTHER:;;" + vcard_escape(contact.addresses.substr(at, end - at)) + ";;;;\r\n";
+        at = end + 1;
+    }
+    if (!contact.timestamp.empty()) {
+        const char *kind = contact.repository == PhonebookRepository::missed ? "MISSED" :
+                           contact.repository == PhonebookRepository::outgoing ? "DIALED" : "RECEIVED";
+        result += "X-IRMC-CALL-DATETIME;TYPE=" + std::string(kind) + ":" +
+                  vcard_escape(contact.timestamp) + "\r\n";
+    }
+    return result + "END:VCARD\r\n";
+}
+void PbapServer::reset() {
+    connected_ = false;
+    response_active_ = false;
+    mtu_ = 1024;
+    folder_.clear();
+    prefix_.clear(); suffix_.clear(); fragment_.clear(); selected_.clear(); pending_headers_.clear();
+    prefix_at_ = suffix_at_ = fragment_at_ = selected_at_ = 0;
+    response_kind_ = format_ = 0;
+}
+void PbapServer::begin_response(uint8_t kind, std::vector<uint16_t> selected, uint8_t format,
+                                std::string prefix, std::string suffix) {
+    response_kind_ = kind;
+    selected_ = std::move(selected);
+    format_ = format;
+    prefix_ = std::move(prefix); suffix_ = std::move(suffix); fragment_.clear();
+    prefix_at_ = suffix_at_ = fragment_at_ = selected_at_ = 0;
+    response_active_ = true;
+}
+bool PbapServer::append_body(Bytes &body, size_t capacity) {
+    auto append = [&](const std::string &source, size_t &at) {
+        size_t count = std::min(capacity - body.size(), source.size() - at);
+        body.insert(body.end(), source.begin() + at, source.begin() + at + count);
+        at += count;
+    };
+    while (body.size() < capacity) {
+        if (prefix_at_ < prefix_.size()) { append(prefix_, prefix_at_); continue; }
+        if (fragment_at_ < fragment_.size()) { append(fragment_, fragment_at_); continue; }
+        if (selected_at_ < selected_.size()) {
+            const size_t index = selected_[selected_at_++];
+            if (response_kind_ == 1) fragment_ = contact_vcard(phonebook_, index, format_);
+            else {
+                auto contact = phonebook_.at(index);
+                fragment_ = "<card handle=\"" + std::to_string(index + 1) + ".vcf\" name=\"" +
+                            xml_escape(contact.name) + "\"/>";
+            }
+            fragment_at_ = 0;
+            continue;
+        }
+        if (suffix_at_ < suffix_.size()) { append(suffix_, suffix_at_); continue; }
+        break;
+    }
+    return prefix_at_ == prefix_.size() && fragment_at_ == fragment_.size() &&
+           selected_at_ == selected_.size() && suffix_at_ == suffix_.size();
+}
+Bytes PbapServer::chunk(Bytes headers) {
+    const size_t overhead = 3 + headers.size() + 3;
+    if (overhead > mtu_) { response_active_ = false; return obex_packet(0xd0); }
+    Bytes body;
+    bool final = append_body(body, size_t(mtu_) - overhead);
+    byte_header(headers, final ? 0x49 : 0x48, body);
+    if (final) {
+        response_active_ = false;
+        prefix_.clear(); suffix_.clear(); fragment_.clear(); selected_.clear();
+    }
+    return obex_packet(final ? 0xa0 : 0x90, headers);
+}
+static bool repository_path(std::string path, PhonebookRepository &repository) {
+    while (!path.empty() && path.front() == '/') path.erase(path.begin());
+    if (path.rfind("telecom/", 0) == 0) path.erase(0, 8);
+    if (path.size() > 4 && path.substr(path.size() - 4) == ".vcf") path.resize(path.size() - 4);
+    if (path == "pb") repository = PhonebookRepository::contacts;
+    else if (path == "fav") repository = PhonebookRepository::favorites;
+    else if (path == "ich") repository = PhonebookRepository::incoming;
+    else if (path == "och") repository = PhonebookRepository::outgoing;
+    else if (path == "mch") repository = PhonebookRepository::missed;
+    else if (path == "cch") repository = PhonebookRepository::combined;
+    else return false;
+    return true;
+}
+Bytes PbapServer::get(const Bytes &raw) {
+    if (!phonebook_.ready())
+        return obex_packet(0xd3); // Service unavailable until the atomic contact transfer finishes.
+    auto h = parse_headers(raw);
+    if (!h.ok)
+        return obex_packet(0xc0);
+    bool ok = true;
+    auto params = app_params(h.values[0x4c], ok);
+    auto word = [&](uint8_t tag, uint16_t def) {
+        auto it = params.find(tag);
+        if (it == params.end()) return def;
+        if (it->second.size() != 2) { ok = false; return def; }
+        return be16(it->second.data());
+    };
+    uint16_t count = word(0x04, 0xffff), offset = word(0x05, 0);
+    uint8_t format = 0;
+    if (params.count(0x07)) {
+        if (params[0x07].size() != 1 || params[0x07][0] > 1) ok = false;
+        else format = params[0x07][0];
+    }
+    if (!ok)
+        return obex_packet(0xc0);
+    std::string type = text(h.values[0x42]), name = ascii_name(h.values[1]);
+    std::string path = name.empty() ? folder_ : name;
+    PhonebookRepository repository = PhonebookRepository::contacts;
+    if (type == "x-bt/vcard") {
+        if (!repository_path(folder_, repository)) return obex_packet(0xc4);
+    } else if (!repository_path(path, repository)) return obex_packet(0xc4);
+    std::vector<uint16_t> selected;
+    selected.reserve(phonebook_.size());
+    for (size_t i = 0; i < phonebook_.size(); ++i)
+        if (phonebook_.at(i).repository == repository) selected.push_back(uint16_t(i));
+    if (type == "x-bt/vcard-listing" && params.count(0x02)) {
+        std::string query = lower_ascii(text(params[0x02]));
+        uint8_t property = 0;
+        if (params.count(0x03)) {
+            if (params[0x03].size() != 1 || params[0x03][0] > 2) return obex_packet(0xc0);
+            property = params[0x03][0];
+        }
+        selected.erase(std::remove_if(selected.begin(), selected.end(), [&](uint16_t index) {
+            auto c = phonebook_.at(index);
+            return lower_ascii(property == 1 ? c.phones : c.name).find(query) == std::string::npos;
+        }), selected.end());
+    }
+    if (type == "x-bt/vcard-listing" && params.count(0x01)) {
+        if (params[0x01].size() != 1 || params[0x01][0] > 1) return obex_packet(0xc0);
+        if (params[0x01][0] == 1)
+            std::sort(selected.begin(), selected.end(), [&](uint16_t a, uint16_t b) {
+                return lower_ascii(phonebook_.at(a).name) < lower_ascii(phonebook_.at(b).name);
+            });
+    }
+    const size_t total = selected.size();
+    Bytes headers;
+    if (count == 0) {
+        byte_header(headers, 0x4c, {0x08, 2, uint8_t(total >> 8), uint8_t(total)});
+        return obex_packet(0xa0, headers);
+    }
+    if (offset >= selected.size()) selected.clear();
+    else {
+        selected.erase(selected.begin(), selected.begin() + offset);
+        if (selected.size() > count) selected.resize(count);
+    }
+    if (type == "x-bt/phonebook") {
+        begin_response(1, std::move(selected), format);
+    } else if (type == "x-bt/vcard-listing") {
+        begin_response(2, std::move(selected), format,
+                       "<?xml version=\"1.0\"?><!DOCTYPE vcard-listing SYSTEM \"vcard-listing.dtd\">"
+                       "<vCard-listing version=\"1.0\">", "</vCard-listing>");
+    } else if (type == "x-bt/vcard") {
+        auto dot = name.find(".vcf");
+        if (dot == std::string::npos || dot + 4 != name.size()) return obex_packet(0xc0);
+        uint64_t handle = 0;
+        for (size_t i = 0; i < dot; ++i) {
+            if (name[i] < '0' || name[i] > '9' || handle > 100000) return obex_packet(0xc0);
+            handle = handle * 10 + unsigned(name[i] - '0');
+        }
+        if (dot == 0 || handle < 1 || handle > phonebook_.size() ||
+            phonebook_.at(handle - 1).repository != repository)
+            return obex_packet(0xc4);
+        begin_response(1, {uint16_t(handle - 1)}, format);
+    } else return obex_packet(0xc4);
+    return chunk(headers);
+}
+Bytes PbapServer::request(const Bytes &b) {
+    if (b.size() < 3 || be16(b.data() + 1) != b.size() || b.size() > max_packet)
+        return obex_packet(0xc0);
+    if (b[0] == 0x80) {
+        if (obex_service(b) != ObexService::pbap)
+            return obex_packet(0xc6);
+        reset(); connected_ = true; mtu_ = std::min<uint16_t>(be16(b.data() + 5), 1024);
+        Bytes response = {0x10, 0, 0x10, 0};
+        byte_header(response, 0x4a, pbap_target); uint_header(response, 0xcb, 2);
+        return obex_packet(0xa0, response);
+    }
+    if (!connected_) return obex_packet(0xc1);
+    if (b[0] == 0x81) { reset(); return obex_packet(0xa0); }
+    if (b[0] == 0xff) { response_active_ = false; pending_headers_.clear(); return obex_packet(0xa0); }
+    if (b[0] == 0x85) {
+        if (b.size() < 5) return obex_packet(0xc0);
+        auto h = parse_headers(b, 5);
+        if (!h.ok) return obex_packet(0xc0);
+        std::string name = ascii_name(h.values[1]), path = folder_;
+        if (b[3] & 1) { auto slash = path.rfind('/'); path = slash == std::string::npos ? "" : path.substr(0, slash); }
+        if (name.empty() && !(b[3] & 1)) path.clear();
+        else if (!name.empty()) path += (path.empty() ? "" : "/") + name;
+        PhonebookRepository repository;
+        if (path != "" && path != "telecom" && !repository_path(path, repository)) return obex_packet(0xc4);
+        folder_ = path; return obex_packet(0xa0);
+    }
+    if (b[0] == 0x03 || b[0] == 0x83) {
+        if (response_active_) return chunk();
+        if (pending_headers_.size() + b.size() - 3 > max_packet) { pending_headers_.clear(); return obex_packet(0xcd); }
+        pending_headers_.insert(pending_headers_.end(), b.begin() + 3, b.end());
+        if (b[0] == 0x03) return obex_packet(0x90);
+        Bytes headers; headers.swap(pending_headers_); return get(headers);
     }
     return obex_packet(0xd1);
 }

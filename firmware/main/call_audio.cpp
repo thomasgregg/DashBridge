@@ -64,6 +64,7 @@ void call_audio_set(uint32_t local, uint32_t remote, unsigned rate) {
     }
     portEXIT_CRITICAL(&audio_lock);
 }
+void call_audio_connection(uint16_t) {}
 void call_audio_in(const uint8_t *data, uint32_t size) {
     // IDF 5.5.5 internal codecs supply decoded int16 PCM: CVSD 8 kHz, mSBC 16 kHz.
     // At most one 7.5 ms packet is copied per critical section; UART runs in a worker.
