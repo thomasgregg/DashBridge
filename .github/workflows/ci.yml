@@ -79,6 +79,9 @@ jobs:
         shell: bash
         run: |
           . "$IDF_PATH/export.sh"
+          if [[ "$BOARD" == phone ]]; then
+            CC=cc python tools/test_audio_codec.py
+          fi
           if [[ "$BOARD" == car || "$BOARD" == single ]]; then
             python tools/test_sdp_attributes.py
             python tools/test_acl_recovery.py

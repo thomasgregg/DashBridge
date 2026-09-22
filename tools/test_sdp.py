@@ -33,17 +33,23 @@ harness = r'''
 #define LOG_ERROR(...) ((void)0)
 #undef ESP_ERROR_CHECK
 #define ESP_ERROR_CHECK(expr) assert((expr) == ESP_OK)
-static bool sdp_ready = true, record_created = false;
-static uint8_t channel_number = 4;
+static bool sdp_ready = true, map_record_created = false, pbap_record_created = false;
+static uint8_t map_channel_number = 4, pbap_channel_number = 5;
+static unsigned records_created = 0;
 ''' + validator + r'''
 extern "C" esp_err_t esp_sdp_create_record(esp_bluetooth_sdp_record_t *r) {
     assert(esp_sdp_record_integrity_check(r));
+    if (r->hdr.type == ESP_SDP_TYPE_PBAP_PSE) {
+        assert(r->hdr.profile_version == 0x0102);
+        assert(r->pse.supported_repositories == 0x09);
+    }
     // The original crash: excluding the NUL must fail the real SDK validator.
     r->hdr.service_name_length--;
     assert(!esp_sdp_record_integrity_check(r));
+    records_created++;
     return ESP_OK;
 }
-''' + record + '\nint main() { record(); assert(record_created); }\n'
+''' + record + '\nint main() { record(); assert(map_record_created && pbap_record_created); assert(records_created == 2); }\n'
 
 with tempfile.TemporaryDirectory(prefix="dashbridge-sdp-") as temp:
     source = Path(temp) / "check.cpp"

@@ -8,6 +8,7 @@
 #include "esp_sdp_api.h"
 #include "esp_spp_api.h"
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <deque>
 namespace runtime {
@@ -15,6 +16,9 @@ using namespace bridge;
 static const char *tag = "car";
 static Inbox inbox;
 static MasServer mas(inbox);
+#if CONFIG_BRIDGE_CONTACT_SYNC
+static PbapServer pbap(contacts_phonebook());
+#endif
 struct Channel {
     uint32_t handle = 0;
     bool writing = false, congested = false;
@@ -56,10 +60,28 @@ struct Channel {
         pump();
     }
 };
-static Channel server, events;
+struct Inbound {
+    Channel io;
+    ObexService service = ObexService::unknown;
+    void clear() { io.clear(); service = ObexService::unknown; }
+};
+static std::array<Inbound, 2> inbound;
+static Channel events;
+static Channel *map_transport() {
+    for (auto &candidate : inbound) if (candidate.service == ObexService::map) return &candidate.io;
+    return nullptr;
+}
+static Inbound *inbound_transport(uint32_t handle) {
+    for (auto &candidate : inbound) if (candidate.io.handle == handle) return &candidate;
+    return nullptr;
+}
+static bool service_open(ObexService service, const Inbound *except = nullptr) {
+    for (auto &candidate : inbound) if (&candidate != except && candidate.service == service) return true;
+    return false;
+}
 static esp_bd_addr_t peer = {};
-static bool sdp_ready = false, record_created = false, discovering = false;
-static uint8_t channel_number = 0;
+static bool sdp_ready = false, map_record_created = false, pbap_record_created = false, discovering = false;
+static uint8_t map_channel_number = 0, pbap_channel_number = 0;
 static int mns_state = 0; // 0 idle, 1 discovery/connect, 2 OBEX connect, 3 ready, 4 event awaiting response
 static uint32_t mns_id = 0;
 static int64_t mns_deadline = 0, last_heartbeat = 0, last_phone = 0, last_discovery = 0;
@@ -79,21 +101,37 @@ static bool known(const uint8_t *bda) {
     return false;
 }
 static void record() {
-    if (!sdp_ready || !channel_number || record_created)
-        return;
-    esp_bluetooth_sdp_record_t r = {};
-    r.mas.hdr.type = ESP_SDP_TYPE_MAP_MAS;
-    r.mas.hdr.service_name = const_cast<char *>("DashBridge Inbox");
-    // ESP-IDF's SDP API requires the terminating NUL in this length.
-    r.mas.hdr.service_name_length = strlen(r.mas.hdr.service_name) + 1;
-    r.mas.hdr.rfcomm_channel_number = channel_number;
-    r.mas.hdr.l2cap_psm = -1;
-    r.mas.hdr.profile_version = 0x0100;
-    r.mas.mas_instance_id = 0;
-    r.mas.supported_message_types = 0x02;
-    r.mas.supported_features = 0;
-    ESP_ERROR_CHECK(esp_sdp_create_record(&r));
-    record_created = true;
+    if (!sdp_ready) return;
+    if (map_channel_number && !map_record_created) {
+        esp_bluetooth_sdp_record_t r = {};
+        r.mas.hdr.type = ESP_SDP_TYPE_MAP_MAS;
+        r.mas.hdr.service_name = const_cast<char *>("DashBridge Inbox");
+        r.mas.hdr.service_name_length = strlen(r.mas.hdr.service_name) + 1;
+        r.mas.hdr.rfcomm_channel_number = map_channel_number;
+        r.mas.hdr.l2cap_psm = -1;
+        r.mas.hdr.profile_version = 0x0100;
+        r.mas.mas_instance_id = 0;
+        r.mas.supported_message_types = 0x02;
+        r.mas.supported_features = 0;
+        ESP_ERROR_CHECK(esp_sdp_create_record(&r));
+        map_record_created = true;
+    }
+#if CONFIG_BRIDGE_CONTACT_SYNC
+    if (pbap_channel_number && !pbap_record_created) {
+        esp_bluetooth_sdp_record_t r = {};
+        r.pse.hdr.type = ESP_SDP_TYPE_PBAP_PSE;
+        r.pse.hdr.service_name = const_cast<char *>("DashBridge Contacts");
+        r.pse.hdr.service_name_length = strlen(r.pse.hdr.service_name) + 1;
+        r.pse.hdr.rfcomm_channel_number = pbap_channel_number;
+        r.pse.hdr.l2cap_psm = -1;
+        r.pse.hdr.profile_version = 0x0102;
+        // Local phonebook/call history plus the PBAP 1.2 Favorites repository.
+        r.pse.supported_repositories = 0x09;
+        r.pse.supported_features = 0x0003;
+        ESP_ERROR_CHECK(esp_sdp_create_record(&r));
+        pbap_record_created = true;
+    }
+#endif
 }
 static void drop_mns() {
     if (events.handle)
@@ -104,7 +142,8 @@ static void drop_mns() {
     pending_events.clear();
 }
 static void start_mns() {
-    if (!server.handle || !mas.notifications() || mns_state || now() - last_discovery < 5000)
+    auto map = map_transport();
+    if (!map || !map->handle || !mas.notifications() || mns_state || now() - last_discovery < 5000)
         return;
     last_discovery = now();
     mns_state = 1;
@@ -134,11 +173,12 @@ static void sdp_cb(esp_sdp_cb_event_t event, esp_sdp_cb_param_t *p) {
         record();
     }
     if (event == ESP_SDP_CREATE_RECORD_COMP_EVT) {
-        ESP_LOGI(tag, "MAP service record status=%d", p->create_record.status);
+        ESP_LOGI(tag, "Bluetooth object service record status=%d", p->create_record.status);
     }
     if (event == ESP_SDP_SEARCH_COMP_EVT && discovering) {
         discovering = false;
-        if (!server.handle || !mas.notifications() || memcmp(p->search.remote_addr, peer, 6)) {
+        auto map = map_transport();
+        if (!map || !map->handle || !mas.notifications() || memcmp(p->search.remote_addr, peer, 6)) {
             mns_state = 0;
             return;
         }
@@ -155,39 +195,54 @@ static void sdp_cb(esp_sdp_cb_event_t event, esp_sdp_cb_param_t *p) {
         ESP_LOGW(tag, "Tesla notification service not found yet; will retry");
     }
 }
+static void start_object_server(uint8_t channel, const char *name) {
+    esp_spp_start_srv_cfg_t config = {};
+    config.local_scn = channel;
+    config.create_spp_record = false;
+    config.sec_mask = ESP_SPP_SEC_AUTHENTICATE | ESP_SPP_SEC_ENCRYPT;
+    config.role = ESP_SPP_ROLE_SLAVE;
+    config.name = name;
+    ESP_ERROR_CHECK(esp_spp_start_srv_with_cfg(&config));
+}
 static void spp_cb(esp_spp_cb_event_t e, esp_spp_cb_param_t *p) {
     Guard g;
     switch (e) {
     case ESP_SPP_INIT_EVT:
-        if (p->init.status == ESP_SPP_SUCCESS)
-            ESP_ERROR_CHECK(esp_spp_start_srv(ESP_SPP_SEC_AUTHENTICATE | ESP_SPP_SEC_ENCRYPT,
-                                              ESP_SPP_ROLE_SLAVE, 4, "DashBridge transport"));
+        if (p->init.status == ESP_SPP_SUCCESS) {
+            start_object_server(4, "DashBridge messages");
+#if CONFIG_BRIDGE_CONTACT_SYNC
+            start_object_server(5, "DashBridge contacts");
+#endif
+        }
         break;
     case ESP_SPP_START_EVT:
         if (p->start.status == ESP_SPP_SUCCESS) {
-            channel_number = p->start.scn;
+            if (p->start.scn == 4) map_channel_number = p->start.scn;
+#if CONFIG_BRIDGE_CONTACT_SYNC
+            else if (p->start.scn == 5) pbap_channel_number = p->start.scn;
+#endif
             record();
         }
         break;
-    case ESP_SPP_SRV_OPEN_EVT:
-        if (server.handle) {
+    case ESP_SPP_SRV_OPEN_EVT: {
+        Inbound *connection = nullptr;
+        for (auto &candidate : inbound) if (!candidate.io.handle) { connection = &candidate; break; }
+        if (!connection || (map_transport() && memcmp(peer, p->srv_open.rem_bda, 6))) {
             esp_spp_disconnect(p->srv_open.handle);
             break;
         }
-        server.clear();
-        server.handle = p->srv_open.handle;
+        connection->clear();
+        connection->io.handle = p->srv_open.handle;
         memcpy(peer, p->srv_open.rem_bda, 6);
-        mas.reset();
-        inbox.clear();
-        pending_events.clear();
-        ESP_LOGI(tag, "Tesla message transport connected");
+        ESP_LOGI(tag, "Tesla object transport connected; awaiting profile selection");
         break;
+    }
     case ESP_SPP_OPEN_EVT:
         if (p->open.status != ESP_SPP_SUCCESS) {
             mns_state = 0;
             break;
         }
-        if (!server.handle || memcmp(peer, p->open.rem_bda, 6) || !mas.notifications()) {
+        if (!map_transport() || memcmp(peer, p->open.rem_bda, 6) || !mas.notifications()) {
             esp_spp_disconnect(p->open.handle);
             break;
         }
@@ -197,33 +252,70 @@ static void spp_cb(esp_spp_cb_event_t e, esp_spp_cb_param_t *p) {
         mns_state = 2;
         mns_deadline = now() + 10000;
         break;
-    case ESP_SPP_CLOSE_EVT:
-        if (p->close.handle == server.handle) {
-            server.clear();
-            mas.reset();
-            inbox.clear();
-            drop_mns();
-            ESP_LOGI(tag, "Tesla disconnected; inbox cleared");
+    case ESP_SPP_CLOSE_EVT: {
+        auto connection = inbound_transport(p->close.handle);
+        if (connection) {
+            if (connection->service == ObexService::map) {
+                mas.reset(); inbox.clear(); drop_mns();
+                ESP_LOGI(tag, "Tesla message service disconnected; inbox cleared");
+            }
+#if CONFIG_BRIDGE_CONTACT_SYNC
+            else if (connection->service == ObexService::pbap) {
+                pbap.reset();
+                ESP_LOGI(tag, "Tesla contact-name service disconnected");
+            }
+#endif
+            connection->clear();
         } else if (p->close.handle == events.handle) {
             events.clear();
             mns_state = 0;
             pending_events.clear();
         }
         break;
+    }
     case ESP_SPP_DATA_IND_EVT: {
         auto &d = p->data_ind;
-        if (d.handle == server.handle) {
-            bool valid = server.framer.feed(d.data, d.len, [](const Bytes &b) {
-                auto response = mas.request(b);
-                ESP_LOGI(tag, "MAP request 0x%02x -> 0x%02x", b[0], response[0]);
-                server.send(std::move(response));
-                if (mas.notifications())
-                    start_mns();
-                else if (mns_state)
-                    drop_mns();
+        auto connection = inbound_transport(d.handle);
+        if (connection) {
+            bool valid = connection->io.framer.feed(d.data, d.len, [connection](const Bytes &b) {
+                if (connection->service == ObexService::unknown) {
+                    auto selected = obex_service(b);
+#if !CONFIG_BRIDGE_CONTACT_SYNC
+                    if (selected == ObexService::pbap) selected = ObexService::unknown;
+#endif
+                    if (selected == ObexService::unknown || service_open(selected, connection)) {
+                        ESP_LOGW(tag, "Rejected unknown or duplicate Tesla object service");
+                        esp_spp_disconnect(connection->io.handle);
+                        return;
+                    }
+                    connection->service = selected;
+                    if (selected == ObexService::map) {
+                        mas.reset(); inbox.clear(); pending_events.clear();
+                        ESP_LOGI(tag, "Tesla message service selected");
+                    }
+#if CONFIG_BRIDGE_CONTACT_SYNC
+                    else {
+                        pbap.reset();
+                        ESP_LOGI(tag, "Tesla contact-name service selected");
+                    }
+#endif
+                }
+                Bytes response;
+                if (connection->service == ObexService::map) response = mas.request(b);
+#if CONFIG_BRIDGE_CONTACT_SYNC
+                else response = pbap.request(b);
+#endif
+                if (response.empty()) { esp_spp_disconnect(connection->io.handle); return; }
+                ESP_LOGI(tag, "%s request 0x%02x -> 0x%02x",
+                         connection->service == ObexService::map ? "MAP" : "PBAP", b[0], response[0]);
+                connection->io.send(std::move(response));
+                if (connection->service == ObexService::map) {
+                    if (mas.notifications()) start_mns();
+                    else if (mns_state) drop_mns();
+                }
             });
             if (!valid)
-                esp_spp_disconnect(server.handle);
+                esp_spp_disconnect(connection->io.handle);
         } else if (d.handle == events.handle) {
             bool valid = events.framer.feed(d.data, d.len, [](const Bytes &b) {
                 if (mns_state == 2) {
@@ -252,15 +344,15 @@ static void spp_cb(esp_spp_cb_event_t e, esp_spp_cb_param_t *p) {
             esp_spp_disconnect(p->write.handle);
             break;
         }
-        if (p->write.handle == server.handle)
-            server.written(p->write.cong);
+        if (auto connection = inbound_transport(p->write.handle))
+            connection->io.written(p->write.cong);
         else if (p->write.handle == events.handle)
             events.written(p->write.cong);
         break;
     case ESP_SPP_CONG_EVT:
-        if (p->cong.handle == server.handle) {
-            server.congested = p->cong.cong;
-            server.pump();
+        if (auto connection = inbound_transport(p->cong.handle)) {
+            connection->io.congested = p->cong.cong;
+            connection->io.pump();
         } else if (p->cong.handle == events.handle) {
             events.congested = p->cong.cong;
             events.pump();
@@ -326,7 +418,7 @@ void car_receive(const WireMessage &m) {
     }
     if (m.op == Op::heartbeat)
         return;
-    if (!server.handle || !mas.notifications())
+    if (!map_transport() || !mas.notifications())
         return;
     uint64_t h = inbox.apply(m);
     if (h) {
@@ -386,10 +478,13 @@ void car_poll() {
         last_phone = 0;
         inbox.clear();
         pending_events.clear();
+#if CONFIG_BRIDGE_CONTACT_SYNC
+        contacts_phonebook().clear();
+#endif
         ESP_LOGW(tag, "Board A heartbeat lost; inbox cleared");
     }
 }
-bool car_notifications_ready() { return server.handle && mas.notifications() && mns_state >= 3; }
+bool car_notifications_ready() { return map_transport() && mas.notifications() && mns_state >= 3; }
 void car_start() {
     ESP_ERROR_CHECK(esp_bt_gap_register_callback(gap_cb));
     #if CONFIG_BRIDGE_SINGLE
@@ -414,6 +509,9 @@ void car_start() {
     cod.major = ESP_BT_COD_MAJOR_DEV_PHONE;
     cod.minor = 3;
     cod.service = ESP_BT_COD_SRVC_TELEPHONY | ESP_BT_COD_SRVC_OBJ_TRANSFER;
+#if CONFIG_BRIDGE_MUSIC_RELAY
+    cod.service |= ESP_BT_COD_SRVC_AUDIO | ESP_BT_COD_SRVC_CAPTURING;
+#endif
     ESP_ERROR_CHECK(esp_bt_gap_set_cod(cod, ESP_BT_SET_COD_ALL));
     ESP_ERROR_CHECK(esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE));
 }

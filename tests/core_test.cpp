@@ -48,7 +48,7 @@ static void folder(MasServer &s, const std::string &n) {
     byte_header(b, 1, name(n));
     assert(s.request(obex_packet(0x85, b))[0] == 0xa0);
 }
-static std::string get_body(MasServer &s, Bytes r, size_t mtu = 255) {
+template<class Server> static std::string get_body(Server &s, Bytes r, size_t mtu = 255) {
     std::string result;
     for (int count = 0;; ++count) {
         assert(count < 100 && r.size() <= mtu && r.size() >= 3);
@@ -147,17 +147,64 @@ static void inbox_test() {
     n.id = 99;
     assert(!box.apply({Op::update, 1, n}));
     assert(box.messages().size() == 1);
+    n = example(100);
+    assert(!box.apply({Op::history_add, 1, n}));
+    assert(box.messages().size() == 2 && box.messages().back().notice.id == 100);
     n.app = "com.apple.MobileSMS";
     assert(!box.apply({Op::add, 1, n}));
     box.apply({Op::remove, 1, example()});
-    assert(box.messages().empty());
+    assert(box.messages().size() == 1 && box.messages()[0].notice.id == 100);
     box.apply({Op::add, 2, example()});
     box.apply({Op::reset, 3, {}});
     assert(box.messages().empty());
     for (int i = 0; i < 40; ++i)
         box.apply({Op::add, 3, example(i)});
     assert(box.messages().size() == 32);
-    std::cout << "PASS WhatsApp filtering, duplicate/update handling, session clearing and bounds\n";
+    std::cout << "PASS WhatsApp live/history, duplicate/update handling, session clearing and bounds\n";
+}
+
+static void pbap_connect(PbapServer &server, unsigned mtu = 255) {
+    Bytes b = {0x10, 0, uint8_t(mtu >> 8), uint8_t(mtu)};
+    byte_header(b, 0x46,
+        {0x79, 0x61, 0x35, 0xf0, 0xf0, 0xc5, 0x11, 0xd8, 0x09, 0x66, 0x08, 0x00, 0x20, 0x0c, 0x9a, 0x66});
+    assert(server.request(obex_packet(0x80, b))[0] == 0xa0);
+}
+static void pbap_folder(PbapServer &server, const std::string &value) {
+    Bytes b = {2, 0};
+    byte_header(b, 1, name(value));
+    assert(server.request(obex_packet(0x85, b))[0] == 0xa0);
+}
+static void phonebook_test() {
+    Phonebook book;
+    assert(book.add({PhonebookRepository::contacts, "Jane Doe",
+                     "CELL\t+491234\nWORK\t5550100", "Main Street 1\nOffice Road 2", ""}));
+    assert(book.add({PhonebookRepository::favorites, "Jane Doe", "CELL\t+491234", {}, {}}));
+    assert(book.add({PhonebookRepository::missed, "John Smith", "VOICE\t12345", {}, "20260922T101500"}));
+    assert(book.add({PhonebookRepository::outgoing, "Alice", "CELL\t67890", {}, "20260922T111500"}));
+    assert(book.size() == 4 && book.size(PhonebookRepository::contacts) == 1 &&
+           book.size(PhonebookRepository::favorites) == 1);
+    auto jane = book.at(0);
+    assert(jane.phones.find("WORK\t5550100") != std::string::npos &&
+           jane.addresses.find("Office Road 2") != std::string::npos);
+    book.ready(true);
+    PbapServer server(book);
+    pbap_connect(server);
+    auto contacts = get_body(server, server.request(obex_packet(
+        0x83, headers("x-bt/phonebook", "telecom/pb.vcf", {7, 1, 1}))));
+    assert(contacts.find("TEL;TYPE=CELL:+491234") != std::string::npos);
+    assert(contacts.find("TEL;TYPE=WORK:5550100") != std::string::npos);
+    assert(contacts.find("ADR;TYPE=OTHER:;;Main Street 1") != std::string::npos);
+    auto missed = get_body(server, server.request(obex_packet(
+        0x83, headers("x-bt/phonebook", "telecom/mch.vcf"))));
+    assert(missed.find("John Smith") != std::string::npos &&
+           missed.find("X-IRMC-CALL-DATETIME;TYPE=MISSED:20260922T101500") != std::string::npos);
+    pbap_folder(server, "telecom");
+    pbap_folder(server, "fav");
+    auto favorites = get_body(server, server.request(obex_packet(0x83, headers("x-bt/vcard-listing"))));
+    assert(favorites.find("Jane Doe") != std::string::npos);
+    auto favorite = get_body(server, server.request(obex_packet(0x83, headers("x-bt/vcard", "2.vcf"))));
+    assert(favorite.find("TEL;TYPE=CELL:+491234") != std::string::npos);
+    std::cout << "PASS grouped contacts, addresses, favorites and call-history PBAP repositories\n";
 }
 static void map_test() {
     Inbox box;
@@ -339,13 +386,13 @@ static void ancs_flags_test() {
         if (!ancs_is_preexisting(flags)) handle = inbox.apply({Op::add, 1, example()});
         assert(handle != 0 && inbox.messages().size() == 1);
     }
-    // Old notifications must stay suppressed, including those offering actions.
+    // Old Notification Center entries become silent history: stored, no new-message handle.
     for (uint8_t flags : {0x04, 0x14, 0x1c, 0x1f}) {
         Inbox inbox;
-        if (!ancs_is_preexisting(flags)) inbox.apply({Op::add, 1, example()});
-        assert(inbox.messages().empty());
+        auto handle = inbox.apply({ancs_is_preexisting(flags) ? Op::history_add : Op::add, 1, example()});
+        assert(!handle && inbox.messages().size() == 1);
     }
-    std::cout << "PASS ANCS fresh dismissible notifications forwarded; pre-existing notifications suppressed\n";
+    std::cout << "PASS ANCS fresh notifications alert; pre-existing notifications import silently\n";
 }
 int main() {
     ancs_flags_test();
@@ -354,6 +401,7 @@ int main() {
     wire_test();
     ancs_test();
     inbox_test();
+    phonebook_test();
     map_test();
     framer_test();
     fuzz_test();

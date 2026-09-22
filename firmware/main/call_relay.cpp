@@ -26,6 +26,7 @@ static int64_t test_deadline = 0;
 static uint32_t boot, sequence = 0, other_boot = 0, other_sequence = 0, pending = 0;
 static uint32_t pending_peer = 0;
 static int64_t last_peer = 0, last_snapshot = 0, pending_deadline = 0, next_audio = 0;
+static std::string pending_command, pending_argument;
 static bool dirty = true, peer_saved = false;
 #if CONFIG_BRIDGE_PHONE
 static int64_t next_connect = 0;
@@ -43,6 +44,10 @@ static int64_t radio_at = 0, peer_radio_at = 0;
 #if CONFIG_BRIDGE_PHONE
 static bool command_fault = false;
 static int64_t phone_ready_at = 0;
+static bool clcc_dirty = false, clcc_pending = false;
+static int64_t clcc_deadline = 0, next_clcc = 0;
+static std::array<calls::CurrentCall, calls::max_current_calls> staged_calls{};
+static unsigned staged_count = 0;
 #endif
 static uint32_t token() { uint32_t n; do { n = esp_random(); } while (!n); return n; }
 static bool peer_live() { return other_boot && last_peer && now() - last_peer < 3000; }
@@ -105,7 +110,7 @@ template<class Stats> static void radio_snapshot(const Stats &s) {
 }
 static void snapshot() {
     auto m = message("state");
-    m.notice.id = ++sequence; m.notice.body = calls::encode_state(self); m.notice.subtitle = self.number;
+    m.notice.id = ++sequence; m.notice.body = calls::encode_state(self);
     transmit(m); last_snapshot = now(); dirty = false;
 }
 static bool known(const uint8_t *bda) {
@@ -157,12 +162,26 @@ static void set_connected(bool connected, const uint8_t *address) {
 #endif
     if (connected) {
         save_peer(address); self.linked = 1;
+#if CONFIG_BRIDGE_MUSIC_RELAY
+        music_peer_connected(address);
+#endif
+#if CONFIG_BRIDGE_CONTACT_SYNC
+        contacts_peer_connected(address);
+#endif
 #if CONFIG_BRIDGE_PHONE
         reconnect_delay = 5000;
 #endif
     } else {
+#if CONFIG_BRIDGE_MUSIC_RELAY
+        music_peer_disconnected(address);
+#endif
+#if CONFIG_BRIDGE_CONTACT_SYNC
+        contacts_peer_disconnected(address);
+#endif
         self = {}; audio_rate = 0; call_audio_set(0, 0, 0);
 #if CONFIG_BRIDGE_PHONE
+        clcc_dirty = clcc_pending = false; staged_count = 0;
+        pending_command.clear(); pending_argument.clear();
         next_connect = now() + reconnect_delay;
         ESP_LOGI("calls", "Reconnect retry scheduled in %u ms", reconnect_delay);
         reconnect_delay = std::min(60000u, reconnect_delay * 2);
@@ -200,6 +219,9 @@ static void phone_hfp(esp_hf_client_cb_event_t e, esp_hf_client_cb_param_t *p) {
         if (p->conn_stat.state == ESP_HF_CLIENT_CONNECTION_STATE_SLC_CONNECTED) {
             command_fault = false; phone_ready_at = now();
             set_connected(true, p->conn_stat.remote_bda);
+            self.chld = p->conn_stat.chld_feat & 0x7f;
+            clcc_dirty = true; next_clcc = now() + 200;
+            ESP_LOGI("calls", "iPhone three-way features: 0x%02x", self.chld);
         }
         else if (p->conn_stat.state == ESP_HF_CLIENT_CONNECTION_STATE_DISCONNECTED) {
             if (pending) reply(pending, pending_peer, false);
@@ -210,12 +232,13 @@ static void phone_hfp(esp_hf_client_cb_event_t e, esp_hf_client_cb_param_t *p) {
         set_audio(p->audio_stat.state == ESP_HF_CLIENT_AUDIO_STATE_CONNECTED_MSBC ? 16000 :
                   (p->audio_stat.state == ESP_HF_CLIENT_AUDIO_STATE_CONNECTED ? 8000 : 0));
         sync_handle = self.audio ? p->audio_stat.sync_conn_handle : 0xffff;
+        call_audio_connection(sync_handle);
         if (self.audio) ESP_LOGI("calls", "SCO handle=%u preferred_frame=%u", sync_handle, p->audio_stat.preferred_frame_size);
         break;
     case ESP_HF_CLIENT_PKT_STAT_NUMS_GET_EVT: radio_snapshot(p->pkt_nums); break;
-    case ESP_HF_CLIENT_CIND_CALL_EVT: self.call = p->call.status; dirty = true; break;
-    case ESP_HF_CLIENT_CIND_CALL_SETUP_EVT: self.setup = p->call_setup.status; dirty = true; break;
-    case ESP_HF_CLIENT_CIND_CALL_HELD_EVT: self.held = p->call_held.status; dirty = true; break;
+    case ESP_HF_CLIENT_CIND_CALL_EVT: self.call = p->call.status; dirty = clcc_dirty = true; break;
+    case ESP_HF_CLIENT_CIND_CALL_SETUP_EVT: self.setup = p->call_setup.status; dirty = clcc_dirty = true; break;
+    case ESP_HF_CLIENT_CIND_CALL_HELD_EVT: self.held = p->call_held.status; dirty = clcc_dirty = true; break;
     case ESP_HF_CLIENT_CIND_SERVICE_AVAILABILITY_EVT: self.service = p->service_availability.status; dirty = true; break;
     case ESP_HF_CLIENT_CIND_SIGNAL_STRENGTH_EVT: self.signal = p->signal_strength.value; dirty = true; break;
     case ESP_HF_CLIENT_CIND_ROAMING_STATUS_EVT: self.roam = p->roaming.status; dirty = true; break;
@@ -223,10 +246,34 @@ static void phone_hfp(esp_hf_client_cb_event_t e, esp_hf_client_cb_param_t *p) {
     case ESP_HF_CLIENT_CLIP_EVT:
         if (p->clip.number && calls::number_valid(p->clip.number)) self.number = p->clip.number;
         dirty = true; break;
+    case ESP_HF_CLIENT_CCWA_EVT:
+        if (p->ccwa.number && calls::number_valid(p->ccwa.number)) self.number = p->ccwa.number;
+        clcc_dirty = dirty = true;
+        break;
+    case ESP_HF_CLIENT_CLCC_EVT:
+        if (clcc_pending && staged_count < staged_calls.size() && p->clcc.idx > 0 && p->clcc.idx <= 255 &&
+            unsigned(p->clcc.dir) <= 1 && unsigned(p->clcc.status) <= 5 && unsigned(p->clcc.mpty) <= 1 &&
+            (!p->clcc.number || calls::number_valid(p->clcc.number))) {
+            staged_calls[staged_count++] = {unsigned(p->clcc.idx), unsigned(p->clcc.dir),
+                unsigned(p->clcc.status), unsigned(p->clcc.mpty), p->clcc.number ? p->clcc.number : ""};
+        }
+        break;
     case ESP_HF_CLIENT_AT_RESPONSE_EVT:
-        if (pending) {
-            reply(pending, pending_peer, p->at_response.code == ESP_HF_AT_RESPONSE_CODE_OK);
-            pending = 0;
+        if (clcc_pending) {
+            clcc_pending = false;
+            if (p->at_response.code == ESP_HF_AT_RESPONSE_CODE_OK) {
+                self.current_count = staged_count;
+                self.current = staged_calls;
+                if (self.current_count && !self.current[0].number.empty()) self.number = self.current[0].number;
+                dirty = true;
+            } else {
+                clcc_dirty = true; next_clcc = now() + 2000;
+            }
+        } else if (pending) {
+            const bool ok = p->at_response.code == ESP_HF_AT_RESPONSE_CODE_OK;
+            reply(pending, pending_peer, ok);
+            if (ok) { clcc_dirty = true; next_clcc = now() + 100; }
+            pending = 0; pending_command.clear(); pending_argument.clear();
         }
         break;
     default: break;
@@ -237,17 +284,35 @@ static void receive_command(const WireMessage &m) {
     if (!peer_live() || m.session != other_boot || !calls::decimal(m.notice.date, destination) || destination != boot)
         return;
     if (!commands.accept(m.session, m.notice.id)) return; // Never replay a control operation.
-    if (pending || command_fault || !other.linked || now() - phone_ready_at < 1000 || !calls::decimal(m.notice.subtitle, generation) || generation != self.generation ||
+    if (pending || clcc_pending || command_fault || !other.linked || now() - phone_ready_at < 1000 || !calls::decimal(m.notice.subtitle, generation) || generation != self.generation ||
         !calls::command_allowed(self, m.notice.title, m.notice.body)) {
         reply(m.notice.id, m.session, false); return;
     }
     esp_err_t error = ESP_ERR_NOT_SUPPORTED;
     if (m.notice.title == "dial") error = esp_hf_client_dial(m.notice.body.c_str());
+    else if (m.notice.title == "redial") error = esp_hf_client_dial(nullptr);
     else if (m.notice.title == "answer") error = esp_hf_client_answer_call();
     else if (m.notice.title == "hangup") error = esp_hf_client_reject_call();
     else if (m.notice.title == "dtmf") error = esp_hf_client_send_dtmf(m.notice.body[0]);
+    else if (m.notice.title == "chld") {
+        const auto &a = m.notice.body;
+        esp_hf_chld_type_t type = ESP_HF_CHLD_TYPE_REL;
+        int index = 0;
+        if (a == "0") type = ESP_HF_CHLD_TYPE_REL;
+        else if (a == "1") type = ESP_HF_CHLD_TYPE_REL_ACC;
+        else if (a == "2") type = ESP_HF_CHLD_TYPE_HOLD_ACC;
+        else if (a == "3") type = ESP_HF_CHLD_TYPE_MERGE;
+        else if (a == "4") type = ESP_HF_CHLD_TYPE_MERGE_DETACH;
+        else {
+            uint32_t parsed = 0;
+            calls::decimal(a.substr(1), parsed); index = parsed;
+            type = a[0] == '1' ? ESP_HF_CHLD_TYPE_REL_X : ESP_HF_CHLD_TYPE_PRIV_X;
+        }
+        error = esp_hf_client_send_chld_cmd(type, index);
+    }
     if (error == ESP_OK) {
         pending = m.notice.id; pending_peer = m.session; pending_deadline = now() + 4000;
+        pending_command = m.notice.title; pending_argument = m.notice.body;
     } else reply(m.notice.id, m.session, false);
 }
 #else
@@ -264,7 +329,8 @@ static void apply_phone_state() {
     previous_snapshot = body; previous_number = s.number;
     // IDF's answer_call API is its generic phone-state update entry point. It
     // generates ringing, call indicators and SCO transitions from real iPhone state.
-    // The initial milestone maps one active/held call; multiparty control is rejected.
+    // The indicator update drives ringing/SCO. Detailed call identities are
+    // answered separately from the iPhone's current-call list.
     int held = s.held ? 1 : 0;
     int active = s.call && s.held != 2 ? 1 : 0;
     if (!s.call && !s.setup && !s.held)
@@ -307,6 +373,7 @@ static void car_hfp(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
         set_audio(p->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED_MSBC ? 16000 :
                   (p->audio_stat.state == ESP_HF_AUDIO_STATE_CONNECTED ? 8000 : 0));
         sync_handle = self.audio ? p->audio_stat.sync_conn_handle : 0xffff;
+        call_audio_connection(sync_handle);
         if (self.audio) ESP_LOGI("calls", "SCO handle=%u preferred_frame=%u", sync_handle, p->audio_stat.preferred_frame_size);
         break;
     case ESP_HF_PKT_STAT_NUMS_GET_EVT: radio_snapshot(p->pkt_nums); break;
@@ -319,7 +386,17 @@ static void car_hfp(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
     case ESP_HF_COPS_RESPONSE_EVT:
         esp_hf_ag_cops_response(p->cops_rep.remote_addr, const_cast<char *>(s.linked ? "iPhone" : "No phone")); break;
     case ESP_HF_CLCC_RESPONSE_EVT:
-        if (s.call || s.setup) {
+        if (s.current_count) {
+            for (size_t i = 0; i < s.current_count; ++i) {
+                const auto &call = s.current[i];
+                esp_hf_ag_clcc_response(p->clcc_rep.remote_addr, call.index,
+                    esp_hf_current_call_direction_t(call.direction), esp_hf_current_call_status_t(call.status),
+                    ESP_HF_CURRENT_CALL_MODE_VOICE, esp_hf_current_call_mpty_type_t(call.multiparty),
+                    call.number.empty() ? nullptr : const_cast<char *>(call.number.c_str()),
+                    call.number.size() && call.number[0] == '+' ? ESP_HF_CALL_ADDR_TYPE_INTERNATIONAL :
+                    ESP_HF_CALL_ADDR_TYPE_UNKNOWN);
+            }
+        } else if (s.call || s.setup) {
             unsigned status = s.held == 2 ? 1 : (s.call ? 0 : (s.setup == 1 ? 4 : s.setup));
             esp_hf_ag_clcc_response(p->clcc_rep.remote_addr, 1, esp_hf_current_call_direction_t(s.incoming),
                 esp_hf_current_call_status_t(status), ESP_HF_CURRENT_CALL_MODE_VOICE,
@@ -336,14 +413,20 @@ static void car_hfp(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
     case ESP_HF_CHUP_RESPONSE_EVT: request("hangup"); break;
     case ESP_HF_VTS_RESPONSE_EVT: request("dtmf", p->vts_rep.code ? p->vts_rep.code : ""); break;
     case ESP_HF_DIAL_EVT:
-        if (p->out_call.type == ESP_HF_DIAL_NUM && p->out_call.num_or_loc) {
-            std::string number = p->out_call.num_or_loc;
+        if (p->out_call.type == ESP_HF_DIAL_NUM) {
+            std::string number = p->out_call.num_or_loc ? p->out_call.num_or_loc : "";
             if (!number.empty() && number.back() == ';') number.pop_back();
-            request("dial", number);
-        } else result(false); // Explicitly reject redial and memory/VoIP dialing.
+            if (number.empty()) request("redial");
+            else request("dial", number);
+        } else result(false); // Explicitly reject memory/VoIP dialing.
         break;
     case ESP_HF_BVRA_RESPONSE_EVT: result(false); break;
-    case ESP_HF_UNAT_RESPONSE_EVT: esp_hf_ag_unknown_at_send(p->unat_rep.remote_addr, nullptr); break;
+    case ESP_HF_UNAT_RESPONSE_EVT: {
+        std::string argument;
+        if (p->unat_rep.unat && calls::chld_argument(p->unat_rep.unat, argument)) request("chld", argument);
+        else esp_hf_ag_unknown_at_send(p->unat_rep.remote_addr, nullptr);
+        break;
+    }
     default: break;
     }
 }
@@ -408,7 +491,7 @@ void relay_receive(const WireMessage &m) {
 #endif
             other_boot = m.session; commands.reset(other_boot); test_commands.reset(other_boot); test_pending = 0; peer_audio_counters.clear(); peer_audio_at = 0;
             peer_radio_counters.clear(); peer_radio_at = 0;
-            ESP_LOGI("calls", "Other board detected (call relay protocol 2; HD audio supported)");
+            ESP_LOGI("calls", "Other board detected (call relay protocol 3; HD audio and conferences supported)");
         }
         other_sequence = m.notice.id; other = decoded; last_peer = now();
         call_audio_set(self.audio, other.audio, audio_rate);
@@ -432,6 +515,12 @@ void relay_receive(const WireMessage &m) {
 #endif
 }
 void relay_poll() {
+#if CONFIG_BRIDGE_MUSIC_RELAY
+    music_poll();
+#endif
+#if CONFIG_BRIDGE_CONTACT_SYNC
+    contacts_poll();
+#endif
     if (test_pending && now() >= test_deadline) {
         ESP_LOGW("audio", "Other board did not confirm audio test; check its firmware and status");
         test_pending = 0;
@@ -439,7 +528,23 @@ void relay_poll() {
 #if CONFIG_BRIDGE_PHONE
     if (self.linked && (self.call || self.setup || self.held)) {
         if (!self.generation) { self.generation = token(); self.incoming = self.setup == 1; dirty = true; }
-    } else if (self.generation) { self.generation = 0; self.number.clear(); self.incoming = 0; dirty = true; }
+    } else if (self.generation) {
+        self.generation = 0; self.number.clear(); self.incoming = 0; self.current_count = 0; dirty = true;
+    }
+    if (self.linked && clcc_dirty && !clcc_pending && !pending && now() >= next_clcc) {
+        staged_count = 0;
+        const auto error = esp_hf_client_query_current_calls();
+        if (error == ESP_OK) {
+            clcc_pending = true; clcc_dirty = false; clcc_deadline = now() + 4000;
+        } else {
+            next_clcc = now() + 2000;
+        }
+    }
+    if (clcc_pending && now() >= clcc_deadline) {
+        clcc_pending = false; command_fault = true;
+        esp_hf_client_disconnect(peer);
+        ESP_LOGW("calls", "Current-call query timed out; resetting HFP to prevent a late response");
+    }
     if (self.linked && phone_notifications_ready()) paired(Peer::phone);
 #endif
     if (last_peer && !peer_live()) {
@@ -462,7 +567,7 @@ void relay_poll() {
 #else
         result(false);
 #endif
-        pending = 0;
+        pending = 0; pending_command.clear(); pending_argument.clear();
         ESP_LOGW("calls", "Call command timed out; no automatic retry");
     }
     if (dirty || now() - last_snapshot >= 1000) snapshot();
@@ -517,8 +622,14 @@ void relay_poll() {
 #endif
 }
 void relay_status() {
-    ESP_LOGI("calls", "Call profile: %s; other board: %s; one-call prototype", self.linked ? "ready" : "not ready",
-             peer_live() ? (other.linked ? "ready" : "phone profile not ready") : "not connected");
+#if CONFIG_BRIDGE_PHONE
+    const auto &conference = self;
+#else
+    const auto &conference = other;
+#endif
+    ESP_LOGI("calls", "Call profile: %s; other board: %s; multiparty=%s calls=%u", self.linked ? "ready" : "not ready",
+             peer_live() ? (other.linked ? "ready" : "phone profile not ready") : "not connected",
+             (conference.chld & 0x20) ? "supported" : "unavailable", conference.current_count);
 #if CONFIG_BRIDGE_PHONE
     ESP_LOGI("calls", "Reconnect: saved=%d in_progress=%d attempts=%u last_request=%s retry_in_ms=%lld",
              peer_saved, connecting, reconnect_attempts, esp_err_to_name(last_connect_result),
@@ -528,6 +639,12 @@ void relay_status() {
              peer_saved, !self.linked);
 #endif
     call_audio_status();
+#if CONFIG_BRIDGE_MUSIC_RELAY
+    music_status();
+#endif
+#if CONFIG_BRIDGE_CONTACT_SYNC
+    contacts_status();
+#endif
     if (peer_live() && peer_audio_at && now() - peer_audio_at < 10000)
         ESP_LOGI("calls", "Other board audio counters: %s", peer_audio_counters.c_str());
     if (radio_at) ESP_LOGI("calls", "Local Bluetooth audio counters: %s; age_ms=%lld",
@@ -553,13 +670,27 @@ void relay_start() {
     ESP_ERROR_CHECK(esp_bt_gap_set_cod(cod, ESP_BT_SET_COD_ALL));
     ESP_ERROR_CHECK(esp_hf_client_register_callback(phone_hfp));
     ESP_ERROR_CHECK(esp_hf_client_init());
+#if CONFIG_BT_HFP_USE_EXTERNAL_CODEC
+    call_audio_register();
+#else
     ESP_ERROR_CHECK(esp_hf_client_register_data_callback(call_audio_in, call_audio_out));
+#endif
 #else
     ESP_ERROR_CHECK(esp_hf_ag_register_callback(car_hfp));
     ESP_ERROR_CHECK(esp_hf_ag_init());
+#if CONFIG_BT_HFP_USE_EXTERNAL_CODEC
+    call_audio_register();
+#else
     ESP_ERROR_CHECK(esp_hf_ag_register_data_callback(call_audio_in, call_audio_out));
 #endif
-    ESP_LOGI("calls", "Two-board call alpha: UART1 audio TX25/RX26, UART2 control TX17/RX16; music unavailable");
+#endif
+#if CONFIG_BRIDGE_MUSIC_RELAY
+    music_start();
+#endif
+#if CONFIG_BRIDGE_CONTACT_SYNC
+    contacts_start();
+#endif
+    ESP_LOGI("calls", "Two-board relay: UART1 call/music audio TX25/RX26, UART2 control TX17/RX16");
 }
 }
 #endif

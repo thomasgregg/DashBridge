@@ -16,7 +16,7 @@ class BuildScopeTest(unittest.TestCase):
         self.write("firmware/version.txt", "0.3.1-alpha")
         for name in ("main/phone.cpp", "main/car.cpp", "main/main.cpp",
                      "sdkconfig.phone", "sdkconfig.car", "sdkconfig.single", "sdkconfig.defaults",
-                     "sdp_diagnostics/patch.py"):
+                     "sdp_diagnostics/patch.py", "audio_codec/patch.py"):
             self.write("firmware/" + name, "original")
         manifest = {"images": {}, "target": "esp32", "flash_size": "4MB"}
         for role in ("phone", "car", "single"):
@@ -47,6 +47,7 @@ class BuildScopeTest(unittest.TestCase):
             ("sdkconfig.single", ["single"]),
             ("main/car.cpp", ["car", "single"]), ("sdkconfig.car", ["car"]),
             ("sdp_diagnostics/patch.py", ["car", "single"]),
+            ("audio_codec/patch.py", ["phone", "car", "single"]),
             ("main/main.cpp", ["phone", "car", "single"]),
             ("sdkconfig.defaults", ["phone", "car", "single"]),
         ):

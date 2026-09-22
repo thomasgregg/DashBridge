@@ -150,9 +150,12 @@ static void source_event(const uint8_t *value, size_t size) {
         }
         return;
     }
-    if (!car_ready || ancs_is_preexisting(value[1]))
-        return; // Ignore pre-existing notifications.
-    Op op = value[0] == 0 ? Op::add : Op::update;
+    const bool preexisting = ancs_is_preexisting(value[1]);
+    if (!car_ready && !preexisting) return;
+    // ANCS marks notifications already present in Notification Center when the
+    // bridge connects. Import those as silent MAP history rather than dropping them.
+    Op op = preexisting ? Op::history_add :
+            (value[0] == 0 ? Op::add : Op::update);
     for (auto &r : requests)
         if (r.id == id)
             return; // Coalesce pending updates.

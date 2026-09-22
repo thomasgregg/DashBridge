@@ -47,10 +47,9 @@ a bad result on one side narrows further investigation without proving a cause.
 
 Validation: both ESP-IDF v5.5.5 role builds, sanitizer tests, production audio
 callback replay at both rates, and production diagnostic-control replay for both
-roles passed. Hardware listening tests remain pending.
+roles passed. Hardware listening on September 22 found a clean Tesla tone and robotic Tesla microphone loopback; phone-side listening was inconclusive.
 
 Both applications are now installed and startup verified. A restored iPhone
 calls and notifications; B was awaiting Tesla reconnection at the latest check.
-The remote `audio off` acknowledgement was verified from B to A. Listening tests
-remain pending. Capture `status` before `audio off` to retain the test counters
+The remote `audio off` acknowledgement was verified from B to A. The September 22 listening result and subsequent receive-decoder correction are documented in [AUDIO_DECODER_FIX.md](AUDIO_DECODER_FIX.md). Capture `status` before `audio off` to retain the test counters
 in the log, because starting a new mode resets them. See [installed versions](CALL_RELAY_VALIDATION.md).
