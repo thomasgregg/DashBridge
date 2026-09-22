@@ -42,6 +42,86 @@ static std::string clipped(const std::string &s, size_t max) {
             out += s[i];
     return out;
 }
+bool valid_app_id(const std::string &id) {
+    if (id.empty() || id.size() > 95) return false;
+    for (unsigned char c : id)
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_')) return false;
+    return true;
+}
+std::string app_name_fallback(const std::string &id) {
+    if (id == "net.whatsapp.WhatsAppSMB") return "WhatsApp Business";
+    auto pos = id.rfind('.');
+    return clipped(pos == std::string::npos ? id : id.substr(pos + 1), 48);
+}
+AppPolicy::AppPolicy() {
+    allow("net.whatsapp.WhatsApp", "WhatsApp", Preview::full);
+    allow("net.whatsapp.WhatsAppSMB", "WhatsApp Business", Preview::full);
+}
+const AppRule *AppPolicy::find(const std::string &id) const {
+    auto it = std::find_if(rules_.begin(), rules_.end(), [&](const AppRule &r) { return r.id == id; });
+    return it == rules_.end() ? nullptr : &*it;
+}
+bool AppPolicy::allow(const std::string &id, const std::string &name, Preview preview) {
+    if (!valid_app_id(id) || unsigned(preview) > 2) return false;
+    auto cleaned = clipped(name, 48);
+    if (cleaned.empty()) cleaned = app_name_fallback(id);
+    if (cleaned.empty()) return false;
+    for (auto &rule : rules_)
+        if (rule.id == id) { rule.name = cleaned; rule.preview = preview; return true; }
+    if (rules_.size() >= limit) return false;
+    rules_.push_back({id, cleaned, preview});
+    return true;
+}
+bool AppPolicy::deny(const std::string &id) {
+    auto it = std::find_if(rules_.begin(), rules_.end(), [&](const AppRule &r) { return r.id == id; });
+    if (it == rules_.end()) return false;
+    rules_.erase(it);
+    return true;
+}
+Bytes AppPolicy::serialize() const {
+    Bytes out = {1, uint8_t(rules_.size())};
+    for (const auto &rule : rules_) {
+        out.push_back(uint8_t(rule.id.size()));
+        out.insert(out.end(), rule.id.begin(), rule.id.end());
+        out.push_back(uint8_t(rule.name.size()));
+        out.insert(out.end(), rule.name.begin(), rule.name.end());
+        out.push_back(uint8_t(rule.preview));
+    }
+    return out;
+}
+bool AppPolicy::load(const Bytes &data) {
+    if (data.size() < 2 || data[0] != 1 || data[1] > limit) return false;
+    AppPolicy parsed;
+    parsed.rules_.clear();
+    size_t p = 2;
+    for (unsigned i = 0; i < data[1]; ++i) {
+        if (p >= data.size() || p + 1 + data[p] > data.size()) return false;
+        size_t n = data[p++];
+        std::string id(data.begin() + p, data.begin() + p + n);
+        p += n;
+        if (p >= data.size() || p + 1 + data[p] > data.size()) return false;
+        n = data[p++];
+        std::string name(data.begin() + p, data.begin() + p + n);
+        p += n;
+        if (p >= data.size() || parsed.find(id) || !parsed.allow(id, name, Preview(data[p++]))) return false;
+    }
+    if (p != data.size()) return false;
+    rules_ = std::move(parsed.rules_);
+    return true;
+}
+Notice apply_preview(Notice notice, const AppRule &rule) {
+    notice.app = rule.name;
+    if (rule.preview == Preview::sender) {
+        notice.subtitle.clear();
+        notice.body = "New notification";
+    } else if (rule.preview == Preview::app) {
+        notice.title = rule.name;
+        notice.subtitle.clear();
+        notice.body = "New notification";
+    }
+    return notice;
+}
 Notice bounded_notice(const Notice &notice) {
     return {notice.id, clipped(notice.app, 128), clipped(notice.title, 128),
             clipped(notice.subtitle, 128), clipped(notice.body, 768), clipped(notice.date, 32)};
@@ -167,6 +247,38 @@ int AncsResponse::feed(const uint8_t *p, size_t n, uint32_t id, Notice &out) {
     out = std::move(parsed);
     clear();
     return 1;
+}
+int AncsAppIdResponse::feed(const uint8_t *p, size_t n, uint32_t id, std::string &app_id) {
+    if (data_.size() + n > 256) { clear(); return -1; }
+    data_.insert(data_.end(), p, p + n);
+    if (data_.size() < 5) return 0;
+    if (data_[0] != 0 || le32(data_.data() + 1) != id) { clear(); return -1; }
+    if (data_.size() < 8) return 0;
+    size_t size = data_[6] | size_t(data_[7]) << 8;
+    if (data_[5] != 0 || size > 95) { clear(); return -1; }
+    if (data_.size() < 8 + size) return 0;
+    if (data_.size() != 8 + size) { clear(); return -1; }
+    std::string result(data_.begin() + 8, data_.end());
+    clear();
+    if (!valid_app_id(result)) return -1;
+    app_id = std::move(result);
+    return 1;
+}
+int AncsAppNameResponse::feed(const uint8_t *p, size_t n, const std::string &id, std::string &name) {
+    if (data_.size() + n > 256) { clear(); return -1; }
+    data_.insert(data_.end(), p, p + n);
+    if (data_.empty()) return 0;
+    if (data_[0] != 1 || (data_.size() > id.size() + 1 &&
+        !std::equal(id.begin(), id.end(), data_.begin() + 1))) { clear(); return -1; }
+    if (data_.size() < id.size() + 5) return 0;
+    if (data_[id.size() + 1] != 0 || data_[id.size() + 2] != 0) { clear(); return -1; }
+    size_t nbytes = data_[id.size() + 3] | size_t(data_[id.size() + 4]) << 8;
+    if (nbytes > 96) { clear(); return -1; }
+    if (data_.size() < id.size() + 5 + nbytes) return 0;
+    if (data_.size() != id.size() + 5 + nbytes) { clear(); return -1; }
+    name = clipped(std::string(data_.begin() + id.size() + 5, data_.end()), 48);
+    clear();
+    return name.empty() ? -1 : 1;
 }
 bool ObexFramer::feed(const uint8_t *p, size_t n, const std::function<void(const Bytes &)> &receive) {
     for (size_t i = 0; i < n; i++) {
@@ -389,7 +501,7 @@ uint64_t Inbox::apply(const WireMessage &m) {
             messages_.erase(it);
         return 0;
     }
-    if (m.notice.app != "net.whatsapp.WhatsApp" && m.notice.app != "net.whatsapp.WhatsAppSMB")
+    if (m.notice.app.empty())
         return 0;
     Notice clean = m.notice;
     clean.title = clipped(clean.title, 128);
@@ -545,7 +657,8 @@ Bytes MasServer::get(const Bytes &raw) {
             body += "<msg handle=\"" + handle_text(s.handle) + "\" subject=\"" +
                     xml_escape(clipped(n.body, 64)) + "\" datetime=\"" + xml_escape(date) +
                     "\" sender_name=\"" + xml_escape(n.title) +
-                    "\" sender_addressing=\"WhatsApp\" recipient_name=\"Driver\" recipient_addressing=\"\" "
+                    "\" sender_addressing=\"" + xml_escape(clipped(n.app, 48)) +
+                    "\" recipient_name=\"Driver\" recipient_addressing=\"\" "
                     "type=\"SMS_GSM\" size=\"" +
                     std::to_string(n.body.size()) +
                     "\" text=\"yes\" reception_status=\"complete\" attachment_size=\"0\" priority=\"no\" "

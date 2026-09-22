@@ -15,9 +15,26 @@
 #include "console_commands.hpp"
 #include "call_relay.hpp"
 #include <deque>
+#include <cstdio>
 namespace runtime {
 SemaphoreHandle_t mutex;
 static PairingWindows pairing;
+std::string setup_escape(const std::string &value) {
+    std::string out = "\"";
+    for (unsigned char c : value) {
+        if (c == '"' || c == '\\') { out += '\\'; out += char(c); }
+        else if (c < 32) {
+            char code[7];
+            std::snprintf(code, sizeof code, "\\u%04x", unsigned(c));
+            out += code;
+        } else out += char(c);
+    }
+    return out + '"';
+}
+void setup_emit(const std::string &json) {
+    auto line = "@DB " + json + "\r\n";
+    uart_write_bytes(UART_NUM_0, line.data(), line.size());
+}
 #if CONFIG_BRIDGE_SINGLE
 static LocalBridge local;
 bool send_to_car(const bridge::WireMessage &m) {
@@ -83,6 +100,121 @@ static void status() {
 #if CONFIG_BRIDGE_SINGLE
     ESP_LOGI("status", "Local messages queued: %u", unsigned(local.queued()));
 #endif
+}
+static void setup_status() {
+    const char *role =
+#if CONFIG_BRIDGE_PHONE
+        "phone";
+#elif CONFIG_BRIDGE_CAR
+        "car";
+#else
+        "single";
+#endif
+    bool board_link =
+#if CONFIG_BRIDGE_PHONE
+        phone_board_link_ready();
+#elif CONFIG_BRIDGE_CAR
+        car_board_link_ready();
+#else
+        true;
+#endif
+    bool phone_ready =
+#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+        phone_notifications_ready();
+#else
+        car_phone_notification_ready();
+#endif
+    bool phone_bluetooth =
+#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+        phone_bluetooth_ready();
+#else
+        car_phone_bluetooth_ready();
+#endif
+    bool car_ready =
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+        car_notifications_ready();
+#else
+        phone_car_message_ready();
+#endif
+    bool car_transport =
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+        car_message_transport_ready();
+#else
+        phone_car_transport_ready();
+#endif
+    bool car_sync =
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+        car_message_sync_ready();
+#else
+        phone_car_sync_ready();
+#endif
+    bool calls_ready = false;
+    bool phone_calls_ready = false;
+    bool car_calls_ready = false;
+#if CONFIG_BRIDGE_CALL_RELAY
+    calls_ready = relay_calls_ready();
+    #if CONFIG_BRIDGE_PHONE
+    phone_calls_ready = calls_ready;
+    car_calls_ready = phone_car_call_ready();
+    #elif CONFIG_BRIDGE_CAR
+    car_calls_ready = calls_ready;
+    phone_calls_ready = car_phone_call_ready();
+    #endif
+#endif
+    setup_emit("{\"type\":\"status\",\"role\":" + setup_escape(role) +
+               ",\"version\":" + setup_escape(esp_app_get_description()->version) +
+               ",\"boardLink\":" + (board_link ? "true" : "false") +
+               ",\"phoneBluetooth\":" + (phone_bluetooth ? "true" : "false") +
+               ",\"phoneNotifications\":" + (phone_ready ? "true" : "false") +
+               ",\"carTransport\":" + (car_transport ? "true" : "false") +
+               ",\"carSync\":" + (car_sync ? "true" : "false") +
+               ",\"carMessages\":" + (car_ready ? "true" : "false") +
+               ",\"callProfile\":" + (calls_ready ? "true" : "false") +
+               ",\"phoneCalls\":" + (phone_calls_ready ? "true" : "false") +
+               ",\"carCalls\":" + (car_calls_ready ? "true" : "false") + "}");
+}
+static void setup_result(bool ok, const char *message) {
+    setup_emit("{\"type\":\"result\",\"ok\":" + std::string(ok ? "true" : "false") +
+               ",\"message\":" + setup_escape(message) + "}");
+}
+static void setup_command(const std::string &line) {
+    if (line == "db status") { setup_status(); return; }
+    if (line == "db pair") { open_pairing(); setup_result(true, "Pairing opened for two minutes."); return; }
+#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+    if (line == "db apps") { phone_setup_apps(); return; }
+    if (line == "db discover") {
+        bool ok = phone_setup_discover();
+        setup_result(ok, ok ? "Discovery is open for one minute. Send a new notification from that app."
+                            : "Connect the iPhone and allow notification sharing first.");
+        return;
+    }
+    if (line.rfind("db allow ", 0) == 0) {
+        auto value = line.substr(9);
+        auto sep = value.rfind(' ');
+        bool ok = false;
+        if (sep != std::string::npos && sep + 2 == value.size() && value[sep + 1] >= '0' && value[sep + 1] <= '2')
+            ok = phone_setup_allow(value.substr(0, sep), bridge::Preview(value[sep + 1] - '0'));
+        setup_result(ok, ok ? "App choice saved on Board A." : "Could not save this app. Discover it first and try again.");
+        if (ok) phone_setup_apps();
+        return;
+    }
+    if (line.rfind("db deny ", 0) == 0) {
+        bool ok = phone_setup_deny(line.substr(8));
+        setup_result(ok, ok ? "App removed from allowed list." : "Could not remove this app.");
+        if (ok) phone_setup_apps();
+        return;
+    }
+#endif
+#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+    if (line == "db test") {
+        bool ok = car_notifications_ready();
+        if (ok) ok = car_test();
+        setup_result(ok, ok ? "Test message sent. Check the Tesla screen." :
+                     "Could not send a test message. Check the Tesla connection and try again.");
+        return;
+    }
+#endif
+    setup_result(false, "This action is not available on this board.");
 }
 static void console_command(Command command) {
     if (command == Command::none) return;
@@ -186,6 +318,7 @@ extern "C" void app_main() {
     uint8_t buf[256];
 #endif
     ConsoleCommands console;
+    SetupLines setup_lines;
     console_command(Command::help);
     uint8_t console_buf[64];
     int64_t down = 0;
@@ -200,8 +333,11 @@ extern "C" void app_main() {
         int console_n = uart_read_bytes(UART_NUM_0, console_buf, sizeof console_buf, 0);
         {
             Guard g;
-            for (int i = 0; i < console_n; ++i)
+            for (int i = 0; i < console_n; ++i) {
                 console_command(console.feed(console_buf[i]));
+                auto command = setup_lines.feed(console_buf[i]);
+                if (!command.empty()) setup_command(command);
+            }
         #if !CONFIG_BRIDGE_SINGLE
             if (n > 0)
                 decoder.feed(buf, n, [](const bridge::WireMessage &m) {

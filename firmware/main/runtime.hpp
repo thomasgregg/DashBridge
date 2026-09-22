@@ -4,6 +4,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include <string>
 namespace runtime {
 extern SemaphoreHandle_t mutex;
 struct Guard {
@@ -22,11 +23,29 @@ void phone_poll();
 void phone_receive(const bridge::WireMessage &m);
 bool phone_notifications_ready();
 void phone_status();
+bool phone_bluetooth_ready();
+bool phone_board_link_ready();
+bool phone_car_message_ready();
+bool phone_car_transport_ready();
+bool phone_car_sync_ready();
+bool phone_car_call_ready();
+void phone_setup_apps();
+bool phone_setup_allow(const std::string &id, bridge::Preview preview);
+bool phone_setup_deny(const std::string &id);
+bool phone_setup_discover();
+void setup_emit(const std::string &json);
+std::string setup_escape(const std::string &value);
 void car_start();
 void car_poll();
 void car_receive(const bridge::WireMessage &m);
-void car_test();
+bool car_test();
 bool car_notifications_ready();
 void contacts_receive(const bridge::WireMessage &m);
 bridge::Phonebook &contacts_phonebook();
+bool car_message_transport_ready();
+bool car_message_sync_ready();
+bool car_board_link_ready();
+bool car_phone_notification_ready();
+bool car_phone_bluetooth_ready();
+bool car_phone_call_ready();
 } // namespace runtime

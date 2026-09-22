@@ -1,4 +1,5 @@
 #include "runtime.hpp"
+#include "call_relay.hpp"
 #include "sdkconfig.h"
 #if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
 #include "esp_bt_device.h"
@@ -86,6 +87,7 @@ static int mns_state = 0; // 0 idle, 1 discovery/connect, 2 OBEX connect, 3 read
 static uint32_t mns_id = 0;
 static int64_t mns_deadline = 0, last_heartbeat = 0, last_phone = 0, last_discovery = 0;
 static int discoverable = -1;
+static uint32_t phone_flags = 0;
 static uint32_t test_id = 0;
 static std::deque<uint64_t> pending_events;
 static bool known(const uint8_t *bda) {
@@ -416,13 +418,15 @@ void car_receive(const WireMessage &m) {
         inbox.apply(m);
         return;
     }
-    if (m.op == Op::heartbeat)
+    if (m.op == Op::heartbeat) {
+        phone_flags = m.notice.id;
         return;
+    }
     if (!map_transport() || !mas.notifications())
         return;
     uint64_t h = inbox.apply(m);
     if (h) {
-        ESP_LOGI(tag, "New WhatsApp notification (text is not logged)");
+        ESP_LOGI(tag, "Allowed app notification (text is not logged)");
         if (pending_events.size() < 16) {
             pending_events.push_back(h);
             pump_event();
@@ -430,14 +434,14 @@ void car_receive(const WireMessage &m) {
             ESP_LOGW(tag, "Event queue full");
     }
 }
-void car_test() {
+bool car_test() {
     if (!car_notifications_ready()) {
         ESP_LOGW(tag, "Not ready: wait for Ready for new-message notifications, then send test again");
-        return;
+        return false;
     }
     Notice n;
     n.id = ++test_id;
-    n.app = "net.whatsapp.WhatsApp";
+    n.app = "DashBridge";
     n.title = "DashBridge test";
     n.body = "Your Tesla received a test notification from DashBridge.";
     n.date = "20260920T120000";
@@ -446,8 +450,10 @@ void car_test() {
         pending_events.push_back(h);
         pump_event();
         ESP_LOGI(tag, "Test notification queued; check the Tesla screen");
+        return true;
     } else
         ESP_LOGW(tag, "Test notification could not be queued; try again later");
+    return false;
 }
 void car_poll() {
     if (mns_state != 0 && mns_state != 3 && now() > mns_deadline) {
@@ -459,7 +465,11 @@ void car_poll() {
     if (now() - last_heartbeat >= 1000) {
         last_heartbeat = now();
         Notice n;
-        n.id = car_notifications_ready();
+        n.id = (car_notifications_ready() ? 1 : 0) | (map_transport() ? 4 : 0) |
+               (mas.notifications() ? 8 : 0);
+#if CONFIG_BRIDGE_CALL_RELAY
+        if (relay_calls_ready()) n.id |= 2;
+#endif
         send_to_phone({Op::heartbeat, 0, n});
         const int desired = pairing_allowed(Peer::car);
         if (desired != discoverable) {
@@ -476,6 +486,7 @@ void car_poll() {
     }
     if (last_phone && now() - last_phone > 5000) {
         last_phone = 0;
+        phone_flags = 0;
         inbox.clear();
         pending_events.clear();
 #if CONFIG_BRIDGE_CONTACT_SYNC
@@ -485,6 +496,12 @@ void car_poll() {
     }
 }
 bool car_notifications_ready() { return map_transport() && mas.notifications() && mns_state >= 3; }
+bool car_message_transport_ready() { return map_transport() != nullptr; }
+bool car_message_sync_ready() { return mas.notifications(); }
+bool car_board_link_ready() { return last_phone && now() - last_phone < 5000; }
+bool car_phone_notification_ready() { return car_board_link_ready() && (phone_flags & 1); }
+bool car_phone_bluetooth_ready() { return car_board_link_ready() && (phone_flags & 4); }
+bool car_phone_call_ready() { return car_board_link_ready() && (phone_flags & 2); }
 void car_start() {
     ESP_ERROR_CHECK(esp_bt_gap_register_callback(gap_cb));
     #if CONFIG_BRIDGE_SINGLE

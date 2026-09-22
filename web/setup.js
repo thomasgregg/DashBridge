@@ -1,0 +1,248 @@
+const $ = (selector) => document.querySelector(selector);
+const supported = window.isSecureContext && 'serial' in navigator;
+const boards = [];
+let appsFingerprint = '';
+
+function feedback(message, ok = true) {
+  const node = $('#action-message');
+  node.textContent = message;
+  node.style.color = ok ? '#176c59' : '#9b4e2c';
+}
+
+class BoardConnection {
+  constructor(port) {
+    this.port = port;
+    this.role = null;
+    this.status = null;
+    this.apps = null;
+    this.lines = '';
+    this.closed = false;
+    this.writes = Promise.resolve();
+  }
+  async start() {
+    await this.port.open({ baudRate: 115200 });
+    this.readLoop();
+    for (const delay of [500, 1800, 3500]) {
+      setTimeout(() => { if (!this.closed && !this.status) this.send('db status'); }, delay);
+    }
+    this.poll = setInterval(() => {
+      if (this.closed) return;
+      this.send('db status');
+      if (this.role === 'phone' || this.role === 'single') this.send('db apps');
+    }, 4000);
+  }
+  async send(command) {
+    this.writes = this.writes.then(async () => {
+      if (this.closed) return;
+      const writer = this.port.writable.getWriter();
+      try { await writer.write(new TextEncoder().encode(`${command}\n`)); }
+      finally { writer.releaseLock(); }
+    }).catch(() => feedback(`Could not send a command to ${this.label()}. Check the USB cable.`, false));
+    return this.writes;
+  }
+  label() {
+    return this.role === 'phone' ? 'Board A' : this.role === 'car' ? 'Board B' :
+      this.role === 'single' ? 'DashBridge' : 'the board';
+  }
+  async readLoop() {
+    const decoder = new TextDecoder();
+    try {
+      while (this.port.readable && !this.closed) {
+        const reader = this.port.readable.getReader();
+        this.reader = reader;
+        try {
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            this.lines += decoder.decode(value, { stream: true });
+            if (this.lines.length > 16000) this.lines = this.lines.slice(-8000);
+            let newline;
+            while ((newline = this.lines.indexOf('\n')) !== -1) {
+              const line = this.lines.slice(0, newline).trim();
+              this.lines = this.lines.slice(newline + 1);
+              if (!line.startsWith('@DB ')) continue;
+              try { this.handle(JSON.parse(line.slice(4))); }
+              catch (error) { /* Ignore unrelated or incomplete serial output. */ }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+          this.reader = null;
+        }
+      }
+    } catch (error) {
+      if (!this.closed) feedback(`${this.label()} disconnected. You can connect it again.`, false);
+    } finally {
+      this.closed = true;
+      clearInterval(this.poll);
+      await this.writes;
+      try { await this.port.close(); } catch (error) { /* Already closed on unplug. */ }
+      const index = boards.indexOf(this);
+      if (index !== -1) boards.splice(index, 1);
+      appsFingerprint = '';
+      render();
+    }
+  }
+  handle(message) {
+    if (!message || typeof message !== 'object') return;
+    if (message.type === 'status' && ['phone', 'car', 'single'].includes(message.role)) {
+      this.role = message.role;
+      this.status = message;
+      if (message.role === 'phone' || message.role === 'single') this.send('db apps');
+    } else if (message.type === 'apps') {
+      this.apps = message;
+    } else if (message.type === 'result') {
+      feedback(message.message || (message.ok ? 'Done.' : 'Could not complete that action.'), !!message.ok);
+    }
+    render();
+  }
+  async disconnect() {
+    this.closed = true;
+    clearInterval(this.poll);
+    if (this.reader) await this.reader.cancel();
+  }
+}
+
+function board(role) { return boards.find(item => item.role === role || (role === 'phone' && item.role === 'single')); }
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function renderBoards() {
+  const container = $('#boards');
+  container.replaceChildren();
+  if (!boards.length) {
+    container.append(element('p', 'empty', 'No boards connected yet. Connect Board A to choose apps, or Board B to check the Tesla side.'));
+    return;
+  }
+  for (const connection of boards) {
+    const card = element('div', 'board');
+    card.append(element('h3', '', connection.label()));
+    card.append(element('p', '', connection.status ? `Firmware ${connection.status.version}` : 'Connecting…'));
+    if (connection.status) {
+      const pair = element('button', 'secondary', connection.role === 'car' ? 'Open Tesla pairing' : 'Open iPhone pairing');
+      pair.addEventListener('click', () => connection.send('db pair'));
+      card.append(pair);
+    }
+    const disconnect = element('button', 'secondary', 'Disconnect');
+    disconnect.style.marginLeft = '7px';
+    disconnect.addEventListener('click', () => connection.disconnect());
+    card.append(disconnect);
+    container.append(card);
+  }
+}
+
+function renderChecks() {
+  const a = board('phone')?.status;
+  const b = board('car')?.status;
+  const phone = a || (b?.boardLink ? b : null);
+  const car = b || (a?.boardLink ? a : null);
+  const link = a && b ? a.boardLink && b.boardLink : (a || b)?.boardLink ?? null;
+  const checks = [
+    ['Boards talking', (a || b)?.role === 'single' ? true : link,
+      'Both halves of DashBridge can communicate.', 'Power both boards and check their connection.'],
+    ['iPhone Bluetooth', phone?.phoneBluetooth ?? null,
+      'Board A is connected to the iPhone.', 'Open iPhone pairing and connect Dash Messages. Pair Dash Calls separately for calls.'],
+    ['Notification sharing', phone?.phoneBluetooth ? phone.phoneNotifications : null,
+      'The iPhone is sharing new notifications.', 'Allow “Share System Notifications” for Dash Messages on your iPhone.'],
+    ['Tesla message link', car?.carTransport ?? null,
+      'Board B is connected to the Tesla message interface.', 'Connect Dash Tesla from the Tesla Bluetooth screen.'],
+    ['Messages ready', car?.carTransport ? car.carMessages : null,
+      'Tesla message notifications are ready.', car?.carSync ? 'Finishing the message notification connection. Check again shortly.' : 'Enable message sync for DashBridge B in the Tesla.'],
+    ['Call connection', link ? phone?.phoneCalls && car?.carCalls : null,
+      'Both call connections are ready. Test both audio directions in a real call.', 'Connect the iPhone and Tesla for calls.'],
+  ];
+  const container = $('#checks');
+  container.replaceChildren();
+  for (const [title, state, readyText, waitingText] of checks) {
+    const card = element('div', `check ${state === true ? 'ready' : state === false ? 'waiting' : ''}`);
+    card.append(element('strong', '', `${state === true ? '✓ ' : state === false ? '○ ' : '– '}${title}`));
+    card.append(element('span', '', state === true ? readyText : state === false ? waitingText : 'Connect a board to check.'));
+    container.append(card);
+  }
+}
+
+function renderApps() {
+  const a = board('phone');
+  $('#discover').disabled = !a?.status?.phoneNotifications;
+  $('#discovery-help').textContent = !a ? 'Connect Board A to choose apps.' :
+    !a.status?.phoneNotifications ? 'Connect your iPhone to Board A and allow notification sharing first.' :
+    a.apps?.discovering ? 'Listening for a new notification now. Open the app you want to add.' :
+    'WhatsApp is allowed by default. To add another app, start discovery and make it send a new notification.';
+  const data = a?.apps;
+  const fingerprint = JSON.stringify(data?.allowed) + JSON.stringify(data?.recent);
+  if (fingerprint === appsFingerprint) return;
+  appsFingerprint = fingerprint;
+  const container = $('#apps');
+  container.replaceChildren();
+  if (!data) return;
+  const allowed = new Map((data.allowed || []).map(item => [item.id, item]));
+  const all = new Map([...allowed, ...(data.recent || []).map(item => [item.id, item])]);
+  for (const [id, item] of all) {
+    if (!/^[A-Za-z0-9._-]{1,95}$/.test(id)) continue;
+    const row = element('div', 'app');
+    const label = element('label');
+    const toggle = element('input');
+    toggle.type = 'checkbox';
+    toggle.checked = allowed.has(id);
+    const name = item.name || id.split('.').at(-1);
+    label.append(toggle, element('span', '', name));
+    const preview = element('select');
+    for (const [value, text] of [['0', 'Full preview'], ['1', 'Sender or title only'], ['2', 'App name only']]) {
+      const option = element('option', '', text);
+      option.value = value;
+      preview.append(option);
+    }
+    preview.value = String(allowed.get(id)?.preview ?? 0);
+    preview.disabled = !toggle.checked;
+    toggle.addEventListener('change', () => {
+      preview.disabled = !toggle.checked;
+      a.send(toggle.checked ? `db allow ${id} ${preview.value}` : `db deny ${id}`);
+    });
+    preview.addEventListener('change', () => a.send(`db allow ${id} ${preview.value}`));
+    row.append(label, preview);
+    container.append(row);
+  }
+}
+
+function render() {
+  renderBoards();
+  renderChecks();
+  renderApps();
+  const b = board('car');
+  $('#test').disabled = !b?.status?.carMessages;
+}
+
+$('#connect').disabled = !supported;
+$('#browser-message').textContent = supported ?
+  'Your browser can connect over USB. Select the board’s USB port when prompted.' :
+  'Open this page in Chrome or Edge on a computer. iPhone, iPad and Safari cannot connect to the boards over USB.';
+$('#connect').addEventListener('click', async () => {
+  let connection;
+  try {
+    const port = await navigator.serial.requestPort();
+    if (boards.some(item => item.port === port)) { feedback('That board is already connected. Choose the other USB port.', false); return; }
+    connection = new BoardConnection(port);
+    boards.push(connection);
+    await connection.start();
+    render();
+    setTimeout(() => {
+      if (!connection.closed && !connection.status)
+        feedback('This board did not respond to setup checks. It may need the newer firmware from the installer.', false);
+    }, 7000);
+  } catch (error) {
+    if (connection && !connection.status) {
+      connection.closed = true;
+      const index = boards.indexOf(connection);
+      if (index !== -1) boards.splice(index, 1);
+      render();
+    }
+    if (error.name !== 'NotFoundError') feedback('Could not open that USB port. Close other log windows and try again.', false);
+  }
+});
+$('#discover').addEventListener('click', () => board('phone')?.send('db discover'));
+$('#test').addEventListener('click', () => board('car')?.send('db test'));
+render();

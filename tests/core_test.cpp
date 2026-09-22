@@ -133,7 +133,49 @@ static void ancs_test() {
     assert(parser.feed(too_big.data(), too_big.size(), 42, got) == -1);
     Bytes bad = {0, 42, 0, 0, 0, 0, 0xff, 0xff};
     assert(parser.feed(bad.data(), bad.size(), 42, got) == -1);
+    Bytes app_id = {0, 42, 0, 0, 0, 0, uint8_t(n.app.size()), 0};
+    app_id.insert(app_id.end(), n.app.begin(), n.app.end());
+    for (size_t cut = 0; cut < app_id.size(); ++cut) {
+        AncsAppIdResponse identity;
+        std::string id;
+        assert(identity.feed(app_id.data(), cut, 42, id) == 0);
+        assert(identity.feed(app_id.data() + cut, app_id.size() - cut, 42, id) == 1);
+        assert(id == n.app);
+    }
+    AncsAppIdResponse identity;
+    std::string id;
+    assert(identity.feed(app_id.data(), app_id.size(), 43, id) == -1);
+    Bytes app_name = {1};
+    app_name.insert(app_name.end(), n.app.begin(), n.app.end());
+    app_name.insert(app_name.end(), {0, 0, 8, 0});
+    app_name.insert(app_name.end(), {'W', 'h', 'a', 't', 's', 'A', 'p', 'p'});
+    for (size_t cut = 0; cut < app_name.size(); ++cut) {
+        AncsAppNameResponse names;
+        std::string label;
+        assert(names.feed(app_name.data(), cut, n.app, label) == 0);
+        assert(names.feed(app_name.data() + cut, app_name.size() - cut, n.app, label) == 1);
+        assert(label == "WhatsApp");
+    }
     std::cout << "PASS ANCS fragmented attributes, wrong UID and oversize rejection\n";
+}
+static void app_policy_test() {
+    AppPolicy policy;
+    assert(policy.find("net.whatsapp.WhatsApp"));
+    assert(!policy.find("com.example.Chat"));
+    assert(policy.allow("com.example.Chat", "Chat", Preview::sender));
+    auto hidden = apply_preview(example(), {"net.whatsapp.WhatsApp", "WhatsApp", Preview::app});
+    assert(hidden.title == "WhatsApp" && hidden.body == "New notification" && hidden.subtitle.empty());
+    auto stored = policy.serialize();
+    AppPolicy restored;
+    assert(restored.load(stored));
+    assert(restored.find("com.example.Chat") && restored.find("com.example.Chat")->preview == Preview::sender);
+    stored.back() = 255;
+    assert(!restored.load(stored));
+    assert(restored.find("com.example.Chat"));
+    assert(!policy.allow("com.example.Bad ID", "Bad", Preview::full));
+    assert(policy.deny("net.whatsapp.WhatsApp"));
+    assert(!policy.find("net.whatsapp.WhatsApp"));
+    std::cout << "PASS app choice defaults, persistence, validation and preview privacy\n";
 }
 static void inbox_test() {
     Inbox box;
@@ -150,17 +192,18 @@ static void inbox_test() {
     n = example(100);
     assert(!box.apply({Op::history_add, 1, n}));
     assert(box.messages().size() == 2 && box.messages().back().notice.id == 100);
-    n.app = "com.apple.MobileSMS";
-    assert(!box.apply({Op::add, 1, n}));
+    n = example(101);
+    n.app = "Signal";
+    assert(box.apply({Op::add, 1, n}));
     box.apply({Op::remove, 1, example()});
-    assert(box.messages().size() == 1 && box.messages()[0].notice.id == 100);
+    assert(box.messages().size() == 2 && box.messages()[0].notice.id == 100);
     box.apply({Op::add, 2, example()});
     box.apply({Op::reset, 3, {}});
     assert(box.messages().empty());
     for (int i = 0; i < 40; ++i)
         box.apply({Op::add, 3, example(i)});
     assert(box.messages().size() == 32);
-    std::cout << "PASS WhatsApp live/history, duplicate/update handling, session clearing and bounds\n";
+    std::cout << "PASS multi-app live/history, duplicate/update handling, session clearing and bounds\n";
 }
 
 static void pbap_connect(PbapServer &server, unsigned mtu = 255) {
@@ -217,6 +260,7 @@ static void map_test() {
     auto listing =
         get_body(server, server.request(obex_packet(0x83, headers("x-bt/MAP-msg-listing", "inbox"))));
     assert(listing.find("Alice &amp; Bob") != std::string::npos);
+    assert(listing.find("sender_addressing=\"net.whatsapp.WhatsApp\"") != std::string::npos);
     assert(listing.find(handle_text(h)) != std::string::npos);
     auto paged = get_body(
         server, server.request(obex_packet(0x83, headers("x-bt/MAP-msg-listing", "inbox", {2, 2, 0, 1}))));
@@ -316,6 +360,20 @@ static void console_test() {
     commands.clear();
     feed(std::string(10000, 'x') + "pair\nhelp\n");
     assert((commands == std::vector<C>{C::invalid, C::help}));
+    runtime::SetupLines setup;
+    std::vector<std::string> requests;
+    for (unsigned char byte : std::string("db allow com.Example.Chat 1\r\ndb status\n")) {
+        auto line = setup.feed(byte);
+        if (!line.empty()) requests.push_back(line);
+    }
+    assert((requests == std::vector<std::string>{"db allow com.Example.Chat 1", "db status"}));
+    for (unsigned char byte : std::string(200, 'x') + "db deny com.Example.Chat\n")
+        assert(setup.feed(byte).empty());
+    for (unsigned char byte : std::string("db apps\n")) {
+        auto line = setup.feed(byte);
+        if (!line.empty()) requests.push_back(line);
+    }
+    assert(requests.back() == "db apps");
     std::cout << "PASS USB commands: fragmented input, CRLF once, bounds, invalid lines and recovery\n";
 }
 static void single_board_test() {
@@ -395,6 +453,7 @@ static void ancs_flags_test() {
     std::cout << "PASS ANCS fresh notifications alert; pre-existing notifications import silently\n";
 }
 int main() {
+    app_policy_test();
     ancs_flags_test();
     single_board_test();
     console_test();

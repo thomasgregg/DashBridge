@@ -1,10 +1,12 @@
 #include "runtime.hpp"
+#include "call_relay.hpp"
 #include "sdkconfig.h"
 #if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
 #include "esp_gap_ble_api.h"
 #include "esp_gattc_api.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "nvs.h"
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -37,6 +39,16 @@ static uint16_t source_handle = 0, data_handle = 0, control_handle = 0, subscrib
 static esp_bd_addr_t peer = {};
 static bool linked = false, secured = false, mtu_ready = false, searching = false, ready = false;
 static bool car_ready = false, active = false, canceled = false;
+enum class Fetch { none, identity, app_name, details };
+static Fetch fetch = Fetch::none;
+static AppPolicy policy;
+struct SeenApp { std::string id, name; bool named = false; };
+static std::deque<SeenApp> seen_apps;
+static AncsAppIdResponse identity_response;
+static AncsAppNameResponse name_response;
+static std::string current_app;
+static int64_t discover_until = 0;
+static uint32_t car_status = 0;
 static int adv_pending = 0;
 // Diagnostic state only; never used to drive pairing or connection decisions.
 static const char *adv_state = "not requested";
@@ -50,6 +62,8 @@ struct Request {
 static std::deque<Request> requests;
 static Request current = {};
 static AncsResponse response;
+static void request_next();
+static void disconnect(const char *reason);
 static std::vector<std::array<uint8_t, 6>> previous_bonds;
 static esp_err_t log_request(const char *operation, esp_err_t result) {
     ESP_LOGI(tag, "BLE %s request: %s (0x%x)", operation, esp_err_to_name(result), unsigned(result));
@@ -91,6 +105,69 @@ static void new_session() {
         canceled = true;
     send_to_car({Op::reset, session, {}});
 }
+static void load_policy() {
+    nvs_handle_t h;
+    if (nvs_open("appcfg", NVS_READONLY, &h) != ESP_OK) return;
+    size_t n = 0;
+    auto e = nvs_get_blob(h, "rules", nullptr, &n);
+    if (e == ESP_OK && n <= 2048) {
+        Bytes b(n);
+        e = nvs_get_blob(h, "rules", b.data(), &n);
+        if (e == ESP_OK && policy.load(b)) ESP_LOGI(tag, "App choices loaded");
+        else ESP_LOGW(tag, "App choices invalid; using WhatsApp defaults");
+    }
+    nvs_close(h);
+}
+static bool save_policy() {
+    nvs_handle_t h;
+    if (nvs_open("appcfg", NVS_READWRITE, &h) != ESP_OK) return false;
+    auto b = policy.serialize();
+    auto e = nvs_set_blob(h, "rules", b.data(), b.size());
+    if (e == ESP_OK) e = nvs_commit(h);
+    nvs_close(h);
+    return e == ESP_OK;
+}
+static SeenApp *seen(const std::string &id) {
+    for (auto &entry : seen_apps) if (entry.id == id) return &entry;
+    return nullptr;
+}
+static void remember(const std::string &id, const std::string &name = {}, bool named = false) {
+    if (auto *entry = seen(id)) {
+        if (named) { entry->name = name; entry->named = true; }
+        return;
+    }
+    if (seen_apps.size() == 12) seen_apps.pop_front();
+    seen_apps.push_back({id, named ? name : app_name_fallback(id), named});
+}
+static void finish_request() {
+    active = false;
+    fetch = Fetch::none;
+    current_app.clear();
+    request_next();
+}
+static void request_details() {
+    fetch = Fetch::details;
+    response.clear();
+    deadline = now() + 5000;
+    Bytes command = {0};
+    for (int i = 0; i < 4; ++i) command.push_back(current.id >> (i * 8));
+    const uint8_t attrs[] = {0, 1, 128, 0, 2, 128, 0, 3, 0, 3, 5};
+    command.insert(command.end(), std::begin(attrs), std::end(attrs));
+    if (esp_ble_gattc_write_char(interface_id, connection, control_handle, command.size(), command.data(),
+                                 ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE) != ESP_OK)
+        disconnect("Could not request notification details");
+}
+static void request_app_name() {
+    fetch = Fetch::app_name;
+    name_response.clear();
+    deadline = now() + 5000;
+    Bytes command = {1};
+    command.insert(command.end(), current_app.begin(), current_app.end());
+    command.push_back(0); command.push_back(0);
+    if (esp_ble_gattc_write_char(interface_id, connection, control_handle, command.size(), command.data(),
+                                 ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE) != ESP_OK)
+        disconnect("Could not request app name");
+}
 static void disconnect(const char *reason) {
     ESP_LOGW(tag, "%s", reason);
     phone_status();
@@ -111,23 +188,22 @@ static void search() {
         disconnect("Could not start ANCS discovery");
 }
 static void request_next() {
-    if (!ready || !car_ready || active || requests.empty())
+    if (!ready || (!car_ready && now() >= discover_until) || active || requests.empty())
         return;
     current = requests.front();
     requests.pop_front();
     active = true;
     canceled = false;
-    response.clear();
+    fetch = Fetch::identity;
+    identity_response.clear();
     deadline = now() + 5000;
     Bytes command = {0};
     for (int i = 0; i < 4; ++i)
         command.push_back(current.id >> (i * 8));
-    // App identifier, title (128), subtitle (128), body (768), date.
-    const uint8_t attrs[] = {0, 1, 128, 0, 2, 128, 0, 3, 0, 3, 5};
-    command.insert(command.end(), std::begin(attrs), std::end(attrs));
+    command.push_back(0); // Ask only for the app identifier before touching notification content.
     if (esp_ble_gattc_write_char(interface_id, connection, control_handle, command.size(), command.data(),
                                  ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE) != ESP_OK)
-        disconnect("Could not request notification details");
+        disconnect("Could not request app identity");
 }
 static void source_event(const uint8_t *value, size_t size) {
     if (size != 8 || value[0] > 2)
@@ -151,7 +227,7 @@ static void source_event(const uint8_t *value, size_t size) {
         return;
     }
     const bool preexisting = ancs_is_preexisting(value[1]);
-    if (!car_ready && !preexisting) return;
+    if (!car_ready && (preexisting || now() >= discover_until)) return;
     // ANCS marks notifications already present in Notification Center when the
     // bridge connects. Import those as silent MAP history rather than dropping them.
     Op op = preexisting ? Op::history_add :
@@ -399,21 +475,40 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         if (p->notify.handle == source_handle)
             source_event(p->notify.value, p->notify.value_len);
         else if (p->notify.handle == data_handle && active) {
+            int result = 0;
             Notice notice;
-            int result = response.feed(p->notify.value, p->notify.value_len, current.id, notice);
+            std::string value;
+            if (fetch == Fetch::identity)
+                result = identity_response.feed(p->notify.value, p->notify.value_len, current.id, value);
+            else if (fetch == Fetch::app_name)
+                result = name_response.feed(p->notify.value, p->notify.value_len, current_app, value);
+            else if (fetch == Fetch::details)
+                result = response.feed(p->notify.value, p->notify.value_len, current.id, notice);
             if (result < 0) {
                 disconnect("Invalid notification response; reconnecting");
                 break;
             }
             if (result == 1) {
-                bool whatsapp = notice.app == "net.whatsapp.WhatsApp" || notice.app == "net.whatsapp.WhatsAppSMB";
-                ESP_LOGI(tag, "ANCS details uid=%lu whatsapp=%d canceled=%d car_ready=%d; %s",
-                         static_cast<unsigned long>(current.id), whatsapp, canceled, car_ready,
-                         !canceled && car_ready && whatsapp ? "forwarding" : "filtered");
-                if (!canceled && car_ready && whatsapp)
-                    send_to_car({current.op, session, notice});
-                active = false;
-                request_next();
+                if (fetch == Fetch::identity) {
+                    current_app = value;
+                    remember(value);
+                    auto *entry = seen(value);
+                    if (!canceled && now() < discover_until && entry && !entry->named)
+                        request_app_name();
+                    else if (!canceled && car_ready && policy.find(value)) request_details();
+                    else finish_request();
+                } else if (fetch == Fetch::app_name) {
+                    remember(current_app, value, true);
+                    if (!canceled && car_ready && policy.find(current_app)) request_details();
+                    else finish_request();
+                } else {
+                    const AppRule *rule = policy.find(current_app);
+                    if (!canceled && car_ready && rule && notice.app == current_app) {
+                        send_to_car({current.op, session, apply_preview(std::move(notice), *rule)});
+                        ESP_LOGI(tag, "Allowed notification forwarded (content not logged)");
+                    }
+                    finish_request();
+                }
             }
         }
         break;
@@ -434,6 +529,7 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         linked = secured = mtu_ready = searching = ready = active = false;
         start_handle = end_handle = source_handle = data_handle = control_handle = subscribing = 0;
         response.clear();
+        identity_response.clear(); name_response.clear(); active = false; fetch = Fetch::none;
         new_session();
         ESP_LOGI(tag, "iPhone disconnected; inbox cleared");
         start_advertising();
@@ -446,7 +542,8 @@ void phone_receive(const WireMessage &m) {
     if (m.op != Op::heartbeat)
         return;
     last_car = now();
-    bool available = m.notice.id == 1;
+    car_status = m.notice.id;
+    bool available = (m.notice.id & 1) != 0;
     if (available != car_ready) {
         car_ready = available;
         new_session();
@@ -455,10 +552,16 @@ void phone_receive(const WireMessage &m) {
 void phone_poll() {
     if (now() - last_heartbeat >= 1000) {
         last_heartbeat = now();
-        send_to_car({Op::heartbeat, session, {}});
+        Notice heartbeat;
+        heartbeat.id = (phone_notifications_ready() ? 1 : 0) | (linked ? 4 : 0);
+#if CONFIG_BRIDGE_CALL_RELAY
+        if (relay_calls_ready()) heartbeat.id |= 2;
+#endif
+        send_to_car({Op::heartbeat, session, heartbeat});
     }
     if (car_ready && now() - last_car > 3000) {
         car_ready = false;
+        car_status = 0;
         new_session();
     }
     if (linked && !ready && now() > setup_deadline) {
@@ -479,7 +582,47 @@ void phone_status() {
     ESP_LOGI(tag, "BLE setup: linked=%d encrypted=%d mtu_ready=%d discovery_started=%d ancs_ready=%d bonds=%d",
              linked, secured, mtu_ready, searching, ready, esp_ble_get_bond_device_num());
 }
+bool phone_bluetooth_ready() { return linked; }
+bool phone_board_link_ready() { return last_car && now() - last_car < 3000; }
+bool phone_car_message_ready() { return car_ready && phone_board_link_ready(); }
+bool phone_car_transport_ready() { return phone_board_link_ready() && (car_status & 4); }
+bool phone_car_sync_ready() { return phone_board_link_ready() && (car_status & 8); }
+bool phone_car_call_ready() { return phone_board_link_ready() && (car_status & 2); }
+void phone_setup_apps() {
+    std::string json = "{\"type\":\"apps\",\"role\":\"phone\",\"discovering\":" +
+                       std::string(now() < discover_until ? "true" : "false") + ",\"allowed\":[";
+    for (const auto &rule : policy.rules()) {
+        if (json.back() != '[') json += ',';
+        json += "{\"id\":" + setup_escape(rule.id) + ",\"name\":" + setup_escape(rule.name) +
+                ",\"preview\":" + std::to_string(unsigned(rule.preview)) + "}";
+    }
+    json += "],\"recent\":[";
+    for (const auto &entry : seen_apps) {
+        if (json.back() != '[') json += ',';
+        json += "{\"id\":" + setup_escape(entry.id) + ",\"name\":" + setup_escape(entry.name) + "}";
+    }
+    setup_emit(json + "]}");
+}
+bool phone_setup_allow(const std::string &id, Preview preview) {
+    auto prior = policy;
+    auto *entry = seen(id);
+    if (!entry && !policy.find(id)) return false;
+    std::string name = entry ? entry->name : policy.find(id)->name;
+    if (!policy.allow(id, name, preview) || !save_policy()) { policy = prior; return false; }
+    return true;
+}
+bool phone_setup_deny(const std::string &id) {
+    auto prior = policy;
+    if (!policy.deny(id) || !save_policy()) { policy = prior; return false; }
+    return true;
+}
+bool phone_setup_discover() {
+    if (!phone_notifications_ready()) return false;
+    discover_until = now() + 60000;
+    return true;
+}
 void phone_start() {
+    load_policy();
     ESP_LOGI(tag, "BLE notification diagnostics enabled; configuration status -1=pending, 0=success");
     ESP_LOGI(tag, "BLE discovery compatibility test: ANCS + generic HID advertisement; no input reports");
     advertising.adv_int_min = 0x100;

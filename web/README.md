@@ -2,10 +2,20 @@
 
 Public installer: https://thomasgregg.github.io/DashBridge/
 
+The [USB setup page](https://thomasgregg.github.io/DashBridge/setup.html) lets
+Chrome or Edge connect directly to each board for pairing, app choices,
+connection checks and a Tesla test message. It does not upload settings or
+logs. Board A needs a fresh iPhone notification to discover another app;
+WhatsApp and WhatsApp Business are allowed by default. Close any other serial
+log window before connecting that board in the setup page.
+
 The static site uses ESP Web Tools 10.4.0 and the repository’s prebuilt images. No backend, accounts or analytics. JavaScript, styles, manifests and firmware are served together by GitHub Pages. Chrome or Edge on a desktop computer is the recommended USB installation route.
 
 The completion instructions use Dash Calls, Dash Messages and Dash Tesla.
-The 0.4.0-alpha release includes calls, music, recent notifications, and phonebook interfaces. The [release notes](../docs/releases/0.4.0-alpha.md) distinguish implementation from hardware validation; the older [call validation](../docs/CALL_RELAY_VALIDATION.md) is historical.
+The 0.4.1-alpha release adds USB setup to the call, music, recent-notification,
+and phonebook preview. The [release notes](../docs/releases/0.4.1-alpha.md)
+distinguish implementation from hardware validation; the older
+[call validation](../docs/CALL_RELAY_VALIDATION.md) is historical.
 
 ## Build and preview
 

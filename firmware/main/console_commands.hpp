@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <string>
 
 namespace runtime {
 enum class Command { none, test, pair, pair_phone, pair_car, status, help, audio_phone_tone, audio_phone_loopback, audio_car_tone, audio_car_loopback, audio_off, invalid };
@@ -30,6 +31,7 @@ public:
         while (!line.empty() && line.front() == ' ') line.remove_prefix(1);
         while (!line.empty() && line.back() == ' ') line.remove_suffix(1);
         if (line.empty()) return Command::none;
+        if (line.substr(0, 3) == "db ") return Command::none;
         if (line == "test") return Command::test;
         if (line == "pair") return Command::pair;
         if (line == "pair phone") return Command::pair_phone;
@@ -42,6 +44,26 @@ public:
         if (line == "audio off") return Command::audio_off;
         if (line == "help") return Command::help;
         return Command::invalid;
+    }
+};
+// Separate from the human console so app identifiers retain their original case.
+class SetupLines {
+    char line_[160]{};
+    size_t length_ = 0;
+    bool discard_ = false;
+public:
+    std::string feed(uint8_t byte) {
+        if (byte != '\r' && byte != '\n') {
+            if (byte < 32 || byte > 126 || length_ == sizeof(line_)) discard_ = true;
+            else if (!discard_) line_[length_++] = char(byte);
+            return {};
+        }
+        std::string out;
+        if (!discard_ && length_ >= 3 && line_[0] == 'd' && line_[1] == 'b' && line_[2] == ' ')
+            out.assign(line_, length_);
+        length_ = 0;
+        discard_ = false;
+        return out;
     }
 };
 } // namespace runtime

@@ -18,9 +18,8 @@ export function successRenderer(role, onSelectOther, version) {
             ? 'Next, pair Dash Calls and Dash Messages with your iPhone for calls and notification access.'
             : 'Next, pair Dash Tesla with your Tesla while parked and send the test message.'}</li>
         </ol>
-        <a href=${guide} target="_blank" rel="noopener noreferrer" style="color:#126856;font-weight:600;text-underline-offset:3px">
-          ${phone ? 'Open pairing and wiring guide' : 'Open pairing and wiring guide'} ↗
-        </a>
+        <a href="./setup.html" style="color:#126856;font-weight:600;text-underline-offset:3px">Choose apps and check connections →</a>
+        <p style="font-size:13px;margin:12px 0 0"><a href=${guide} target="_blank" rel="noopener noreferrer">Detailed pairing and wiring guide ↗</a></p>
         <p style="font-size:13px;margin:18px 0 0">To install Board ${other}, unplug this board and connect the other one.</p>
       </div>
       <div slot="actions" style="display:flex;flex-wrap:wrap;gap:4px;--md-sys-color-primary:#126856">

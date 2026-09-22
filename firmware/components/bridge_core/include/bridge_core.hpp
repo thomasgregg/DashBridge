@@ -13,6 +13,26 @@ struct Notice {
     uint32_t id = 0;
     std::string app, title, subtitle, body, date;
 };
+enum class Preview : uint8_t { full = 0, sender = 1, app = 2 };
+struct AppRule {
+    std::string id, name;
+    Preview preview = Preview::full;
+};
+class AppPolicy {
+    std::vector<AppRule> rules_;
+  public:
+    static constexpr size_t limit = 12;
+    AppPolicy();
+    const std::vector<AppRule> &rules() const { return rules_; }
+    const AppRule *find(const std::string &id) const;
+    bool allow(const std::string &id, const std::string &name, Preview preview);
+    bool deny(const std::string &id);
+    Bytes serialize() const;
+    bool load(const Bytes &data);
+};
+bool valid_app_id(const std::string &id);
+std::string app_name_fallback(const std::string &id);
+Notice apply_preview(Notice notice, const AppRule &rule);
 enum class Op : uint8_t {
     reset = 1, add = 2, update = 3, remove = 4, heartbeat = 5, call = 6,
     contact_reset = 7, contact_entry = 8, contact_done = 9, contact_ack = 10,
@@ -41,6 +61,18 @@ class AncsResponse {
     void clear() { data_.clear(); }
     // Returns 1 on completion, 0 when incomplete, -1 on malformed/oversize data.
     int feed(const uint8_t *p, size_t n, uint32_t expected_id, Notice &result);
+};
+class AncsAppIdResponse {
+    Bytes data_;
+  public:
+    void clear() { data_.clear(); }
+    int feed(const uint8_t *p, size_t n, uint32_t expected_id, std::string &app_id);
+};
+class AncsAppNameResponse {
+    Bytes data_;
+  public:
+    void clear() { data_.clear(); }
+    int feed(const uint8_t *p, size_t n, const std::string &expected_id, std::string &name);
 };
 // Apple ANCS EventFlagPreExisting is bit 2. Bit 4 is NegativeAction
 // (for example, Dismiss), and must not suppress a new notification.

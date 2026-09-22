@@ -73,12 +73,13 @@ async function main() {
   const bundle = await build({
     absWorkingDir: path.join(root, 'web'),
     plugins: [installDialogPatch],
-    entryPoints: ['app.js'], bundle: true, splitting: true, format: 'esm',
+    entryPoints: ['app.js', 'setup.js'], bundle: true, splitting: true, format: 'esm',
     outdir: path.join(output, 'assets'), entryNames: '[name]-[hash]',
     chunkNames: '[name]-[hash]', minify: true, metafile: true, target: 'es2022',
     legalComments: 'linked',
   });
   const app = Object.entries(bundle.metafile.outputs).find(([, info]) => info.entryPoint === 'app.js')[0];
+  const setupApp = Object.entries(bundle.metafile.outputs).find(([, info]) => info.entryPoint === 'setup.js')[0];
   let html = await readFile(path.join(root, 'web/index.html'), 'utf8');
   for (const [key, value] of Object.entries({ ...firmware, app: `./${path.relative(output, path.resolve(root, 'web', app))}` })) {
     html = html.replaceAll(`{{${key}}}`, value);
@@ -89,6 +90,14 @@ async function main() {
   html = html.replaceAll('{{css}}', `./assets/${cssName}`);
   if (/\{\{.+?\}\}/.test(html)) throw new Error('Unresolved HTML placeholder');
   await writeFile(path.join(output, 'index.html'), html);
+  const setupCss = await readFile(path.join(root, 'web/setup.css'));
+  const setupCssName = `setup-${digest(setupCss).slice(0, 16)}.css`;
+  await writeFile(path.join(output, 'assets', setupCssName), setupCss);
+  const setupHtml = (await readFile(path.join(root, 'web/setup.html'), 'utf8'))
+    .replace('{{setupApp}}', `./${path.relative(output, path.resolve(root, 'web', setupApp))}`)
+    .replace('{{setupCss}}', `./assets/${setupCssName}`);
+  if (/\{\{.+?\}\}/.test(setupHtml)) throw new Error('Unresolved setup HTML placeholder');
+  await writeFile(path.join(output, 'setup.html'), setupHtml);
   await writeFile(path.join(output, 'latest.json'), JSON.stringify({
     release: firmware.version,
     releaseNotes: firmware.releaseNotes,

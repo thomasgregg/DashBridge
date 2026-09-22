@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f5f2">
+  <meta name="description" content="Choose which iPhone apps DashBridge sends to your Tesla and check connections over USB.">
+  <title>Set up DashBridge</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="{{setupCss}}">
+  <script type="module" src="{{setupApp}}"></script>
+</head>
+<body>
+  <header class="top wrap"><a class="brand" href="./"><img src="./favicon.svg" width="32" height="32" alt="">DashBridge</a><a href="./">Firmware installer</a></header>
+  <main class="wrap">
+    <div class="intro"><p class="eyebrow">SET UP & CHECK</p><h1>Make DashBridge yours.</h1><p>Connect a board with a USB data cable. You can connect both boards to check the full path. Your choices are saved on the iPhone board.</p></div>
+    <section class="panel" aria-labelledby="connect-title">
+      <div class="section-head"><div><h2 id="connect-title">Connect your boards</h2><p>Use Chrome or Edge on a computer. Close any other USB log window first.</p></div><button id="connect" class="primary" type="button">Connect a board</button></div>
+      <p id="browser-message" role="status" aria-live="polite">Checking browser…</p>
+      <div id="boards" class="boards"><p class="empty">No boards connected yet. Connect Board A to choose apps, or Board B to check the Tesla side.</p></div>
+    </section>
+    <section class="panel" aria-labelledby="health-title">
+      <div class="section-head"><div><h2 id="health-title">Connection check</h2><p>These checks update while the boards are connected. Being away from the car is normal.</p></div></div>
+      <div id="checks" class="checks" aria-live="polite"></div>
+      <p class="footnote">A Bluetooth connection cannot confirm that a message appeared on the Tesla screen or that both sides of a call can hear each other.</p>
+    </section>
+    <section class="panel" aria-labelledby="apps-title">
+      <div class="section-head"><div><h2 id="apps-title">Apps allowed on your Tesla</h2><p>Only apps you allow can send notification text through DashBridge.</p></div><button id="discover" class="secondary" type="button" disabled>Find an app</button></div>
+      <p id="discovery-help" class="hint">Connect Board A to choose apps.</p>
+      <div id="apps" class="apps"></div>
+      <p class="footnote">To find an app, select “Find an app,” then make that app send a new iPhone notification within one minute. DashBridge learns its name without reading the notification text. The app must have iPhone notifications enabled.</p>
+    </section>
+    <section class="panel actions" aria-labelledby="test-title"><div><h2 id="test-title">Try it</h2><p>Open pairing for the board you are setting up, or send a test message from Board B when Tesla message sync is ready.</p></div><button id="test" class="secondary" type="button" disabled>Send Tesla test message</button></section>
+    <p id="action-message" class="feedback" role="status" aria-live="polite"></p>
+  </main>
+  <footer class="wrap">Settings stay on your board. No account or server is used for configuration.</footer>
+</body>
+</html>
