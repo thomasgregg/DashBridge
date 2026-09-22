@@ -46,6 +46,14 @@ struct WireMessage {
     uint32_t session;
     Notice notice;
 };
+// Board B reserves session zero for its heartbeats. Board A uses a nonzero
+// notification session, so a reflected heartbeat cannot impersonate its peer.
+constexpr bool heartbeat_from_car(const WireMessage &m) {
+    return m.op == Op::heartbeat && m.session == 0;
+}
+constexpr bool heartbeat_from_phone(const WireMessage &m) {
+    return m.op == Op::heartbeat && m.session != 0;
+}
 Notice bounded_notice(const Notice &notice);
 Bytes encode(const WireMessage &m);
 class WireDecoder {

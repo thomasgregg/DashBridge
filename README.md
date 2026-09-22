@@ -25,7 +25,7 @@
 Two wired ESP32 boards expose WhatsApp notifications, calls, music, and a phonebook interface to the Tesla. Notifications come from iOS, not a WhatsApp login or a real SMS. The Tesla selects **Dash Tesla as its active phone**; the iPhone connects separately to Board A. The existing Tesla phone-key pairing stays directly on the iPhone.
 
 > [!IMPORTANT]
-> **v0.4.1-alpha is a prototype, not a verified daily-use adapter.** These images booted on both boards and their wired link reported ready; iPhone and Tesla behavior has not been tested on this build. In the preceding hardware check, **all six phonebook/history downloads failed and returned zero records**. Music playback through the Tesla, media buttons, conference controls, and the latest call-audio path still need end-to-end tests. Earlier calls had robotic or unclear audio; do not assume the new audio implementation fixed it. See [what is tested](#project-status) and [how to test](#parked-car-test-checklist).
+> **v0.4.2-alpha is a prototype, not a verified daily-use adapter.** These images booted on both boards, their wired link reported ready, and Board A retained its iPhone pairing and notification-sharing status after an application-only update. End-to-end iPhone-to-Tesla behavior has not been tested on this build. In the preceding hardware check, **all six phonebook/history downloads failed and returned zero records**. Music playback through the Tesla, media buttons, conference controls, and the latest call-audio path still need end-to-end tests. Earlier calls had robotic or unclear audio; do not assume the new audio implementation fixed it. See [what is tested](#project-status) and [how to test](#parked-car-test-checklist).
 
 ## Why DashBridge?
 
@@ -63,7 +63,7 @@ See the [call-relay guide](docs/CALL_RELAY.md) for wiring and pairing details an
 
 ## Project status
 
-Snapshot as of **22 September 2026**. The **0.4.1-alpha applications** in the [manifest](dist/manifest.json) were installed on both development boards without erasing their matching partition tables. Both booted, answered USB setup checks, and reported a working wired link. Board A saved and read back an app-preview choice, then restored the default. No iPhone-to-Tesla notification, call, music, or contact path was checked on these exact images. The preceding paired **0.3.3-alpha development images** had iPhone ANCS/music links but failed all six phonebook/history pulls. The manifest's `hardware_tested: false` reflects the remaining end-to-end limit.
+Snapshot as of **22 September 2026**. The **0.4.2-alpha applications** in the [manifest](dist/manifest.json) were installed on both development boards at `0x10000` after their partition tables were checked; saved pairings were not erased. Both booted, answered USB setup checks, and reported a working wired link. Board A still reported its iPhone Bluetooth and notification-sharing connections. The previous 0.4.1-alpha build saved and read back an app-preview choice, then restored the default. No iPhone-to-Tesla notification, call, music, or contact path was checked on these exact images. The preceding paired **0.3.3-alpha development images** failed all six phonebook/history pulls. The manifest's `hardware_tested: false` reflects the remaining end-to-end limit.
 
 | Feature | Implemented in firmware | Evidence and remaining gap |
 | :--- | :--- | :--- |
@@ -145,7 +145,7 @@ The local [`dist/`](dist/) directory contains the matching A/B images for this r
 | **A — iPhone** | [`phone-merged.bin`](dist/phone-merged.bin) | `Dash Calls` and `Dash Messages` |
 | **B — Tesla** | [`car-merged.bin`](dist/car-merged.bin) | `Dash Tesla` |
 
-The [manifest](dist/manifest.json) records versions, image hashes, and source hashes. `phone-merged.bin` and `car-merged.bin` are full images flashed at `0x0`; they can erase Bluetooth pairings and app choices. For an update that preserves pairings, use the matching application-only build image at `0x10000` only after confirming the existing partition layout matches. Do not mix a newly built A image with an older B image. These **0.4.1-alpha applications booted and linked on development boards**, but have not had an end-to-end iPhone/Tesla test.
+The [manifest](dist/manifest.json) records versions, image hashes, and source hashes. `phone-merged.bin` and `car-merged.bin` are full images flashed at `0x0`; they can erase Bluetooth pairings and app choices. For an update that preserves pairings, use the matching application-only build image at `0x10000` only after confirming the existing partition layout matches. Do not mix a newly built A image with an older B image. These **0.4.2-alpha applications booted and linked on development boards**, but have not had an end-to-end iPhone/Tesla test.
 
 To install these **exact local images**, use the repository's checksum-checking flash helper with `esptool==4.12.0` in a Python environment. Identify each board's serial port first, then flash them one at a time (replace `YOUR_A_PORT` and `YOUR_B_PORT` with the ports you found):
 

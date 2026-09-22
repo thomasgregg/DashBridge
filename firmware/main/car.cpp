@@ -412,14 +412,16 @@ static void hfp_cb(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
 }
 #endif
 void car_receive(const WireMessage &m) {
+    if (m.op == Op::heartbeat) {
+        if (!heartbeat_from_phone(m)) return;
+        last_phone = now();
+        phone_flags = m.notice.id;
+        return;
+    }
     last_phone = now();
     if (m.op == Op::reset) {
         pending_events.clear();
         inbox.apply(m);
-        return;
-    }
-    if (m.op == Op::heartbeat) {
-        phone_flags = m.notice.id;
         return;
     }
     if (!map_transport() || !mas.notifications())

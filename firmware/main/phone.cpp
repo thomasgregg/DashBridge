@@ -99,6 +99,7 @@ static void snapshot_bonds() {
 
 static void new_session() {
     session = esp_random();
+    if (!session) session = 1; // Zero identifies Board B's heartbeats.
     requests.clear();
     // An outstanding ANCS response must still be drained before another command.
     if (active)
@@ -539,7 +540,7 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
     }
 }
 void phone_receive(const WireMessage &m) {
-    if (m.op != Op::heartbeat)
+    if (!heartbeat_from_car(m))
         return;
     last_car = now();
     car_status = m.notice.id;

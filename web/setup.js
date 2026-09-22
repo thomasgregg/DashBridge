@@ -1,6 +1,9 @@
+import { currentStatus, evaluateChecks } from './setup-status.mjs';
+
 const $ = (selector) => document.querySelector(selector);
 const supported = window.isSecureContext && 'serial' in navigator;
 const boards = [];
+const usbLostAt = { phone: 0, car: 0 };
 let appsFingerprint = '';
 
 function feedback(message, ok = true) {
@@ -79,6 +82,7 @@ class BoardConnection {
       try { await this.port.close(); } catch (error) { /* Already closed on unplug. */ }
       const index = boards.indexOf(this);
       if (index !== -1) boards.splice(index, 1);
+      if (this.role === 'phone' || this.role === 'car') usbLostAt[this.role] = Date.now();
       appsFingerprint = '';
       render();
     }
@@ -88,6 +92,8 @@ class BoardConnection {
     if (message.type === 'status' && ['phone', 'car', 'single'].includes(message.role)) {
       this.role = message.role;
       this.status = message;
+      this.statusAt = Date.now();
+      if (this.role === 'phone' || this.role === 'car') usbLostAt[this.role] = 0;
       if (message.role === 'phone' || message.role === 'single') this.send('db apps');
     } else if (message.type === 'apps') {
       this.apps = message;
@@ -136,23 +142,19 @@ function renderBoards() {
 }
 
 function renderChecks() {
-  const a = board('phone')?.status;
-  const b = board('car')?.status;
-  const phone = a || (b?.boardLink ? b : null);
-  const car = b || (a?.boardLink ? a : null);
-  const link = a && b ? a.boardLink && b.boardLink : (a || b)?.boardLink ?? null;
+  const state = evaluateChecks(boards, usbLostAt);
   const checks = [
-    ['Boards talking', (a || b)?.role === 'single' ? true : link,
+    ['Boards talking', state.boardLink,
       'Both halves of DashBridge can communicate.', 'Power both boards and check their connection.'],
-    ['iPhone Bluetooth', phone?.phoneBluetooth ?? null,
+    ['iPhone Bluetooth', state.phoneBluetooth,
       'Board A is connected to the iPhone.', 'Open iPhone pairing and connect Dash Messages. Pair Dash Calls separately for calls.'],
-    ['Notification sharing', phone?.phoneBluetooth ? phone.phoneNotifications : null,
+    ['Notification sharing', state.notificationSharing,
       'The iPhone is sharing new notifications.', 'Allow “Share System Notifications” for Dash Messages on your iPhone.'],
-    ['Tesla message link', car?.carTransport ?? null,
+    ['Tesla message link', state.teslaTransport,
       'Board B is connected to the Tesla message interface.', 'Connect Dash Tesla from the Tesla Bluetooth screen.'],
-    ['Messages ready', car?.carTransport ? car.carMessages : null,
-      'Tesla message notifications are ready.', car?.carSync ? 'Finishing the message notification connection. Check again shortly.' : 'Enable message sync for DashBridge B in the Tesla.'],
-    ['Call connection', link ? phone?.phoneCalls && car?.carCalls : null,
+    ['Messages ready', state.messagesReady,
+      'Tesla message notifications are ready.', state.carSync ? 'Finishing the message notification connection. Check again shortly.' : 'Enable message sync for DashBridge B in the Tesla.'],
+    ['Call connection', state.callsReady,
       'Both call connections are ready. Test both audio directions in a real call.', 'Connect the iPhone and Tesla for calls.'],
   ];
   const container = $('#checks');
@@ -167,9 +169,10 @@ function renderChecks() {
 
 function renderApps() {
   const a = board('phone');
-  $('#discover').disabled = !a?.status?.phoneNotifications;
+  const status = currentStatus(a);
+  $('#discover').disabled = !status?.phoneNotifications;
   $('#discovery-help').textContent = !a ? 'Connect Board A to choose apps.' :
-    !a.status?.phoneNotifications ? 'Connect your iPhone to Board A and allow notification sharing first.' :
+    !status?.phoneNotifications ? 'Connect your iPhone to Board A and allow notification sharing first.' :
     a.apps?.discovering ? 'Listening for a new notification now. Open the app you want to add.' :
     'WhatsApp is allowed by default. To add another app, start discovery and make it send a new notification.';
   const data = a?.apps;
@@ -210,10 +213,13 @@ function renderApps() {
 
 function render() {
   renderBoards();
+  renderLiveState();
+}
+
+function renderLiveState() {
   renderChecks();
   renderApps();
-  const b = board('car');
-  $('#test').disabled = !b?.status?.carMessages;
+  $('#test').disabled = !currentStatus(board('car'))?.carMessages;
 }
 
 $('#connect').disabled = !supported;
@@ -246,3 +252,4 @@ $('#connect').addEventListener('click', async () => {
 $('#discover').addEventListener('click', () => board('phone')?.send('db discover'));
 $('#test').addEventListener('click', () => board('car')?.send('db test'));
 render();
+setInterval(renderLiveState, 1000);

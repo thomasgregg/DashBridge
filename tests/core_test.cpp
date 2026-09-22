@@ -452,9 +452,21 @@ static void ancs_flags_test() {
     }
     std::cout << "PASS ANCS fresh notifications alert; pre-existing notifications import silently\n";
 }
+static void heartbeat_origin_test() {
+    WireMessage car{Op::heartbeat, 0, {}};
+    WireMessage phone{Op::heartbeat, 42, {}};
+    assert(heartbeat_from_car(car) && !heartbeat_from_phone(car));
+    assert(heartbeat_from_phone(phone) && !heartbeat_from_car(phone));
+    // Reflected heartbeats cannot refresh the opposite board's link state.
+    assert(!heartbeat_from_car(phone) && !heartbeat_from_phone(car));
+    assert(!heartbeat_from_car({Op::reset, 0, {}}));
+    assert(!heartbeat_from_phone({Op::reset, 42, {}}));
+    std::cout << "PASS board heartbeats reject reflected or wrong-operation frames\n";
+}
 int main() {
     app_policy_test();
     ancs_flags_test();
+    heartbeat_origin_test();
     single_board_test();
     console_test();
     wire_test();
