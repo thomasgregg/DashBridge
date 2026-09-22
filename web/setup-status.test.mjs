@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentStatus, evaluateChecks, statusMaxAgeMs } from './setup-status.mjs';
+import { currentStatus, discoveryNoticeEnded, discoveryNoticeMaxAgeMs,
+  evaluateChecks, statusMaxAgeMs } from './setup-status.mjs';
 
 const at = 100000;
 function phone(statusAt = at, changes = {}) {
@@ -71,4 +72,21 @@ test('A USB loss also suppresses a B proxy until A heartbeat expiry', () => {
   const checks = evaluateChecks([car(later, { boardLink: false })], { phone: at }, later);
   assert.equal(checks.boardLink, false);
   assert.equal(checks.phoneBluetooth, null);
+});
+
+test('discovery message ends when a fresh board report says the window closed', () => {
+  const notice = { startedAt: at };
+  assert.equal(discoveryNoticeEnded(notice, { appsAt: at - 1,
+    apps: { discovering: false } }, at + 1000), false);
+  assert.equal(discoveryNoticeEnded(notice, { appsAt: at + 4000,
+    apps: { discovering: true } }, at + 4000), false);
+  assert.equal(discoveryNoticeEnded(notice, { appsAt: at + 8000,
+    apps: { discovering: false } }, at + 8000), true);
+});
+
+test('discovery message expires after one minute if board reports stop', () => {
+  const notice = { startedAt: at };
+  assert.equal(discoveryNoticeEnded(notice, null, at + discoveryNoticeMaxAgeMs - 1), false);
+  assert.equal(discoveryNoticeEnded(notice, null, at + discoveryNoticeMaxAgeMs), true);
+  assert.equal(discoveryNoticeEnded(null, null, at + discoveryNoticeMaxAgeMs), false);
 });

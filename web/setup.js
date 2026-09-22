@@ -1,10 +1,12 @@
-import { currentStatus, evaluateChecks } from './setup-status.mjs';
+import { currentStatus, discoveryNoticeEnded, evaluateChecks } from './setup-status.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const supported = window.isSecureContext && 'serial' in navigator;
 const boards = [];
 const usbLostAt = { phone: 0, car: 0 };
 let appsFingerprint = '';
+let pendingDiscovery = null;
+let discoveryNotice = null;
 
 function feedback(message, ok = true) {
   const node = $('#action-message');
@@ -82,6 +84,8 @@ class BoardConnection {
       try { await this.port.close(); } catch (error) { /* Already closed on unplug. */ }
       const index = boards.indexOf(this);
       if (index !== -1) boards.splice(index, 1);
+      if (pendingDiscovery === this) pendingDiscovery = null;
+      if (discoveryNotice?.connection === this) discoveryNotice = null;
       if (this.role === 'phone' || this.role === 'car') usbLostAt[this.role] = Date.now();
       appsFingerprint = '';
       render();
@@ -97,8 +101,16 @@ class BoardConnection {
       if (message.role === 'phone' || message.role === 'single') this.send('db apps');
     } else if (message.type === 'apps') {
       this.apps = message;
+      this.appsAt = Date.now();
     } else if (message.type === 'result') {
-      feedback(message.message || (message.ok ? 'Done.' : 'Could not complete that action.'), !!message.ok);
+      const text = message.message || (message.ok ? 'Done.' : 'Could not complete that action.');
+      if (pendingDiscovery === this) {
+        pendingDiscovery = null;
+        discoveryNotice = message.ok ? { connection: this, startedAt: Date.now(), message: text } : null;
+      } else {
+        discoveryNotice = null;
+      }
+      feedback(text, !!message.ok);
     }
     render();
   }
@@ -170,7 +182,9 @@ function renderChecks() {
 function renderApps() {
   const a = board('phone');
   const status = currentStatus(a);
-  $('#discover').disabled = !status?.phoneNotifications;
+  const discoveryRunning = pendingDiscovery === a ||
+    (discoveryNotice?.connection === a && !discoveryNoticeEnded(discoveryNotice, a));
+  $('#discover').disabled = !status?.phoneNotifications || discoveryRunning;
   $('#discovery-help').textContent = !a ? 'Connect Board A to choose apps.' :
     !status?.phoneNotifications ? 'Connect your iPhone to Board A and allow notification sharing first.' :
     a.apps?.discovering ? 'Listening for a new notification now. Open the app you want to add.' :
@@ -219,6 +233,12 @@ function render() {
 function renderLiveState() {
   renderChecks();
   renderApps();
+  if (discoveryNotice && discoveryNoticeEnded(discoveryNotice, discoveryNotice.connection)) {
+    const oldMessage = discoveryNotice.message;
+    discoveryNotice = null;
+    if ($('#action-message').textContent === oldMessage)
+      feedback('Discovery has ended. Select “Find an app” to look for another app.', false);
+  }
   $('#test').disabled = !currentStatus(board('car'))?.carMessages;
 }
 
@@ -249,7 +269,13 @@ $('#connect').addEventListener('click', async () => {
     if (error.name !== 'NotFoundError') feedback('Could not open that USB port. Close other log windows and try again.', false);
   }
 });
-$('#discover').addEventListener('click', () => board('phone')?.send('db discover'));
+$('#discover').addEventListener('click', () => {
+  const a = board('phone');
+  if (!a) return;
+  pendingDiscovery = a;
+  a.send('db discover');
+  renderApps();
+});
 $('#test').addEventListener('click', () => board('car')?.send('db test'));
 render();
 setInterval(renderLiveState, 1000);

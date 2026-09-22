@@ -1,5 +1,12 @@
 export const statusMaxAgeMs = 10000;
+export const discoveryNoticeMaxAgeMs = 60000;
 const heartbeatExpiryMs = { phone: 5000, car: 3000 };
+
+export function discoveryNoticeEnded(notice, connection, at = Date.now()) {
+  if (!notice) return false;
+  return at - notice.startedAt >= discoveryNoticeMaxAgeMs ||
+    (connection?.appsAt > notice.startedAt && connection.apps?.discovering === false);
+}
 
 export function currentStatus(connection, at = Date.now()) {
   if (!connection || connection.closed || !connection.status ||
