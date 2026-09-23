@@ -25,8 +25,11 @@ final class SetupFlowUITests: XCTestCase {
         app.buttons["Continue"].tap()
         app.buttons["Continue"].tap()
         app.buttons["Preview connected car"].tap()
-        XCTAssertTrue(app.buttons["Send test notification"].waitForExistence(timeout: 5))
-        app.buttons["Send test notification"].tap()
+        let sendTest = app.buttons["Send test notification"]
+        XCTAssertTrue(sendTest.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(sendTest.frame.midY, app.frame.height * 0.75)
+        XCTAssertTrue(app.buttons["Later"].exists)
+        sendTest.tap()
         XCTAssertTrue(app.staticTexts["Preview: a real test will arrive as an iPhone notification."].exists)
     }
 

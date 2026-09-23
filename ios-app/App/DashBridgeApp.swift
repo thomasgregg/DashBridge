@@ -105,6 +105,14 @@ private struct SetupView: View {
                             }
                         }
                     }
+                    if step == .test {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Later") {
+                                teslaDeferred = true
+                                step = .ready
+                            }
+                        }
+                    }
                 }
                 .navigationDestination(isPresented: $showingDetails) {
                     details
@@ -293,24 +301,19 @@ private struct SetupView: View {
             VStack(alignment: .leading, spacing: 28) {
                 heading(isPreview ? "Preview the final step." : "Try a notification.",
                         isPreview
-                        ? "In your car, this is where you’ll confirm that a new message appeared on the Tesla screen."
-                        : "Send a test from this iPhone, then check your Tesla screen.")
+                        ? "Send a test, then continue."
+                        : "Send a test, then check your Tesla screen.")
                 artwork("message")
-                Button("Send test notification", systemImage: "paperplane") {
-                    Task { await sendTestNotification() }
-                }
-                .disabled(testNotificationPending)
                 if let testNotificationMessage {
                     Text(testNotificationMessage).foregroundStyle(Theme.muted)
                 }
-                Text("While parked, you can also have an allowed app send a new notification.")
+                if !isPreview {
+                    Button("Didn’t see it on Tesla?") {
+                        helpReturnStep = .test
+                        step = .help
+                    }
                     .font(.subheadline)
-                    .foregroundStyle(Theme.muted)
-                Button("Didn’t see it on Tesla?") {
-                    helpReturnStep = .test
-                    step = .help
                 }
-                .font(.subheadline)
                 Spacer(minLength: 0)
             }
             .padding(24)
@@ -706,13 +709,13 @@ private struct SetupView: View {
                         step = .ready
                     }
                 case .test:
-                    primary(isPreview ? "Preview ready screen" : "Message appeared on Tesla") {
+                    primary("Send test notification") {
+                        Task { await sendTestNotification() }
+                    }
+                    .disabled(testNotificationPending)
+                    Button(isPreview ? "Preview ready screen" : "Message appeared on Tesla") {
                         testConfirmed = true
                         teslaDeferred = false
-                        step = .ready
-                    }
-                    Button(isPreview ? "Preview finish-later screen" : "Test later") {
-                        teslaDeferred = true
                         step = .ready
                     }
                 case .help:
@@ -815,7 +818,22 @@ private struct SetupView: View {
     private func sendTestNotification() async {
         testNotificationMessage = nil
         if isPreview {
-            testNotificationMessage = "Preview: a real test will arrive as an iPhone notification."
+            if AppTestMode.enabled {
+                testNotificationMessage = "Preview: a real test will arrive as an iPhone notification."
+                return
+            }
+            do {
+                let allowed = try await UNUserNotificationCenter.current()
+                    .requestAuthorization(options: [.alert, .sound])
+                guard allowed else {
+                    testNotificationMessage = "Allow DashBridge notifications in iPhone Settings to send a test."
+                    return
+                }
+                testNotificationPending = true
+                await scheduleTestNotification(previewOnly: true)
+            } catch {
+                testNotificationMessage = "The iPhone couldn't prepare a test notification. Try again."
+            }
             return
         }
         guard status?.notifications == true, status?.teslaMessages == true,
@@ -839,16 +857,20 @@ private struct SetupView: View {
         }
     }
 
-    private func scheduleTestNotification() async {
+    private func scheduleTestNotification(previewOnly: Bool = false) async {
         let content = UNMutableNotificationContent()
         content.title = "DashBridge test"
-        content.body = "If this message appears on your Tesla, notifications are working."
+        content.body = previewOnly
+            ? "This iPhone test is working. Tesla delivery needs DashBridge hardware."
+            : "If this message appears on your Tesla, notifications are working."
         content.sound = .default
         let request = UNNotificationRequest(identifier: "dashbridge-test-\(UUID().uuidString)",
             content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 12, repeats: false))
         do {
             try await UNUserNotificationCenter.current().add(request)
-            testNotificationMessage = "Test arriving shortly. Lock your iPhone and watch your Tesla screen."
+            testNotificationMessage = previewOnly
+                ? "Test arriving shortly on this iPhone. Tesla delivery needs the boards."
+                : "Test arriving shortly. Lock your iPhone and watch your Tesla screen."
         } catch {
             testNotificationMessage = "The iPhone couldn't send the test notification. Try again."
         }
