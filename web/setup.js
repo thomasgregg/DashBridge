@@ -1,4 +1,5 @@
-import { currentStatus, disconnectMessage, discoveryNoticeEnded, evaluateChecks } from './setup-status.mjs';
+import { currentStatus, disconnectMessage, discoveryNoticeEnded, evaluateChecks,
+  unavailableCheckText } from './setup-status.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const supported = window.isSecureContext && 'serial' in navigator;
@@ -168,7 +169,8 @@ function renderBoards() {
 }
 
 function renderChecks() {
-  const state = evaluateChecks(activeBoards(), usbLostAt);
+  const connected = activeBoards();
+  const state = evaluateChecks(connected, usbLostAt);
   const checks = [
     ['Boards talking', state.boardLink,
       'Both halves of DashBridge can communicate.', 'Power both boards and check their connection.'],
@@ -185,10 +187,11 @@ function renderChecks() {
   ];
   const container = $('#checks');
   container.replaceChildren();
-  for (const [title, state, readyText, waitingText] of checks) {
-    const card = element('div', `check ${state === true ? 'ready' : state === false ? 'waiting' : ''}`);
-    card.append(element('strong', '', `${state === true ? '✓ ' : state === false ? '○ ' : '– '}${title}`));
-    card.append(element('span', '', state === true ? readyText : state === false ? waitingText : 'Connect a board to check.'));
+  for (const [title, checkState, readyText, waitingText] of checks) {
+    const card = element('div', `check ${checkState === true ? 'ready' : checkState === false ? 'waiting' : ''}`);
+    card.append(element('strong', '', `${checkState === true ? '✓ ' : checkState === false ? '○ ' : '– '}${title}`));
+    card.append(element('span', '', checkState === true ? readyText : checkState === false ? waitingText :
+      unavailableCheckText(title, state, connected.length > 0)));
     container.append(card);
   }
 }

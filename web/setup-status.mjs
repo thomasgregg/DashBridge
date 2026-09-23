@@ -47,3 +47,22 @@ export function evaluateChecks(connections, usbLostAt = {}, at = Date.now()) {
     carSync: car?.carSync ?? null,
   };
 }
+
+export function unavailableCheckText(check, state, hasBoard) {
+  if (!hasBoard) return 'Connect a board to check.';
+  switch (check) {
+    case 'Boards talking': return 'Waiting for a fresh update from the boards.';
+    case 'iPhone Bluetooth': return 'Waiting for the iPhone connection status from Board A.';
+    case 'Notification sharing':
+      return state.phoneBluetooth === false
+        ? 'Connect Dash Messages first to check notification sharing.'
+        : 'Waiting for the iPhone Bluetooth status.';
+    case 'Tesla message link': return 'Waiting for the Tesla connection status from Board B.';
+    case 'Messages ready':
+      return state.teslaTransport === false
+        ? 'Connect Dash Tesla first to check message readiness.'
+        : 'Waiting for the Tesla message link status.';
+    case 'Call connection': return 'Waiting for both boards to report their call connections.';
+    default: return 'Waiting for a board update.';
+  }
+}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { currentStatus, disconnectMessage, discoveryNoticeEnded, discoveryNoticeMaxAgeMs,
-  evaluateChecks, statusMaxAgeMs } from './setup-status.mjs';
+  evaluateChecks, statusMaxAgeMs, unavailableCheckText } from './setup-status.mjs';
 
 const at = 100000;
 function phone(statusAt = at, changes = {}) {
@@ -26,6 +26,19 @@ test('direct Board B status wins over the Board A proxy', () => {
   assert.equal(checks.teslaTransport, false);
   assert.equal(checks.messagesReady, null);
   assert.equal(checks.callsReady, false);
+  assert.equal(unavailableCheckText('Messages ready', checks, true),
+    'Connect Dash Tesla first to check message readiness.');
+});
+
+test('white checks explain their missing prerequisite', () => {
+  const checks = evaluateChecks([phone(at, { phoneBluetooth: false })], {}, at);
+  assert.equal(checks.notificationSharing, null);
+  assert.equal(unavailableCheckText('Notification sharing', checks, true),
+    'Connect Dash Messages first to check notification sharing.');
+  assert.equal(unavailableCheckText('Call connection', { boardLink: null }, true),
+    'Waiting for both boards to report their call connections.');
+  assert.equal(unavailableCheckText('Messages ready', checks, false),
+    'Connect a board to check.');
 });
 
 test('unplugging B immediately hides old green proxy checks', () => {
