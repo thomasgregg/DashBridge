@@ -66,6 +66,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     @Published private(set) var deviceID: UUID?
     @Published private(set) var connectionStage = "Looking nearby"
     @Published private(set) var notificationPermission: Bool?
+    @Published private(set) var commandError: String?
     @Published var error: String?
 
     private var manager: CBCentralManager?
@@ -190,11 +191,11 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         var payload = Data([operation])
         if let appID { payload.append(contentsOf: appID.utf8) }
         guard let peripheral, commandCharacteristic != nil else {
-            error = BridgeError.commandUnavailable.localizedDescription
+            commandError = BridgeError.commandUnavailable.localizedDescription
             return
         }
         guard payload.count <= peripheral.maximumWriteValueLength(for: .withResponse) else {
-            error = BridgeError.commandTooLong.localizedDescription
+            commandError = BridgeError.commandTooLong.localizedDescription
             return
         }
         pendingCommands.append(payload)
@@ -204,7 +205,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     func setAllowed(_ id: String, allowed: Bool) {
         guard !id.isEmpty else { return }
         guard connected, commandCharacteristic != nil, policyLoaded else {
-            error = BridgeError.commandUnavailable.localizedDescription
+            commandError = BridgeError.commandUnavailable.localizedDescription
             return
         }
         if allowed { allowedIDs.insert(id) } else { allowedIDs.remove(id) }
@@ -246,6 +247,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         policyLoaded = false
         pendingCommands.removeAll()
         writing = false
+        commandError = nil
         peripheral = nil
     }
 }
@@ -310,7 +312,7 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
         if let error { self.error = error.localizedDescription }
         clearConnection()
         if !timedOut && !incompatibleIdentifiers.contains(peripheral.identifier) {
-            findExistingOrScan(clearError: error == nil, tryRemembered: false)
+            findExistingOrScan(tryRemembered: false)
         }
         timedOut = false
     }
@@ -379,9 +381,17 @@ extension BridgeBluetooth: CBPeripheralDelegate {
 
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic,
                     error: Error?) {
+        guard self.peripheral === peripheral else { return }
         writing = false
+        let operation = pendingCommands.first?.first
         if !pendingCommands.isEmpty { pendingCommands.removeFirst() }
-        if let error { self.error = "DashBridge could not save that change: \(error.localizedDescription)" }
+        if error != nil {
+            commandError = operation == 1 || operation == 2
+                ? "Couldn't save this app choice. Please try again."
+                : "DashBridge couldn't complete that action. Please try again."
+        } else {
+            commandError = nil
+        }
         if let policyCharacteristic { peripheral.readValue(for: policyCharacteristic) }
         sendNext()
     }

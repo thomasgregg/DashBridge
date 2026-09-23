@@ -2,7 +2,7 @@ import SwiftUI
 
 private enum Step: Equatable {
     case welcome, finding, found, checking, pair, sharing, apps
-    case car, test, ready, later, help
+    case car, test, ready, help
 }
 
 private enum Theme {
@@ -67,12 +67,13 @@ private struct SetupView: View {
     @AppStorage("dashbridge.welcomed") private var welcomed = false
     @AppStorage("dashbridge.choseApps") private var choseApps = false
     @AppStorage("dashbridge.testConfirmed") private var testConfirmed = false
+    @AppStorage("dashbridge.teslaDeferred") private var teslaDeferred = false
     @AppStorage("dashbridge.completedDeviceID") private var completedDeviceID = ""
 
     @State private var step: Step = .welcome
+    @State private var initialized = false
     @State private var showingApps = false
     @State private var showingDetails = false
-    @State private var testSent = false
     @State private var isPreview = false
     @State private var previewStatus: BridgeStatus?
     @State private var previewAllowed: Set<String> = []
@@ -112,6 +113,15 @@ private struct SetupView: View {
         }
         .tint(Theme.accent)
         .onAppear {
+            guard !initialized else { return }
+            initialized = true
+            if AppTestMode.enabled {
+                welcomed = false
+                choseApps = false
+                testConfirmed = false
+                teslaDeferred = false
+                completedDeviceID = ""
+            }
             if welcomed {
                 step = .finding
                 bridge.start()
@@ -129,6 +139,7 @@ private struct SetupView: View {
             if !completedDeviceID.isEmpty && completedDeviceID != id {
                 choseApps = false
                 testConfirmed = false
+                teslaDeferred = false
             }
             completedDeviceID = id
         }
@@ -169,8 +180,10 @@ private struct SetupView: View {
             .padding(24)
         case .finding:
             VStack(alignment: .leading, spacing: 20) {
+                heading(Text("Looking for \(Text("DashBridge").foregroundColor(Theme.accent))")
+                        .foregroundColor(Theme.ink),
+                        "Plug it in nearby. We’ll find it automatically.")
                 artwork("dot.radiowaves.left.and.right")
-                heading("Looking for DashBridge", "Plug it in nearby. We’ll find it automatically.")
                 HStack(spacing: 12) {
                     ProgressView()
                     Text("Looking nearby…").foregroundStyle(Theme.muted)
@@ -206,6 +219,9 @@ private struct SetupView: View {
                         Button("Make DashBridge discoverable again") { bridge.send(3) }
                     }
                 }
+                if let commandError = bridge.commandError {
+                    Section { Text(commandError).foregroundStyle(.red) }
+                }
             }
         case .sharing:
             brandedList {
@@ -233,12 +249,14 @@ private struct SetupView: View {
                 }
             }
         case .test:
-            intro(symbol: "message", title: testSent ? "Did it appear?" : "Try a message.",
-                  subtitle: testSent ? "Check the Tesla screen." : "DashBridge can send a test message to your Tesla.")
+            intro(symbol: "message", title: "Try a notification.",
+                  subtitle: "Have one of your allowed apps send a new notification, then check your Tesla screen.")
         case .ready:
             brandedList {
-                headerRow("Ready to go.", "DashBridge is working. You can close the app.")
-                Section {
+                headerRow(testConfirmed ? "Ready to go." : "Your iPhone is set up.",
+                          testConfirmed ? "DashBridge is working. You can close the app."
+                                        : "Your app choices are saved. Finish the Tesla connection when you’re parked.")
+                Section("Connections") {
                     LabeledContent("iPhone", value: status?.notifications == true ? "Connected" : "Not nearby")
                     LabeledContent("Tesla", value: status?.teslaMessages == true ? "Connected" : "Not nearby")
                 }
@@ -246,21 +264,26 @@ private struct SetupView: View {
                     LabeledContent("Allowed apps", value: selectedNames)
                     Button("Change apps") { step = .apps }
                 }
+                if !testConfirmed {
+                    Section {
+                        Button(status?.teslaMessages == true && status?.teslaCalls == true
+                               ? "Try a notification" : "Finish in the car") {
+                            if status?.teslaMessages == true && status?.teslaCalls == true {
+                                step = .test
+                            } else {
+                                reviewingCarStep = false
+                                step = .car
+                            }
+                        }
+                    } footer: {
+                        Text("You can do this later. Your iPhone setup is saved.")
+                    }
+                }
                 Section {
                     Button("Connection help") {
                         helpReturnStep = .ready
                         step = .help
                     }
-                }
-            }
-        case .later:
-            brandedList {
-                headerRow("Finish in the car.", "Your app choices are saved. Connect Dash Tesla when you’re parked.")
-                Section {
-                    Label("Your app choices are saved", systemImage: "checkmark.circle")
-                }
-                Section {
-                    Button("Change apps") { step = .apps }
                 }
             }
         case .help:
@@ -332,11 +355,14 @@ private struct SetupView: View {
     }
 
     private func heading(_ title: String, _ subtitle: String) -> some View {
+        heading(Text(title).foregroundColor(Theme.ink), subtitle)
+    }
+
+    private func heading(_ title: Text, _ subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title)
+            title
                 .font(.system(size: 35, weight: .semibold, design: .rounded))
                 .tracking(-1.4)
-                .foregroundStyle(Theme.ink)
             Text(subtitle)
                 .font(.body)
                 .foregroundStyle(Theme.muted)
@@ -346,8 +372,8 @@ private struct SetupView: View {
 
     private func intro(symbol: String, title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 28) {
-            artwork(symbol)
             heading(title, subtitle)
+            artwork(symbol)
             Spacer(minLength: 0)
         }
         .padding(24)
@@ -418,6 +444,9 @@ private struct SetupView: View {
                     }
                 }
             }
+            if let commandError = bridge.commandError {
+                Section { Text(commandError).foregroundStyle(.red) }
+            }
         }
     }
 
@@ -460,14 +489,19 @@ private struct SetupView: View {
     @ViewBuilder
     private var actionBar: some View {
         if step == .welcome || step == .finding || step == .found || step == .apps ||
-            step == .car || step == .test || step == .later || step == .help {
+            step == .car || step == .test || step == .help {
             VStack(spacing: 8) {
                 switch step {
                 case .welcome:
                     primary("Get started") {
                         welcomed = true
-                        step = .finding
-                        bridge.start()
+                        if connected {
+                            step = .checking
+                            if let status { route(for: status) }
+                        } else {
+                            step = .finding
+                            bridge.start()
+                        }
                     }
 #if targetEnvironment(simulator)
                     Button("Preview without hardware") {
@@ -477,7 +511,14 @@ private struct SetupView: View {
 #endif
                 case .finding:
                     if bridge.error != nil {
-                        primary("Try again") { bridge.start() }
+                        primary("Try again") {
+                            if connected, let status {
+                                step = .checking
+                                route(for: status)
+                            } else {
+                                bridge.retry()
+                            }
+                        }
                     }
                 case .found:
                     primary(connected ? "Continue" : "Connect") {
@@ -495,11 +536,10 @@ private struct SetupView: View {
                 case .apps:
                     primary("Continue") {
                         choseApps = true
-                        if testConfirmed { step = .ready }
+                        if testConfirmed || teslaDeferred { step = .ready }
                         else if status?.teslaMessages == true && status?.teslaCalls == true { step = .test }
                         else {
                             step = .car
-                            if !isPreview { bridge.send(4) }
                         }
                     }
                     .disabled(catalog.access != .available || (!isPreview && !bridge.policyLoaded))
@@ -515,27 +555,24 @@ private struct SetupView: View {
                             step = .test
                         }
                     }
-                    Button("Do this later") { step = .later }
-                case .test:
-                    if testSent {
-                        primary("I can see it") {
-                            testConfirmed = true
-                            step = .ready
-                        }
-                        Button("Nothing appeared") {
-                            helpReturnStep = .test
-                            step = .help
-                        }
-                    } else {
-                        primary("Send test message") {
-                            if !isPreview { bridge.send(5) }
-                            testSent = true
-                        }
+                    Button("Do this later") {
+                        teslaDeferred = true
+                        reviewingCarStep = false
+                        step = .ready
                     }
-                case .later:
-                    primary("Connect Tesla") {
-                        step = .car
-                        if !isPreview { bridge.send(4) }
+                case .test:
+                    primary("I can see it") {
+                        testConfirmed = true
+                        teslaDeferred = false
+                        step = .ready
+                    }
+                    Button("Do this later") {
+                        teslaDeferred = true
+                        step = .ready
+                    }
+                    Button("Nothing appeared") {
+                        helpReturnStep = .test
+                        step = .help
                     }
                 case .help:
                     primary("Check again") {
@@ -599,7 +636,7 @@ private struct SetupView: View {
         case .car:
             reviewingCarStep = false
             step = .apps
-        case .test, .later:
+        case .test:
             reviewingCarStep = true
             step = .car
         case .help:
@@ -622,14 +659,13 @@ private struct SetupView: View {
     private func route(for value: BridgeStatus) {
         if step == .checking || step == .pair || step == .sharing {
             if value.phoneCalls && value.notifications {
-                step = choseApps ? (testConfirmed ? .ready
+                step = choseApps ? (testConfirmed || teslaDeferred ? .ready
                        : (value.teslaMessages && value.teslaCalls ? .test : .car)) : .apps
                 return
             }
             step = value.phoneCalls && value.phoneBluetooth ? .sharing : .pair
         }
-        if ((step == .car && !reviewingCarStep) || step == .later)
-            && value.teslaMessages && value.teslaCalls {
+        if step == .car && !reviewingCarStep && value.teslaMessages && value.teslaCalls {
             step = testConfirmed ? .ready : .test
         }
     }

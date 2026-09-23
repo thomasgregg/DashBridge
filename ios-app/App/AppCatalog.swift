@@ -2,6 +2,16 @@ import FamilyControls
 import ManagedSettings
 import SwiftUI
 
+enum AppTestMode {
+    static let enabled: Bool = {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-dashbridge-ui-testing")
+#else
+        false
+#endif
+    }()
+}
+
 struct AppChoice: Identifiable {
     let id: String
     let name: String
@@ -54,6 +64,11 @@ final class AppCatalog: ObservableObject {
         guard access != .loading else { return }
         access = .loading
         message = nil
+        if AppTestMode.enabled {
+            installed = [suggestions[0], suggestions[2]]
+            access = .available
+            return
+        }
         Task {
             do {
                 if AuthorizationCenter.shared.authorizationStatus != .approvedWithDataAccess {
