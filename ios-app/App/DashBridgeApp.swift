@@ -266,14 +266,9 @@ private struct SetupView: View {
         case .help:
             brandedList {
                 if helpReturnStep == .checking {
-                    headerRow("Couldn't finish connecting.", bridge.error ?? "Your iPhone found DashBridge, but couldn't finish the setup check.")
+                    headerRow("Couldn't check DashBridge yet.", bridge.error ?? "The app couldn't reach DashBridge yet.")
                     Section {
-                        Label("Keep DashBridge powered and close to your iPhone.", systemImage: "powerplug")
-                        Label("Return to DashBridge and try connecting again. You don’t need to reset your boards.", systemImage: "arrow.clockwise")
-                    } header: {
-                        Text("Try this")
-                    } footer: {
-                        Text("Your saved app choices stay on DashBridge.")
+                        Label("Tap Check again below. No reset or re-pairing is needed.", systemImage: "arrow.clockwise")
                     }
                 } else {
                     headerRow("Connection help.", bridge.error ?? "Check that Dash Tesla is selected on the Tesla Bluetooth screen.")

@@ -76,6 +76,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var commandCharacteristic: CBCharacteristic?
     private var refreshTimer: Timer?
     private var connectionTimer: Timer?
+    private var scanTimer: Timer?
     private var timedOut = false
     private var pendingCommands: [Data] = []
     private var writing = false
@@ -87,13 +88,45 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         if manager == nil {
             manager = CBCentralManager(delegate: self, queue: .main)
         } else if manager?.state == .poweredOn {
-            scan()
+            findExistingOrScan()
         }
+    }
+
+    private func findExistingOrScan(clearError: Bool = true, tryRemembered: Bool = true) {
+        guard let manager, manager.state == .poweredOn, !connected else { return }
+        if clearError { error = nil }
+        // A paired ANCS accessory can remain connected to iOS while it is no
+        // longer advertising. A scan cannot find it, but Core Bluetooth can
+        // attach this app to the existing system connection.
+        let connectedPeripherals = manager.retrieveConnectedPeripherals(
+            withServices: [BridgeService.service, CBUUID(string: "1800")])
+        if let match = connectedPeripherals.first(where: { candidate in
+            guard let name = candidate.name else { return false }
+            return ["DashBridge A", "Dash Messages", "DashBridge"].contains {
+                name.caseInsensitiveCompare($0) == .orderedSame
+            }
+        }) {
+            discovered = match
+            foundName = match.name ?? "DashBridge"
+            connectFound(requiresANCS: false)
+            return
+        }
+        if tryRemembered,
+           let rawID = UserDefaults.standard.string(forKey: rememberedKey),
+           let id = UUID(uuidString: rawID),
+           let saved = manager.retrievePeripherals(withIdentifiers: [id]).first {
+            discovered = saved
+            foundName = saved.name ?? "DashBridge"
+            connectFound(requiresANCS: false)
+            return
+        }
+        scan(clearError: false)
     }
 
     func scan(clearError: Bool = true) {
         guard let manager, manager.state == .poweredOn, !connected else { return }
         if clearError { error = nil }
+        scanTimer?.invalidate()
         foundName = nil
         discovered = nil
         scanning = true
@@ -102,10 +135,18 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         // We scan in the foreground, match its local name, and verify our GATT
         // service after connecting. No background scan is claimed.
         manager.scanForPeripherals(withServices: nil)
+        scanTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
+            guard let self, self.scanning else { return }
+            self.manager?.stopScan()
+            self.scanning = false
+            self.error = "The app can't find DashBridge's setup connection. Check that it's powered, then try again."
+        }
     }
 
-    func connectFound() {
+    func connectFound(requiresANCS: Bool = true) {
         guard let discovered, let manager else { return }
+        scanTimer?.invalidate()
+        scanTimer = nil
         scanning = false
         manager.stopScan()
         peripheral = discovered
@@ -115,14 +156,19 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         // Ask iOS to offer ANCS notification permission during pairing in the
         // app, rather than depending on a device-settings button that may not
         // exist for this BLE accessory.
-        manager.connect(discovered, options: [CBConnectPeripheralOptionRequiresANCS: true])
+        manager.connect(discovered, options: requiresANCS
+                        ? [CBConnectPeripheralOptionRequiresANCS: true] : nil)
         connectionTimer?.invalidate()
         connectionTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: false) { [weak self] _ in
             guard let self, self.status == nil else { return }
             self.timedOut = true
             self.error = self.connected
-                ? "Your iPhone connected to DashBridge, but it didn't answer the setup check. Try again nearby."
-                : "Your iPhone found DashBridge, but couldn't open its Bluetooth connection. Try again nearby."
+                ? "Your iPhone connected to DashBridge, but the app couldn't check it yet."
+                : "DashBridge may be connected in iPhone Bluetooth settings, but the app couldn't reach it yet."
+            if self.status == nil, let id = self.peripheral?.identifier,
+               UserDefaults.standard.string(forKey: self.rememberedKey) == id.uuidString {
+                UserDefaults.standard.removeObject(forKey: self.rememberedKey)
+            }
             if let peripheral = self.peripheral {
                 self.manager?.cancelPeripheralConnection(peripheral)
             }
@@ -134,14 +180,10 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         error = nil
         timedOut = false
         if let peripheral, peripheral.state != .disconnected {
-            // A failed setup read can leave CoreBluetooth connected. Close that
-            // link first; didDisconnectPeripheral will start a fresh scan.
             manager?.cancelPeripheralConnection(peripheral)
-            clearConnection()
-        } else {
-            clearConnection()
-            scan()
         }
+        clearConnection()
+        findExistingOrScan(tryRemembered: false)
     }
 
     func send(_ operation: UInt8, appID: String? = nil) {
@@ -194,6 +236,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         connectionTimer = nil
         refreshTimer?.invalidate()
         refreshTimer = nil
+        scanTimer?.invalidate()
+        scanTimer = nil
         connected = false
         status = nil
         statusCharacteristic = nil
@@ -202,6 +246,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         policyLoaded = false
         pendingCommands.removeAll()
         writing = false
+        peripheral = nil
     }
 }
 
@@ -209,13 +254,7 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         bluetoothReady = central.state == .poweredOn
         if bluetoothReady {
-            if let rawID = UserDefaults.standard.string(forKey: rememberedKey),
-               let id = UUID(uuidString: rawID),
-               let saved = central.retrievePeripherals(withIdentifiers: [id]).first {
-                discovered = saved
-                foundName = saved.name ?? "DashBridge"
-                connectFound()
-            } else { scan() }
+            findExistingOrScan()
         }
         else {
             scanning = false
@@ -234,6 +273,8 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
         }), !incompatibleIdentifiers.contains(peripheral.identifier) else { return }
         discovered = peripheral
         foundName = name
+        scanTimer?.invalidate()
+        scanTimer = nil
         scanning = false
         central.stopScan()
         if UserDefaults.standard.string(forKey: rememberedKey) == peripheral.identifier.uuidString {
@@ -258,16 +299,19 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
+        guard self.peripheral?.identifier == peripheral.identifier else { return }
         self.error = error?.localizedDescription ?? "Could not connect to DashBridge."
         clearConnection()
-        scan(clearError: false)
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral,
                         error: Error?) {
+        guard self.peripheral?.identifier == peripheral.identifier else { return }
         if let error { self.error = error.localizedDescription }
         clearConnection()
-        scan(clearError: error == nil && !timedOut && !incompatibleIdentifiers.contains(peripheral.identifier))
+        if !timedOut && !incompatibleIdentifiers.contains(peripheral.identifier) {
+            findExistingOrScan(clearError: error == nil, tryRemembered: false)
+        }
         timedOut = false
     }
 }
