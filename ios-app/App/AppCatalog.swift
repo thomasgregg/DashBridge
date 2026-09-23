@@ -116,7 +116,7 @@ final class AppCatalog: ObservableObject {
                 logger.error("Installed-app lookup failed: \(String(describing: error), privacy: .public)")
                 access = .unavailable
 #if targetEnvironment(simulator)
-                message = "This simulator build can’t read installed apps. It needs a valid App & Website Usage entitlement. Try a properly signed build, or use DashBridge on your iPhone."
+                message = "This simulator can’t read installed apps. Rebuild DashBridge with Xcode signing enabled, then try again."
 #else
                 message = "Couldn’t load apps on this iPhone. Try again in a moment."
 #endif
