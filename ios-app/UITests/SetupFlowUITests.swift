@@ -53,6 +53,9 @@ final class SetupFlowUITests: XCTestCase {
         app.buttons["Continue"].tap()
         XCTAssertTrue(app.staticTexts["Choose your apps."].waitForExistence(timeout: 5))
 
+        app.switches["WhatsApp"].coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(app.switches["WhatsApp"].value as? String, "1")
+
         app.buttons["Continue"].tap()
         XCTAssertTrue(app.staticTexts["Connect your Tesla."].waitForExistence(timeout: 5))
 
@@ -60,6 +63,8 @@ final class SetupFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Your iPhone is set up."].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Change apps"].exists)
         XCTAssertTrue(app.buttons["Finish in the car"].exists)
+        XCTAssertTrue(app.staticTexts["WhatsApp"].exists)
+        XCTAssertFalse(app.staticTexts["Allowed apps · WhatsApp"].exists)
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Unknown ATT error'")).firstMatch.exists)
 
         app.buttons["Change apps"].tap()
@@ -71,5 +76,24 @@ final class SetupFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Connect your Tesla."].waitForExistence(timeout: 5))
         app.buttons["Do this later"].tap()
         XCTAssertTrue(app.staticTexts["Your iPhone is set up."].waitForExistence(timeout: 5))
+    }
+
+    func testPreviewMakesTheFinalConfirmationClear() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing"]
+        app.launch()
+
+        app.buttons["Preview without hardware"].tap()
+        app.buttons["Continue"].tap()
+        XCTAssertTrue(app.staticTexts["Choose your apps."].waitForExistence(timeout: 5))
+        app.switches["WhatsApp"].coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        app.buttons["Continue"].tap()
+        app.buttons["Preview connected car"].tap()
+
+        XCTAssertTrue(app.staticTexts["Preview the final step."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Preview ready screen"].exists)
+        app.buttons["Preview ready screen"].tap()
+        XCTAssertTrue(app.staticTexts["Ready to go."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["WhatsApp"].exists)
     }
 }

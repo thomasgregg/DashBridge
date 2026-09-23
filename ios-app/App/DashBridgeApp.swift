@@ -90,7 +90,7 @@ private struct SetupView: View {
             content
                 .background(Theme.background.ignoresSafeArea())
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar(step == .welcome ? .hidden : .visible, for: .navigationBar)
+                .toolbar(step == .welcome || step == .ready ? .hidden : .visible, for: .navigationBar)
                 .toolbar {
                     if step != .welcome && step != .ready {
                         ToolbarItem(placement: .topBarLeading) {
@@ -153,7 +153,7 @@ private struct SetupView: View {
             }
         }
         .onChange(of: step) { _, value in
-            if value == .apps { catalog.loadIfNeeded() }
+            if value == .apps || value == .ready { catalog.loadIfNeeded() }
         }
     }
 
@@ -250,35 +250,44 @@ private struct SetupView: View {
                 }
             }
         case .test:
-            intro(symbol: "message", title: "Try a notification.",
-                  subtitle: "Have one of your allowed apps send a new notification, then check your Tesla screen.")
+            VStack(alignment: .leading, spacing: 28) {
+                heading(isPreview ? "Preview the final step." : "Try a notification.",
+                        isPreview
+                        ? "In your car, this is where you’ll confirm that a new message appeared on the Tesla screen."
+                        : "Have one of your allowed apps send a new notification, then check your Tesla screen.")
+                artwork("message")
+                Button("Didn’t see it on Tesla?") {
+                    helpReturnStep = .test
+                    step = .help
+                }
+                .font(.subheadline)
+                Spacer(minLength: 0)
+            }
+            .padding(24)
         case .ready:
             brandedList {
-                headerRow(testConfirmed ? "Ready to go." : "Your iPhone is set up.",
-                          testConfirmed ? "DashBridge is working. You can close the app."
-                                        : "Your app choices are saved. Finish the Tesla connection when you’re parked.")
+                completionHero
                 Section("Connections") {
                     LabeledContent("iPhone", value: status?.notifications == true ? "Connected" : "Not nearby")
                     LabeledContent("Tesla", value: status?.teslaMessages == true ? "Connected" : "Not nearby")
                 }
-                Section("Notifications") {
-                    LabeledContent("Allowed apps", value: selectedNames)
-                    Button("Change apps") { step = .apps }
-                }
-                if !testConfirmed {
-                    Section {
-                        Button(status?.teslaMessages == true && status?.teslaCalls == true
-                               ? "Try a notification" : "Finish in the car") {
-                            if status?.teslaMessages == true && status?.teslaCalls == true {
-                                step = .test
+                Section("Allowed apps") {
+                    if !isPreview && !bridge.policyLoaded {
+                        Text("Loading saved choices…")
+                            .foregroundStyle(Theme.muted)
+                    } else if selectedChoices.isEmpty {
+                        Text("No apps selected")
+                            .foregroundStyle(Theme.muted)
+                    } else {
+                        ForEach(selectedChoices) { choice in
+                            if let token = choice.token {
+                                Label(token).labelStyle(.titleAndIcon)
                             } else {
-                                reviewingCarStep = false
-                                step = .car
+                                Text(choice.name)
                             }
                         }
-                    } footer: {
-                        Text("You can do this later. Your iPhone setup is saved.")
                     }
+                    Button(selected.isEmpty ? "Choose apps" : "Change apps") { step = .apps }
                 }
                 Section {
                     Button("Connection help") {
@@ -287,6 +296,7 @@ private struct SetupView: View {
                     }
                 }
             }
+            .contentMargins(.top, 0, for: .scrollContent)
         case .help:
             brandedList {
                 if helpReturnStep == .checking {
@@ -385,15 +395,6 @@ private struct SetupView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func intro(symbol: String, title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 28) {
-            heading(title, subtitle)
-            artwork(symbol)
-            Spacer(minLength: 0)
-        }
-        .padding(24)
-    }
-
     private func headerRow(_ title: String, _ subtitle: String) -> some View {
         heading(title, subtitle)
             .padding(.top, 10)
@@ -401,6 +402,42 @@ private struct SetupView: View {
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
             .listRowSeparator(.hidden)
+    }
+
+    private var completionHero: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                DashBridgeMark()
+                    .frame(width: 64, height: 64)
+                Spacer()
+                Image(systemName: testConfirmed ? "checkmark.circle.fill" : "iphone.gen3")
+                    .font(.system(size: 25, weight: .light))
+                    .foregroundStyle(Theme.accent)
+                    .accessibilityHidden(true)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text(testConfirmed ? "Ready to go." : "Your iPhone is set up.")
+                    .font(.system(size: 32, weight: .semibold, design: .rounded))
+                    .tracking(-1.2)
+                    .foregroundStyle(Theme.ink)
+                Text(testConfirmed
+                     ? "Your iPhone and Tesla are connected."
+                     : "Finish in the car when you’re parked. Your choices are saved.")
+                    .font(.body)
+                    .foregroundStyle(Theme.muted)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(22)
+        .background(LinearGradient(colors: [Theme.soft, Theme.surface],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 24))
+        .overlay(RoundedRectangle(cornerRadius: 24)
+            .strokeBorder(Theme.accent.opacity(0.14), lineWidth: 1))
+        .padding(.bottom, 6)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+        .listRowSeparator(.hidden)
     }
 
     private func brandedList<Content: View>(@ViewBuilder _ rows: () -> Content) -> some View {
@@ -504,7 +541,7 @@ private struct SetupView: View {
     @ViewBuilder
     private var actionBar: some View {
         if step == .welcome || step == .finding || step == .found || step == .apps ||
-            step == .car || step == .test || step == .help {
+            step == .car || step == .test || step == .help || (step == .ready && !testConfirmed) {
             VStack(spacing: 8) {
                 switch step {
                 case .welcome:
@@ -588,18 +625,14 @@ private struct SetupView: View {
                         step = .ready
                     }
                 case .test:
-                    primary("I can see it") {
+                    primary(isPreview ? "Preview ready screen" : "Message appeared on Tesla") {
                         testConfirmed = true
                         teslaDeferred = false
                         step = .ready
                     }
-                    Button("Do this later") {
+                    Button(isPreview ? "Preview finish-later screen" : "Test later") {
                         teslaDeferred = true
                         step = .ready
-                    }
-                    Button("Nothing appeared") {
-                        helpReturnStep = .test
-                        step = .help
                     }
                 case .help:
                     primary("Check again") {
@@ -608,6 +641,16 @@ private struct SetupView: View {
                         else if status?.teslaMessages == true { step = .test }
                         else if status != nil { step = .car }
                         else { step = .finding; bridge.retry() }
+                    }
+                case .ready:
+                    primary(status?.teslaMessages == true && status?.teslaCalls == true
+                            ? "Try a notification" : "Finish in the car") {
+                        if status?.teslaMessages == true && status?.teslaCalls == true {
+                            step = .test
+                        } else {
+                            reviewingCarStep = false
+                            step = .car
+                        }
                     }
                 default:
                     EmptyView()
@@ -676,11 +719,9 @@ private struct SetupView: View {
         }
     }
 
-    private var selectedNames: String {
-        let byID = Dictionary((catalog.installed + catalog.suggested).map { ($0.id, $0.name) },
-                              uniquingKeysWith: { first, _ in first })
-        let names = selected.map { byID[$0] ?? $0.split(separator: ".").last.map(String.init) ?? $0 }
-        return names.isEmpty ? "None" : names.sorted().joined(separator: " · ")
+    private var selectedChoices: [AppChoice] {
+        selected.map { catalog.choice(for: $0) }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     private func route(for value: BridgeStatus) {

@@ -59,6 +59,13 @@ final class AppCatalog: ObservableObject {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
+    func choice(for id: String) -> AppChoice {
+        if let installedChoice = installed.first(where: { $0.id == id }) { return installedChoice }
+        if let familiarChoice = suggestions.first(where: { $0.id == id }) { return familiarChoice }
+        let fallback = id.split(separator: ".").last.map(String.init) ?? id
+        return AppChoice(id, fallback)
+    }
+
     func loadIfNeeded() {
         if access == .notRequested { reload() }
     }
