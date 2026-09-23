@@ -1,6 +1,16 @@
 export const statusMaxAgeMs = 10000;
 export const discoveryNoticeMaxAgeMs = 60000;
 const heartbeatExpiryMs = { phone: 5000, car: 3000 };
+const boardNames = { phone: 'Board A', car: 'Board B', single: 'DashBridge' };
+
+export function disconnectMessage(disconnectedRole, activeRoles) {
+  const connected = [...new Set(activeRoles)].filter(role => boardNames[role]);
+  if (!connected.length)
+    return 'Neither board is connected to this page. Connect a board to continue.';
+  const names = connected.map(role => boardNames[role]).join(' and ');
+  return `${boardNames[disconnectedRole] || 'A board'} disconnected. ${names} ` +
+    `${connected.length === 1 ? 'is' : 'are'} still connected to this page.`;
+}
 
 export function discoveryNoticeEnded(notice, connection, at = Date.now()) {
   if (!notice) return false;

@@ -1,4 +1,4 @@
-import { currentStatus, discoveryNoticeEnded, evaluateChecks } from './setup-status.mjs';
+import { currentStatus, disconnectMessage, discoveryNoticeEnded, evaluateChecks } from './setup-status.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const supported = window.isSecureContext && 'serial' in navigator;
@@ -7,11 +7,21 @@ const usbLostAt = { phone: 0, car: 0 };
 let appsFingerprint = '';
 let pendingDiscovery = null;
 let discoveryNotice = null;
+let disconnectNotice = '';
 
 function feedback(message, ok = true) {
+  disconnectNotice = '';
   const node = $('#action-message');
   node.textContent = message;
   node.style.color = ok ? '#176c59' : '#9b4e2c';
+}
+function showDisconnectNotice(message) {
+  feedback(message, false);
+  disconnectNotice = message;
+}
+function clearDisconnectNotice() {
+  if (disconnectNotice && $('#action-message').textContent === disconnectNotice) feedback('');
+  disconnectNotice = '';
 }
 
 class BoardConnection {
@@ -26,6 +36,7 @@ class BoardConnection {
   }
   async start() {
     await this.port.open({ baudRate: 115200 });
+    clearDisconnectNotice();
     this.readLoop();
     for (const delay of [500, 1800, 3500]) {
       setTimeout(() => { if (!this.closed && !this.status) this.send('db status'); }, delay);
@@ -76,7 +87,7 @@ class BoardConnection {
         }
       }
     } catch (error) {
-      if (!this.closed) feedback(`${this.label()} disconnected. You can connect it again.`, false);
+      // The finalizer reports the full connection state after removing this board.
     } finally {
       this.closed = true;
       clearInterval(this.poll);
@@ -88,6 +99,7 @@ class BoardConnection {
       if (discoveryNotice?.connection === this) discoveryNotice = null;
       if (this.role === 'phone' || this.role === 'car') usbLostAt[this.role] = Date.now();
       appsFingerprint = '';
+      showDisconnectNotice(disconnectMessage(this.role, activeBoards().map(item => item.role)));
       render();
     }
   }
@@ -121,7 +133,8 @@ class BoardConnection {
   }
 }
 
-function board(role) { return boards.find(item => item.role === role || (role === 'phone' && item.role === 'single')); }
+function activeBoards() { return boards.filter(item => !item.closed); }
+function board(role) { return activeBoards().find(item => item.role === role || (role === 'phone' && item.role === 'single')); }
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -132,11 +145,12 @@ function element(tag, className, text) {
 function renderBoards() {
   const container = $('#boards');
   container.replaceChildren();
-  if (!boards.length) {
-    container.append(element('p', 'empty', 'No boards connected yet. Connect Board A to choose apps, or Board B to check the Tesla side.'));
+  const connected = activeBoards();
+  if (!connected.length) {
+    container.append(element('p', 'empty', 'Neither board is connected to this page. Connect Board A to choose apps, or Board B to check the Tesla side.'));
     return;
   }
-  for (const connection of boards) {
+  for (const connection of connected) {
     const card = element('div', 'board');
     card.append(element('h3', '', connection.label()));
     card.append(element('p', '', connection.status ? `Firmware ${connection.status.version}` : 'Connecting…'));
@@ -154,7 +168,7 @@ function renderBoards() {
 }
 
 function renderChecks() {
-  const state = evaluateChecks(boards, usbLostAt);
+  const state = evaluateChecks(activeBoards(), usbLostAt);
   const checks = [
     ['Boards talking', state.boardLink,
       'Both halves of DashBridge can communicate.', 'Power both boards and check their connection.'],

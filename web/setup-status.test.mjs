@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentStatus, discoveryNoticeEnded, discoveryNoticeMaxAgeMs,
+import { currentStatus, disconnectMessage, discoveryNoticeEnded, discoveryNoticeMaxAgeMs,
   evaluateChecks, statusMaxAgeMs } from './setup-status.mjs';
 
 const at = 100000;
@@ -89,4 +89,18 @@ test('discovery message expires after one minute if board reports stop', () => {
   assert.equal(discoveryNoticeEnded(notice, null, at + discoveryNoticeMaxAgeMs - 1), false);
   assert.equal(discoveryNoticeEnded(notice, null, at + discoveryNoticeMaxAgeMs), true);
   assert.equal(discoveryNoticeEnded(null, null, at + discoveryNoticeMaxAgeMs), false);
+});
+
+test('disconnect notice describes both boards after the second USB connection closes', () => {
+  assert.equal(disconnectMessage('car', ['phone']),
+    'Board B disconnected. Board A is still connected to this page.');
+  assert.equal(disconnectMessage('phone', []),
+    'Neither board is connected to this page. Connect a board to continue.');
+});
+
+test('disconnect notice works in the opposite order and with one board', () => {
+  assert.equal(disconnectMessage('phone', ['car']),
+    'Board A disconnected. Board B is still connected to this page.');
+  assert.equal(disconnectMessage('car', []),
+    'Neither board is connected to this page. Connect a board to continue.');
 });
