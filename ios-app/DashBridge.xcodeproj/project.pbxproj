@@ -1,0 +1,435 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1C3A6B674F6294662AF76AE1 /* SetupFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A214C22EED959D481885FD1A /* SetupFlowUITests.swift */; };
+		3E4CA7B7C4BFA6C476D4686A /* DashBridgeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC68C6D1E9D48F1400D14D1E /* DashBridgeApp.swift */; };
+		B5FC10D6589C47741715BBC2 /* AppCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB3FCC326C5B0300BAA7C2F /* AppCatalog.swift */; };
+		C437D9F8D6EDEE38B3C0A8E5 /* BridgeBluetooth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DE5488E6EC9BFC024D2E879 /* BridgeBluetooth.swift */; };
+		DD33347808B73FEF9D3D1E5A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EC83399481237AB54F56FA53 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		37EFB6ABC580076D5AE33A35 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BBD8989DB5F40A9D1C4CE9BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4617C61FFDD34337FFE998CF;
+			remoteInfo = DashBridge;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		328D4FEEEFE4C7A1841A11A5 /* DashBridge.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DashBridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CB3FCC326C5B0300BAA7C2F /* AppCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCatalog.swift; sourceTree = "<group>"; };
+		6DE5488E6EC9BFC024D2E879 /* BridgeBluetooth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeBluetooth.swift; sourceTree = "<group>"; };
+		8FDDD1DCE65002B66F3EFF63 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A214C22EED959D481885FD1A /* SetupFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlowUITests.swift; sourceTree = "<group>"; };
+		A2C498BD933BFF51571D3B2C /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		A31BA0CA15F512D8F56585E7 /* DashBridgeUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DashBridgeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EC83399481237AB54F56FA53 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FC68C6D1E9D48F1400D14D1E /* DashBridgeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashBridgeApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		CA43528F66238BD4841DC538 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				A214C22EED959D481885FD1A /* SetupFlowUITests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		D626C4629A9B71F9B2B8FA67 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				328D4FEEEFE4C7A1841A11A5 /* DashBridge.app */,
+				A31BA0CA15F512D8F56585E7 /* DashBridgeUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E3F9213A069F5EED4E834799 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A2C498BD933BFF51571D3B2C /* App.entitlements */,
+				5CB3FCC326C5B0300BAA7C2F /* AppCatalog.swift */,
+				EC83399481237AB54F56FA53 /* Assets.xcassets */,
+				6DE5488E6EC9BFC024D2E879 /* BridgeBluetooth.swift */,
+				FC68C6D1E9D48F1400D14D1E /* DashBridgeApp.swift */,
+				8FDDD1DCE65002B66F3EFF63 /* Info.plist */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		FCD9067C014BFCF3D0946BF8 = {
+			isa = PBXGroup;
+			children = (
+				E3F9213A069F5EED4E834799 /* App */,
+				CA43528F66238BD4841DC538 /* UITests */,
+				D626C4629A9B71F9B2B8FA67 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4617C61FFDD34337FFE998CF /* DashBridge */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C381966CF9B534A93B53F5D /* Build configuration list for PBXNativeTarget "DashBridge" */;
+			buildPhases = (
+				A852058BF873CC3942E6B8CB /* Sources */,
+				4C2637788788C867FA68220A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DashBridge;
+			packageProductDependencies = (
+			);
+			productName = DashBridge;
+			productReference = 328D4FEEEFE4C7A1841A11A5 /* DashBridge.app */;
+			productType = "com.apple.product-type.application";
+		};
+		EA3B76694ED12AF52CEF854C /* DashBridgeUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 303695E822CB3ACC27776237 /* Build configuration list for PBXNativeTarget "DashBridgeUITests" */;
+			buildPhases = (
+				1396F7C1880208D3BDD19ED6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				41F0822EAD78902007B2C2C4 /* PBXTargetDependency */,
+			);
+			name = DashBridgeUITests;
+			packageProductDependencies = (
+			);
+			productName = DashBridgeUITests;
+			productReference = A31BA0CA15F512D8F56585E7 /* DashBridgeUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BBD8989DB5F40A9D1C4CE9BB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					4617C61FFDD34337FFE998CF = {
+						DevelopmentTeam = BB4MFJBDC7;
+						ProvisioningStyle = Automatic;
+					};
+					EA3B76694ED12AF52CEF854C = {
+						DevelopmentTeam = BB4MFJBDC7;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 4617C61FFDD34337FFE998CF;
+					};
+				};
+			};
+			buildConfigurationList = A130026759D9ADB6372A1A33 /* Build configuration list for PBXProject "DashBridge" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = FCD9067C014BFCF3D0946BF8;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D626C4629A9B71F9B2B8FA67 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4617C61FFDD34337FFE998CF /* DashBridge */,
+				EA3B76694ED12AF52CEF854C /* DashBridgeUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4C2637788788C867FA68220A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DD33347808B73FEF9D3D1E5A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1396F7C1880208D3BDD19ED6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C3A6B674F6294662AF76AE1 /* SetupFlowUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A852058BF873CC3942E6B8CB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B5FC10D6589C47741715BBC2 /* AppCatalog.swift in Sources */,
+				C437D9F8D6EDEE38B3C0A8E5 /* BridgeBluetooth.swift in Sources */,
+				3E4CA7B7C4BFA6C476D4686A /* DashBridgeApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		41F0822EAD78902007B2C2C4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4617C61FFDD34337FFE998CF /* DashBridge */;
+			targetProxy = 37EFB6ABC580076D5AE33A35 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		10B666771108F9767F16220C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BB4MFJBDC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.dashbridge.companion.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DashBridge;
+			};
+			name = Release;
+		};
+		54EE2BA3A87CE1AB05505BC2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BB4MFJBDC7;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.dashbridge.companion;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		A171BC211093E37BC68D2CC2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BB4MFJBDC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.dashbridge.companion.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DashBridge;
+			};
+			name = Debug;
+		};
+		D5297AD60609CBEA13C4C72E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DAC282E19C301367DE6301D1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BB4MFJBDC7;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.dashbridge.companion;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		DDCCF9C47F5F14E0AF4C95C6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		303695E822CB3ACC27776237 /* Build configuration list for PBXNativeTarget "DashBridgeUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A171BC211093E37BC68D2CC2 /* Debug */,
+				10B666771108F9767F16220C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4C381966CF9B534A93B53F5D /* Build configuration list for PBXNativeTarget "DashBridge" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DAC282E19C301367DE6301D1 /* Debug */,
+				54EE2BA3A87CE1AB05505BC2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A130026759D9ADB6372A1A33 /* Build configuration list for PBXProject "DashBridge" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D5297AD60609CBEA13C4C72E /* Debug */,
+				DDCCF9C47F5F14E0AF4C95C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BBD8989DB5F40A9D1C4CE9BB /* Project object */;
+}

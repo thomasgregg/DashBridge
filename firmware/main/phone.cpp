@@ -35,6 +35,7 @@ static_assert(sizeof(advertisement) <= 31, "Legacy BLE advertisement exceeds 31 
 static esp_ble_adv_params_t advertising = {};
 static esp_gatt_if_t interface_id = ESP_GATT_IF_NONE;
 static uint16_t connection = 0, start_handle = 0, end_handle = 0;
+static uint16_t setup_connection = UINT16_MAX;
 static uint16_t source_handle = 0, data_handle = 0, control_handle = 0, subscribing = 0;
 static esp_bd_addr_t peer = {};
 static bool linked = false, secured = false, mtu_ready = false, searching = false, ready = false;
@@ -349,8 +350,22 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         ESP_LOGI(tag, "BLE connection event: id=%u role=%u address_type=%u already_linked=%d",
                  unsigned(p->connect.conn_id), unsigned(p->connect.link_role),
                  unsigned(p->connect.ble_addr_type), linked);
-        if (linked)
+        // iOS initiates the ANCS accessory connection, so Board A is normally
+        // the peripheral (link_role=1). The GATT server used by setup and the
+        // ANCS client share that physical connection. Only an *additional*
+        // connection is setup-only; excluding every peripheral-role link leaves
+        // Dash Messages visibly connected on iOS but never starts ANCS.
+        if (linked) {
+            setup_connection = p->connect.conn_id;
+            esp_ble_gatt_creat_conn_params_t setup_params = {};
+            memcpy(setup_params.remote_bda, p->connect.remote_bda, 6);
+            setup_params.remote_addr_type = p->connect.ble_addr_type;
+            setup_params.own_addr_type = BLE_ADDR_TYPE_RPA_PUBLIC;
+            setup_params.is_direct = true;
+            log_request("setup GATT open", esp_ble_gattc_enh_open(interface_id, &setup_params));
+            ESP_LOGI(tag, "BLE setup link connected; ANCS discovery not started");
             break;
+        }
         adv_state = "connected";
         linked = true;
         connection = p->connect.conn_id;
@@ -370,6 +385,10 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
     case ESP_GATTC_OPEN_EVT: {
         ESP_LOGI(tag, "BLE GATT open complete: status=0x%02x id=%u mtu=%u",
                  unsigned(p->open.status), unsigned(p->open.conn_id), unsigned(p->open.mtu));
+        if (p->open.conn_id == setup_connection) {
+            ESP_LOGI(tag, "BLE setup GATT opened; ANCS encryption not requested");
+            break;
+        }
         if (p->open.status != ESP_GATT_OK) {
             disconnect("GATT open failed");
             break;
@@ -526,6 +545,13 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
     case ESP_GATTC_DISCONNECT_EVT:
         ESP_LOGI(tag, "BLE disconnected: id=%u reason=0x%02x",
                  unsigned(p->disconnect.conn_id), unsigned(p->disconnect.reason));
+        if (p->disconnect.conn_id == setup_connection)
+            setup_connection = UINT16_MAX;
+        if (!linked || p->disconnect.conn_id != connection) {
+            ESP_LOGI(tag, "BLE setup link disconnected; ANCS state unchanged");
+            if (!linked) start_advertising();
+            break;
+        }
         phone_status();
         linked = secured = mtu_ready = searching = ready = active = false;
         start_handle = end_handle = source_handle = data_handle = control_handle = subscribing = 0;
@@ -607,8 +633,8 @@ void phone_setup_apps() {
 bool phone_setup_allow(const std::string &id, Preview preview) {
     auto prior = policy;
     auto *entry = seen(id);
-    if (!entry && !policy.find(id)) return false;
-    std::string name = entry ? entry->name : policy.find(id)->name;
+    // The companion app can select an installed app before ANCS has seen it.
+    std::string name = entry ? entry->name : policy.find(id) ? policy.find(id)->name : app_name_fallback(id);
     if (!policy.allow(id, name, preview) || !save_policy()) { policy = prior; return false; }
     return true;
 }
@@ -622,8 +648,17 @@ bool phone_setup_discover() {
     discover_until = now() + 60000;
     return true;
 }
+std::string phone_setup_policy_ids() {
+    std::string ids;
+    for (const auto &rule : policy.rules()) {
+        ids += rule.id;
+        ids += '\n';
+    }
+    return ids;
+}
 void phone_start() {
     load_policy();
+    setup_ble_start();
     ESP_LOGI(tag, "BLE notification diagnostics enabled; configuration status -1=pending, 0=success");
     ESP_LOGI(tag, "BLE discovery compatibility test: ANCS + generic HID advertisement; no input reports");
     advertising.adv_int_min = 0x100;
