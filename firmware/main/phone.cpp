@@ -350,11 +350,12 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         ESP_LOGI(tag, "BLE connection event: id=%u role=%u address_type=%u already_linked=%d",
                  unsigned(p->connect.conn_id), unsigned(p->connect.link_role),
                  unsigned(p->connect.ble_addr_type), linked);
-        // The companion app connects *to* Board A (slave/peripheral role).
-        // Only a Board-A-initiated master link may be used to query iPhone ANCS.
-        // Trying to start ANCS encryption on the setup link fails authentication
-        // and can discard a previously saved Bluetooth bond.
-        if (p->connect.link_role != 0) {
+        // iOS initiates the ANCS accessory connection, so Board A is normally
+        // the peripheral (link_role=1). The GATT server used by setup and the
+        // ANCS client share that physical connection. Only an *additional*
+        // connection is setup-only; excluding every peripheral-role link leaves
+        // Dash Messages visibly connected on iOS but never starts ANCS.
+        if (linked) {
             setup_connection = p->connect.conn_id;
             esp_ble_gatt_creat_conn_params_t setup_params = {};
             memcpy(setup_params.remote_bda, p->connect.remote_bda, 6);
@@ -365,8 +366,6 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
             ESP_LOGI(tag, "BLE setup link connected; ANCS discovery not started");
             break;
         }
-        if (linked)
-            break;
         adv_state = "connected";
         linked = true;
         connection = p->connect.conn_id;
