@@ -8,7 +8,7 @@ with its historical notes in [SINGLE_BOARD.md](SINGLE_BOARD.md).
 
 ## Transport and state
 
-Board A is a BLE peripheral and GATT client of the iPhone's ANCS service. It solicits ANCS in its advertisement, requests bonding and encryption, discovers the three ANCS characteristics, subscribes to Data Source before Notification Source, and serializes attribute requests. Each request asks for application identifier, title, subtitle, body and date. It filters for `net.whatsapp.WhatsApp` and `net.whatsapp.WhatsAppSMB` after receiving attributes. Because Notification Source does not contain an app identifier, A necessarily receives attributes from other apps too, but does not forward them.
+Board A is a BLE peripheral and GATT client of the iPhone's ANCS service. It solicits ANCS in its advertisement, requests bonding and encryption, discovers the three ANCS characteristics, subscribes to Data Source before Notification Source, and serializes attribute requests. Each request asks for application identifier, title, subtitle, body and date. It forwards only apps in the owner's saved allowlist, which is empty on a new board. Because Notification Source does not contain an app identifier, A necessarily receives attributes from other apps too, but does not forward them. The companion app can open a temporary in-memory exception for its own test notification; this exception expires and is never saved to the allowlist.
 
 Pre-existing events are skipped. An ANCS removal cancels pending requests for that UID. A timeout or malformed response disconnects to reset stream synchronization. Service-change events invalidate the GATT cache. These paths are implemented but BLE lifecycle behavior needs device testing.
 

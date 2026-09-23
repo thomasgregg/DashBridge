@@ -69,6 +69,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     @Published private(set) var commandError: String?
     @Published private(set) var timeoutStartedAt: Date?
     @Published private(set) var timeoutDuration: TimeInterval = 15
+    @Published private(set) var testWindowGrants = 0
     @Published var error: String?
 
     private var manager: CBCentralManager?
@@ -80,6 +81,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var refreshTimer: Timer?
     private var connectionTimer: Timer?
     private var scanTimer: Timer?
+    private var presenceTimer: Timer?
     private var availabilityTimer: Timer?
     private var timedOut = false
     private var pendingCommands: [Data] = []
@@ -172,7 +174,6 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             }
         }) {
             discovered = match
-            foundName = match.name ?? "DashBridge"
             connectFound(requiresANCS: false)
             return
         }
@@ -180,8 +181,9 @@ final class BridgeBluetooth: NSObject, ObservableObject {
            let rawID = UserDefaults.standard.string(forKey: rememberedKey),
            let id = UUID(uuidString: rawID),
            let saved = manager.retrievePeripherals(withIdentifiers: [id]).first {
+            // This is only a cached identifier, not evidence that the board
+            // is powered or nearby. The connection must prove it is live.
             discovered = saved
-            foundName = saved.name ?? "DashBridge"
             connectFound(requiresANCS: false)
             return
         }
@@ -192,6 +194,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         guard let manager, manager.state == .poweredOn, !connected else { return }
         if clearError { error = nil }
         scanTimer?.invalidate()
+        presenceTimer?.invalidate()
         foundName = nil
         discovered = nil
         scanning = true
@@ -200,7 +203,9 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         // ANCS service solicitation occupies the advertising packet today.
         // We scan in the foreground, match its local name, and verify our GATT
         // service after connecting. No background scan is claimed.
-        manager.scanForPeripherals(withServices: nil)
+        manager.stopScan()
+        manager.scanForPeripherals(withServices: nil,
+                                   options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
         scanTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
             guard let self, self.scanning else { return }
             self.manager?.stopScan()
@@ -214,6 +219,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         guard let discovered, let manager else { return }
         scanTimer?.invalidate()
         scanTimer = nil
+        presenceTimer?.invalidate()
+        presenceTimer = nil
         scanning = false
         manager.stopScan()
         beginTimedCheck(seconds: 20)
@@ -304,12 +311,18 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     }
 
     private func clearConnection() {
+        let testWasPending = pendingCommands.contains { $0.first == 4 }
         connectionTimer?.invalidate()
         connectionTimer = nil
         refreshTimer?.invalidate()
         refreshTimer = nil
         scanTimer?.invalidate()
         scanTimer = nil
+        presenceTimer?.invalidate()
+        presenceTimer = nil
+        scanning = false
+        foundName = nil
+        discovered = nil
         connected = false
         status = nil
         statusCharacteristic = nil
@@ -318,7 +331,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         policyLoaded = false
         pendingCommands.removeAll()
         writing = false
-        commandError = nil
+        commandError = testWasPending ? "DashBridge disconnected before the test could start. Try again when it reconnects." : nil
         endTimedCheck()
         peripheral = nil
     }
@@ -345,13 +358,21 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
         guard ["DashBridge A", "Dash Messages", "DashBridge"].contains(where: {
             name.caseInsensitiveCompare($0) == .orderedSame
         }), !incompatibleIdentifiers.contains(peripheral.identifier) else { return }
+        guard discovered == nil || discovered?.identifier == peripheral.identifier else { return }
         discovered = peripheral
         foundName = name
         scanTimer?.invalidate()
         scanTimer = nil
-        scanning = false
         endTimedCheck()
-        central.stopScan()
+        // Keep listening while the Connect screen is shown. A cached result
+        // must never stay "nearby" after its advertisements disappear.
+        presenceTimer?.invalidate()
+        presenceTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { [weak self] _ in
+            guard let self, self.peripheral == nil else { return }
+            self.foundName = nil
+            self.discovered = nil
+            self.scan(clearError: false)
+        }
         if UserDefaults.standard.string(forKey: rememberedKey) == peripheral.identifier.uuidString {
             connectFound()
         }
@@ -462,9 +483,12 @@ extension BridgeBluetooth: CBPeripheralDelegate {
         if error != nil {
             commandError = operation == 1 || operation == 2
                 ? "Couldn't save this app choice. Please try again."
+                : operation == 4
+                ? "DashBridge couldn't start the test. It may need newer firmware, or the Tesla connection isn't ready."
                 : "DashBridge couldn't complete that action. Please try again."
         } else {
             commandError = nil
+            if operation == 4 { testWindowGrants += 1 }
         }
         if let policyCharacteristic { peripheral.readValue(for: policyCharacteristic) }
         sendNext()

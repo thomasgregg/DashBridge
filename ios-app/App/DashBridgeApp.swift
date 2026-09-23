@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 private enum Step: Equatable {
     case welcome, finding, found, checking, pair, sharing, apps
@@ -81,6 +82,8 @@ private struct SetupView: View {
     @State private var helpReturnStep: Step = .car
     @State private var copiedConnectionDetails = false
     @State private var checkingStartedAt: Date?
+    @State private var testNotificationPending = false
+    @State private var testNotificationMessage: String?
 
     private var checkingDuration: TimeInterval { AppTestMode.checkingPreview ? 3 : 25 }
 
@@ -124,6 +127,9 @@ private struct SetupView: View {
                 testConfirmed = false
                 teslaDeferred = false
                 completedDeviceID = ""
+                if AppTestMode.savedChoicePreview {
+                    previewAllowed = ["net.whatsapp.WhatsAppSMB"]
+                }
             }
             if welcomed {
                 step = .finding
@@ -132,6 +138,17 @@ private struct SetupView: View {
         }
         .onChange(of: bridge.foundName) { _, name in
             if name != nil && step == .finding { step = .found }
+            if name == nil && step == .found && !isPreview { step = .finding }
+        }
+        .onChange(of: bridge.testWindowGrants) { _, _ in
+            guard testNotificationPending else { return }
+            Task { await scheduleTestNotification() }
+        }
+        .onChange(of: bridge.commandError) { _, message in
+            if testNotificationPending, let message {
+                testNotificationPending = false
+                testNotificationMessage = message
+            }
         }
         .onChange(of: bridge.connected) { _, value in
             if value && (step == .found || step == .finding) { step = .checking }
@@ -277,8 +294,18 @@ private struct SetupView: View {
                 heading(isPreview ? "Preview the final step." : "Try a notification.",
                         isPreview
                         ? "In your car, this is where you’ll confirm that a new message appeared on the Tesla screen."
-                        : "Have one of your allowed apps send a new notification, then check your Tesla screen.")
+                        : "Send a test from this iPhone, then check your Tesla screen.")
                 artwork("message")
+                Button("Send test notification", systemImage: "paperplane") {
+                    Task { await sendTestNotification() }
+                }
+                .disabled(testNotificationPending)
+                if let testNotificationMessage {
+                    Text(testNotificationMessage).foregroundStyle(Theme.muted)
+                }
+                Text("While parked, you can also have an allowed app send a new notification.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.muted)
                 Button("Didn’t see it on Tesla?") {
                     helpReturnStep = .test
                     step = .help
@@ -457,7 +484,9 @@ private struct SetupView: View {
                     .tracking(-1.2)
                     .foregroundStyle(Theme.ink)
                 Text(testConfirmed
-                     ? "Your iPhone and Tesla are connected."
+                     ? (status?.notifications == true && status?.teslaMessages == true
+                        ? "Your iPhone and Tesla are connected."
+                        : "Your last test passed. Connect DashBridge to check it again.")
                      : "Finish in the car when you’re parked. Your choices are saved.")
                     .font(.body)
                     .foregroundStyle(Theme.muted)
@@ -521,6 +550,17 @@ private struct SetupView: View {
                 Section {
                     Button("Browse more apps", systemImage: "square.grid.2x2") {
                         showingApps = true
+                    }
+                }
+                if !savedChoicesMissingFromAppList.isEmpty {
+                    Section {
+                        ForEach(savedChoicesMissingFromAppList) { choice in
+                            appToggle(choice)
+                        }
+                    } header: {
+                        Text("Saved on DashBridge")
+                    } footer: {
+                        Text("These saved choices are not in the iPhone app list. Turn one off to remove it from DashBridge.")
                     }
                 }
             }
@@ -763,6 +803,56 @@ private struct SetupView: View {
     private var selectedChoices: [AppChoice] {
         selected.map { catalog.choice(for: $0) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    private var savedChoicesMissingFromAppList: [AppChoice] {
+        guard catalog.access == .available else { return [] }
+        let installedIDs = Set(catalog.installed.map(\.id))
+        return selected.subtracting(installedIDs).map { catalog.choice(for: $0) }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    private func sendTestNotification() async {
+        testNotificationMessage = nil
+        if isPreview {
+            testNotificationMessage = "Preview: a real test will arrive as an iPhone notification."
+            return
+        }
+        guard status?.notifications == true, status?.teslaMessages == true,
+              status?.teslaSync == true else {
+            testNotificationMessage = "Connect your iPhone and Tesla before sending a test."
+            return
+        }
+        do {
+            let allowed = try await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound])
+            guard allowed else {
+                testNotificationMessage = "Allow DashBridge notifications in iPhone Settings to send a test."
+                return
+            }
+            guard step == .test else { return }
+            testNotificationPending = true
+            testNotificationMessage = "Preparing your test…"
+            bridge.send(4)
+        } catch {
+            testNotificationMessage = "The iPhone couldn't prepare a test notification. Try again."
+        }
+    }
+
+    private func scheduleTestNotification() async {
+        let content = UNMutableNotificationContent()
+        content.title = "DashBridge test"
+        content.body = "If this message appears on your Tesla, notifications are working."
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "dashbridge-test-\(UUID().uuidString)",
+            content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 12, repeats: false))
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            testNotificationMessage = "Test arriving shortly. Lock your iPhone and watch your Tesla screen."
+        } catch {
+            testNotificationMessage = "The iPhone couldn't send the test notification. Try again."
+        }
+        testNotificationPending = false
     }
 
     private func route(for value: BridgeStatus) {

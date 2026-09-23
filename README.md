@@ -53,7 +53,7 @@ flowchart TB
     gateway <-->|"Bluetooth · MAP, HFP, A2DP, AVRCP, PBAP"| car
 ```
 
-**Board A** receives iPhone notifications through Apple ANCS, allows WhatsApp and WhatsApp Business by default, and can be configured to allow other apps. It also connects to iPhone call, music, and phonebook services. **Board B** presents a Bluetooth phone, message inbox, music source, and phonebook server to the Tesla. The five wires include separate serial paths for encoded call/music audio and message/control data, plus ground.
+**Board A** receives iPhone notifications through Apple ANCS and forwards only apps the owner allows. It also connects to iPhone call, music, and phonebook services. **Board B** presents a Bluetooth phone, message inbox, music source, and phonebook server to the Tesla. The five wires include separate serial paths for encoded call/music audio and message/control data, plus ground.
 
 The original single-board design delivered notifications but displaced the iPhone as the Tesla's active phone. Two boards give each side its own Bluetooth radio, with the bridge relaying the services between them. Earlier hardware calls exposed audio distortion; the latest audio path has not yet been validated by listening.
 
@@ -67,7 +67,7 @@ Snapshot as of **23 September 2026**. The **0.4.3-alpha images** in the [manifes
 
 | Feature | Implemented in firmware | Evidence and remaining gap |
 | :--- | :--- | :--- |
-| Allowed-app messages | WhatsApp and WhatsApp Business allowed by default; optional per-app choices; read-only Tesla MAP inbox and new-message alerts | Board A saved and read back a choice. Real WhatsApp text appeared on the Tesla in an earlier two-board build; end-to-end delivery and new-app discovery on these images are pending. |
+| Allowed-app messages | No apps allowed by default on new setups; per-app choices; read-only Tesla MAP inbox and new-message alerts | Board A saved and read back a choice. Existing saved choices remain in place across firmware updates until removed. Real WhatsApp text appeared on the Tesla in an earlier two-board build; end-to-end delivery and new-app discovery on these images are pending. |
 | Recent message history | Silently imports still-present iOS ANCS notifications into the RAM inbox on reconnect | Host tests pass. **Not** full WhatsApp history, and not yet checked on the Tesla with this build. |
 | Calls and caller ID | HFP answer, reject/end, dial, DTMF, caller number/name when available, and call-state relay | Answered calls were exercised on earlier builds. Latest build's controls and displayed names need retesting. |
 | HD call audio | Encoded mSBC relay at 16 kHz when negotiated; CVSD 8 kHz fallback | mSBC was observed on both Bluetooth sides in prior logs. Earlier listening revealed robotic/unclear audio. New encoded relay builds and boots, but **has not had a listening test or been proven clear**. |

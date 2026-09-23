@@ -35,6 +35,7 @@ void phone_setup_apps();
 bool phone_setup_allow(const std::string &id, bridge::Preview preview);
 bool phone_setup_deny(const std::string &id);
 bool phone_setup_discover();
+bool phone_setup_test_notification();
 std::string phone_setup_policy_ids();
 void setup_emit(const std::string &json);
 std::string setup_escape(const std::string &value);

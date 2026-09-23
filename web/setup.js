@@ -205,7 +205,7 @@ function renderApps() {
   $('#discovery-help').textContent = !a ? 'Connect Board A to choose apps.' :
     !status?.phoneNotifications ? 'Connect your iPhone to Board A and allow notification sharing first.' :
     a.apps?.discovering ? 'Listening for a new notification now. Open the app you want to add.' :
-    'WhatsApp is allowed by default. To add another app, start discovery and make it send a new notification.';
+    'To allow an app, start discovery and make it send a new notification.';
   const data = a?.apps;
   const fingerprint = JSON.stringify(data?.allowed) + JSON.stringify(data?.recent);
   if (fingerprint === appsFingerprint) return;

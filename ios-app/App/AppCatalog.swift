@@ -17,6 +17,8 @@ enum AppTestMode {
         "-dashbridge-ui-checking-preview")
     static let cachedStatusPreview = enabled && ProcessInfo.processInfo.arguments.contains(
         "-dashbridge-ui-cached-status-preview")
+    static let savedChoicePreview = enabled && ProcessInfo.processInfo.arguments.contains(
+        "-dashbridge-ui-saved-choice-preview")
 }
 
 struct AppChoice: Identifiable {

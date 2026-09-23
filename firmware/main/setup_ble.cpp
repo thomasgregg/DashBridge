@@ -98,6 +98,7 @@ esp_gatt_status_t apply_command(const uint8_t *data, size_t size) {
         setup_open_pairing(Peer::phone);
         return ESP_GATT_OK;
     }
+    if (op == 4) return phone_setup_test_notification() ? ESP_GATT_OK : ESP_GATT_ERROR;
     // Tesla pairing and test messages require a matching Board B protocol
     // update. Never claim success while Board B runs the existing 0.4.2 image.
     return ESP_GATT_ERROR;

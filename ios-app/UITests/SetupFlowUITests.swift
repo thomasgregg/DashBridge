@@ -1,6 +1,35 @@
 import XCTest
 
 final class SetupFlowUITests: XCTestCase {
+    func testSavedChoiceMissingFromAppListCanBeRemoved() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-saved-choice-preview"]
+        app.launch()
+
+        app.buttons["Preview without hardware"].tap()
+        app.buttons["Continue"].tap()
+        XCTAssertTrue(app.staticTexts["Saved on DashBridge"].waitForExistence(timeout: 5))
+        let choice = app.switches["WhatsApp Business"]
+        XCTAssertEqual(choice.value as? String, "1")
+        choice.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: choice)
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 3), .completed)
+    }
+
+    func testTestScreenOffersNotificationButton() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing"]
+        app.launch()
+
+        app.buttons["Preview without hardware"].tap()
+        app.buttons["Continue"].tap()
+        app.buttons["Continue"].tap()
+        app.buttons["Preview connected car"].tap()
+        XCTAssertTrue(app.buttons["Send test notification"].waitForExistence(timeout: 5))
+        app.buttons["Send test notification"].tap()
+        XCTAssertTrue(app.staticTexts["Preview: a real test will arrive as an iPhone notification."].exists)
+    }
+
     func testCheckingKeepsProgressUntilItOffersRetry() {
         let app = XCUIApplication()
         app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-checking-preview"]

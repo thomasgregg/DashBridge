@@ -50,13 +50,11 @@ bool valid_app_id(const std::string &id) {
     return true;
 }
 std::string app_name_fallback(const std::string &id) {
-    if (id == "net.whatsapp.WhatsAppSMB") return "WhatsApp Business";
     auto pos = id.rfind('.');
     return clipped(pos == std::string::npos ? id : id.substr(pos + 1), 48);
 }
 AppPolicy::AppPolicy() {
-    allow("net.whatsapp.WhatsApp", "WhatsApp", Preview::full);
-    allow("net.whatsapp.WhatsAppSMB", "WhatsApp Business", Preview::full);
+    // Nothing is shared until the owner explicitly chooses an app.
 }
 const AppRule *AppPolicy::find(const std::string &id) const {
     auto it = std::find_if(rules_.begin(), rules_.end(), [&](const AppRule &r) { return r.id == id; });

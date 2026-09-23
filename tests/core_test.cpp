@@ -160,7 +160,7 @@ static void ancs_test() {
 }
 static void app_policy_test() {
     AppPolicy policy;
-    assert(policy.find("net.whatsapp.WhatsApp"));
+    assert(policy.rules().empty());
     assert(!policy.find("com.example.Chat"));
     assert(policy.allow("com.example.Chat", "Chat", Preview::sender));
     auto hidden = apply_preview(example(), {"net.whatsapp.WhatsApp", "WhatsApp", Preview::app});
@@ -173,9 +173,14 @@ static void app_policy_test() {
     assert(!restored.load(stored));
     assert(restored.find("com.example.Chat"));
     assert(!policy.allow("com.example.Bad ID", "Bad", Preview::full));
-    assert(policy.deny("net.whatsapp.WhatsApp"));
-    assert(!policy.find("net.whatsapp.WhatsApp"));
-    std::cout << "PASS app choice defaults, persistence, validation and preview privacy\n";
+    assert(policy.deny("com.example.Chat"));
+    assert(!policy.find("com.example.Chat"));
+    AppPolicy priorBoard;
+    assert(priorBoard.allow("net.whatsapp.WhatsAppSMB", "WhatsApp Business", Preview::full));
+    AppPolicy upgradedBoard;
+    assert(upgradedBoard.load(priorBoard.serialize()));
+    assert(upgradedBoard.find("net.whatsapp.WhatsAppSMB"));
+    std::cout << "PASS empty app choice defaults, persistence, validation and preview privacy\n";
 }
 static void inbox_test() {
     Inbox box;

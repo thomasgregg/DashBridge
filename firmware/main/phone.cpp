@@ -49,6 +49,13 @@ static AncsAppIdResponse identity_response;
 static AncsAppNameResponse name_response;
 static std::string current_app;
 static int64_t discover_until = 0;
+static int64_t test_notification_until = 0;
+static const char *test_app_id = "dev.dashbridge.companion";
+static const AppRule test_rule = {test_app_id, "DashBridge test", Preview::full};
+static const AppRule *notification_rule(const std::string &id) {
+    if (id == test_app_id && now() < test_notification_until) return &test_rule;
+    return policy.find(id);
+}
 static uint32_t car_status = 0;
 static int adv_pending = 0;
 // Diagnostic state only; never used to drive pairing or connection decisions.
@@ -116,7 +123,7 @@ static void load_policy() {
         Bytes b(n);
         e = nvs_get_blob(h, "rules", b.data(), &n);
         if (e == ESP_OK && policy.load(b)) ESP_LOGI(tag, "App choices loaded");
-        else ESP_LOGW(tag, "App choices invalid; using WhatsApp defaults");
+        else ESP_LOGW(tag, "App choices invalid; using empty policy");
     }
     nvs_close(h);
 }
@@ -515,14 +522,14 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
                     auto *entry = seen(value);
                     if (!canceled && now() < discover_until && entry && !entry->named)
                         request_app_name();
-                    else if (!canceled && car_ready && policy.find(value)) request_details();
+                    else if (!canceled && car_ready && notification_rule(value)) request_details();
                     else finish_request();
                 } else if (fetch == Fetch::app_name) {
                     remember(current_app, value, true);
-                    if (!canceled && car_ready && policy.find(current_app)) request_details();
+                    if (!canceled && car_ready && notification_rule(current_app)) request_details();
                     else finish_request();
                 } else {
-                    const AppRule *rule = policy.find(current_app);
+                    const AppRule *rule = notification_rule(current_app);
                     if (!canceled && car_ready && rule && notice.app == current_app) {
                         send_to_car({current.op, session, apply_preview(std::move(notice), *rule)});
                         ESP_LOGI(tag, "Allowed notification forwarded (content not logged)");
@@ -646,6 +653,13 @@ bool phone_setup_deny(const std::string &id) {
 bool phone_setup_discover() {
     if (!phone_notifications_ready()) return false;
     discover_until = now() + 60000;
+    return true;
+}
+bool phone_setup_test_notification() {
+    if (!phone_notifications_ready() || !phone_car_message_ready() || !phone_car_sync_ready())
+        return false;
+    // Test-only, in RAM: never add the companion app to the saved allowlist.
+    test_notification_until = now() + 120000;
     return true;
 }
 std::string phone_setup_policy_ids() {
