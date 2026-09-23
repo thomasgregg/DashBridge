@@ -11,6 +11,7 @@ private final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
     private var device: CBPeripheral?
     private let setupService = CBUUID(string: "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F0")
     private let statusCharacteristic = CBUUID(string: "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F1")
+    private let scanOnly = CommandLine.arguments.contains("--scan-only")
 
     override init() {
         super.init()
@@ -28,6 +29,11 @@ private final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
                         advertisementData: [String: Any], rssi: NSNumber) {
         let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name ?? ""
         guard name == "DashBridge A" || name == "Dash Messages" else { return }
+        if scanOnly {
+            report("Found \(name) advertising; no connection attempted")
+            central.stopScan()
+            exit(0)
+        }
         report("Found \(name); connecting")
         device = peripheral
         peripheral.delegate = self

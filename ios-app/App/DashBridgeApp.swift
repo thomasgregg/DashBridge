@@ -73,12 +73,12 @@ private struct SetupView: View {
     @State private var showingApps = false
     @State private var showingDetails = false
     @State private var testSent = false
-    @State private var waitingForNotificationsSince: Date?
     @State private var isPreview = false
     @State private var previewStatus: BridgeStatus?
     @State private var previewAllowed: Set<String> = []
     @State private var reviewingCarStep = false
     @State private var helpReturnStep: Step = .car
+    @State private var copiedConnectionDetails = false
 
     private var status: BridgeStatus? { isPreview ? previewStatus : bridge.status }
     private var selected: Set<String> { isPreview ? previewAllowed : bridge.allowedIDs }
@@ -197,9 +197,9 @@ private struct SetupView: View {
                 headerRow("Connect your iPhone.", "In Settings → Bluetooth, tap Dash Calls and Dash Messages.")
                 Section {
                     LabeledContent("Dash Calls", value: status?.phoneCalls == true ? "Connected" : "Waiting")
-                    LabeledContent("Dash Messages", value: status?.notifications == true ? "Connected" : "Waiting")
+                    LabeledContent("Dash Messages", value: status?.phoneBluetooth == true ? "Connected" : "Waiting")
                 } footer: {
-                    Text("We’ll continue when they connect.")
+                    Text("Dash Messages may briefly disappear while Dash Calls pairs. Wait for it to reappear; we’ll continue when both connect.")
                 }
                 if status?.phonePairingOpen == false {
                     Section {
@@ -209,12 +209,13 @@ private struct SetupView: View {
             }
         case .sharing:
             brandedList {
-                headerRow("One setting left.", "In Settings → Bluetooth → Dash Messages, turn on Share System Notifications.")
+                headerRow("Dash Messages is connected.", "If iPhone asks to share notifications, tap Allow. DashBridge will continue when messages are ready.")
                 Section {
                     LabeledContent("Bluetooth pairing", value: "Connected")
-                    LabeledContent("Notification sharing", value: "Waiting")
+                    LabeledContent("iPhone permission", value: bridge.notificationPermission == true ? "Allowed" : bridge.notificationPermission == false ? "Not allowed" : "Waiting")
+                    LabeledContent("Notification link", value: "Waiting")
                 } footer: {
-                    Text("We’ll continue when it’s on.")
+                    Text("A Bluetooth connection alone does not mean notifications are available yet.")
                 }
             }
         case .apps:
@@ -264,10 +265,22 @@ private struct SetupView: View {
             }
         case .help:
             brandedList {
-                headerRow("Connection help.", bridge.error ?? "Check that Dash Tesla is selected on the Tesla Bluetooth screen.")
-                Section {
-                    LabeledContent("iPhone", value: status?.notifications == true ? "Connected" : "Check connection")
-                    LabeledContent("Tesla", value: status?.teslaMessages == true ? "Connected" : "Not connected")
+                if helpReturnStep == .checking {
+                    headerRow("Couldn't finish connecting.", bridge.error ?? "Your iPhone found DashBridge, but couldn't finish the setup check.")
+                    Section {
+                        Label("Keep DashBridge powered and close to your iPhone.", systemImage: "powerplug")
+                        Label("Return to DashBridge and try connecting again. You don’t need to reset your boards.", systemImage: "arrow.clockwise")
+                    } header: {
+                        Text("Try this")
+                    } footer: {
+                        Text("Your saved app choices stay on DashBridge.")
+                    }
+                } else {
+                    headerRow("Connection help.", bridge.error ?? "Check that Dash Tesla is selected on the Tesla Bluetooth screen.")
+                    Section {
+                        LabeledContent("iPhone", value: status?.notifications == true ? "Connected" : "Check connection")
+                        LabeledContent("Tesla", value: status?.teslaMessages == true ? "Connected" : "Not connected")
+                    }
                 }
                 Section {
                     Button("Connection details") { showingDetails = true }
@@ -415,15 +428,36 @@ private struct SetupView: View {
 
     private var details: some View {
         brandedList {
-            Section("iPhone") {
-                LabeledContent("Bluetooth", value: status?.phoneBluetooth == true ? "Connected" : "Disconnected")
-                LabeledContent("Notification sharing", value: status?.notifications == true ? "Ready" : "Not ready")
+            if let status {
+                Section("iPhone") {
+                    LabeledContent("Bluetooth", value: status.phoneBluetooth ? "Connected" : "Disconnected")
+                    LabeledContent("Notification sharing", value: status.notifications ? "Ready" : "Not ready")
+                }
+                Section("DashBridge") {
+                    LabeledContent("Internal link", value: status.internalLink ? "Ready" : "Not responding")
+                }
+                Section("Tesla") {
+                    LabeledContent("Bluetooth", value: status.teslaCalls ? "Connected" : "Disconnected")
+                }
+            } else {
+                Section {
+                    LabeledContent("Last step", value: bridge.connectionStage)
+                    if let error = bridge.error { Text(error) }
+                } header: {
+                    Text("iPhone setup")
+                } footer: {
+                    Text("The app couldn't check the iPhone, DashBridge, or Tesla connections yet.")
+                }
             }
-            Section("DashBridge") {
-                LabeledContent("Internal link", value: status?.internalLink == true ? "Ready" : "Not responding")
-            }
-            Section("Tesla") {
-                LabeledContent("Bluetooth", value: status?.teslaCalls == true ? "Connected" : "Disconnected")
+            Section {
+                Button(copiedConnectionDetails ? "Details copied" : "Copy details") {
+                    let summary = ["DashBridge connection details",
+                                   "Last step: \(bridge.connectionStage)",
+                                   "Problem: \(bridge.error ?? "None")",
+                                   "Status received: \(status == nil ? "No" : "Yes")"]
+                    UIPasteboard.general.string = summary.joined(separator: "\n")
+                    copiedConnectionDetails = true
+                }
             }
         }
     }
@@ -514,7 +548,7 @@ private struct SetupView: View {
                         if testConfirmed { step = .ready }
                         else if status?.teslaMessages == true { step = .test }
                         else if status != nil { step = .car }
-                        else { step = .finding; bridge.start() }
+                        else { step = .finding; bridge.retry() }
                     }
                 default:
                     EmptyView()
@@ -574,7 +608,10 @@ private struct SetupView: View {
             reviewingCarStep = true
             step = .car
         case .help:
-            step = helpReturnStep
+            if helpReturnStep == .checking {
+                step = .finding
+                bridge.retry()
+            } else { step = helpReturnStep }
         case .ready:
             step = .test
         }
@@ -590,19 +627,11 @@ private struct SetupView: View {
     private func route(for value: BridgeStatus) {
         if step == .checking || step == .pair || step == .sharing {
             if value.phoneCalls && value.notifications {
-                waitingForNotificationsSince = nil
                 step = choseApps ? (testConfirmed ? .ready
                        : (value.teslaMessages && value.teslaCalls ? .test : .car)) : .apps
                 return
             }
-            if value.phoneCalls && value.phoneBluetooth && !value.notifications {
-                if waitingForNotificationsSince == nil { waitingForNotificationsSince = Date() }
-                if let since = waitingForNotificationsSince, Date().timeIntervalSince(since) > 12 {
-                    step = .sharing
-                    return
-                }
-            } else { waitingForNotificationsSince = nil }
-            step = .pair
+            step = value.phoneCalls && value.phoneBluetooth ? .sharing : .pair
         }
         if ((step == .car && !reviewingCarStep) || step == .later)
             && value.teslaMessages && value.teslaCalls {

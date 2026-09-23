@@ -64,6 +64,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     @Published private(set) var allowedIDs: Set<String> = []
     @Published private(set) var policyLoaded = false
     @Published private(set) var deviceID: UUID?
+    @Published private(set) var connectionStage = "Looking nearby"
+    @Published private(set) var notificationPermission: Bool?
     @Published var error: String?
 
     private var manager: CBCentralManager?
@@ -95,6 +97,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         foundName = nil
         discovered = nil
         scanning = true
+        connectionStage = "Looking nearby"
         // ANCS service solicitation occupies the advertising packet today.
         // We scan in the foreground, match its local name, and verify our GATT
         // service after connecting. No background scan is claimed.
@@ -106,17 +109,38 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         scanning = false
         manager.stopScan()
         peripheral = discovered
+        connectionStage = "Opening Bluetooth link"
+        notificationPermission = nil
         discovered.delegate = self
-        manager.connect(discovered)
+        // Ask iOS to offer ANCS notification permission during pairing in the
+        // app, rather than depending on a device-settings button that may not
+        // exist for this BLE accessory.
+        manager.connect(discovered, options: [CBConnectPeripheralOptionRequiresANCS: true])
         connectionTimer?.invalidate()
         connectionTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: false) { [weak self] _ in
             guard let self, self.status == nil else { return }
             self.timedOut = true
-            self.error = "DashBridge didn't finish connecting. Check that it is powered, then try again."
+            self.error = self.connected
+                ? "Your iPhone connected to DashBridge, but it didn't answer the setup check. Try again nearby."
+                : "Your iPhone found DashBridge, but couldn't open its Bluetooth connection. Try again nearby."
             if let peripheral = self.peripheral {
                 self.manager?.cancelPeripheralConnection(peripheral)
             }
             self.clearConnection()
+        }
+    }
+
+    func retry() {
+        error = nil
+        timedOut = false
+        if let peripheral, peripheral.state != .disconnected {
+            // A failed setup read can leave CoreBluetooth connected. Close that
+            // link first; didDisconnectPeripheral will start a fresh scan.
+            manager?.cancelPeripheralConnection(peripheral)
+            clearConnection()
+        } else {
+            clearConnection()
+            scan()
         }
     }
 
@@ -219,9 +243,17 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         connected = true
+        notificationPermission = peripheral.ancsAuthorized ? true : nil
+        connectionStage = "Finding setup service"
         error = nil
         peripheral.delegate = self
         peripheral.discoverServices([BridgeService.service])
+    }
+
+    func centralManager(_ central: CBCentralManager,
+                        didUpdateANCSAuthorizationFor peripheral: CBPeripheral) {
+        guard self.peripheral?.identifier == peripheral.identifier else { return }
+        notificationPermission = peripheral.ancsAuthorized
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral,
@@ -249,6 +281,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
             manager?.cancelPeripheralConnection(peripheral)
             return
         }
+        connectionStage = "Reading setup service"
         peripheral.discoverCharacteristics([BridgeService.status, BridgeService.policy, BridgeService.command], for: service)
     }
 
@@ -270,6 +303,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
         }
         UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: rememberedKey)
         deviceID = peripheral.identifier
+        connectionStage = "Checking DashBridge"
         refresh()
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -287,6 +321,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
         if characteristic.uuid == BridgeService.status {
             do {
                 status = try BridgeStatus(data)
+                connectionStage = "Ready"
                 connectionTimer?.invalidate()
                 connectionTimer = nil
             }
