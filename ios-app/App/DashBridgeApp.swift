@@ -184,9 +184,9 @@ private struct SetupView: View {
                         .foregroundColor(Theme.ink),
                         "Plug it in nearby. We’ll find it automatically.")
                 artwork("dot.radiowaves.left.and.right")
-                HStack(spacing: 12) {
-                    ProgressView()
+                if bridge.error == nil {
                     Text("Looking nearby…").foregroundStyle(Theme.muted)
+                    timeoutBar
                 }
                 if let error = bridge.error { Text(error).foregroundStyle(Theme.muted) }
                 Spacer(minLength: 0)
@@ -201,10 +201,11 @@ private struct SetupView: View {
             }
         case .checking:
             VStack(spacing: 16) {
-                ProgressView()
                 Text("Checking your connection…").foregroundStyle(Theme.muted)
+                timeoutBar
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 32)
         case .pair:
             brandedList {
                 headerRow("Connect your iPhone.", "In Settings → Bluetooth, tap Dash Calls and Dash Messages.")
@@ -320,6 +321,20 @@ private struct SetupView: View {
         }
         .frame(height: 166)
         .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var timeoutBar: some View {
+        if let started = bridge.timeoutStartedAt, bridge.timeoutDuration > 0 {
+            TimelineView(.periodic(from: .now, by: 0.1)) { timeline in
+                let elapsed = timeline.date.timeIntervalSince(started)
+                let fraction = min(1, max(0, elapsed / bridge.timeoutDuration))
+                ProgressView(value: fraction)
+                    .tint(Theme.accent)
+                    .accessibilityLabel("Connection check progress")
+                    .accessibilityValue("\(Int(fraction * 100)) percent")
+            }
+        }
     }
 
     private var welcomeArtwork: some View {
@@ -511,14 +526,26 @@ private struct SetupView: View {
 #endif
                 case .finding:
                     if bridge.error != nil {
-                        primary("Try again") {
-                            if connected, let status {
-                                step = .checking
-                                route(for: status)
-                            } else {
-                                bridge.retry()
+                        if bridge.bluetoothReady {
+                            primary("Try again") {
+                                if connected, let status {
+                                    step = .checking
+                                    route(for: status)
+                                } else {
+                                    bridge.retry()
+                                }
                             }
                         }
+#if targetEnvironment(simulator)
+                        Button("Preview without hardware") {
+                            isPreview = true
+                            step = .found
+                        }
+#else
+                        if !bridge.bluetoothReady {
+                            primary("Try again") { bridge.retry() }
+                        }
+#endif
                     }
                 case .found:
                     primary(connected ? "Continue" : "Connect") {

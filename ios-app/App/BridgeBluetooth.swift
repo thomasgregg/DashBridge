@@ -67,6 +67,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     @Published private(set) var connectionStage = "Looking nearby"
     @Published private(set) var notificationPermission: Bool?
     @Published private(set) var commandError: String?
+    @Published private(set) var timeoutStartedAt: Date?
+    @Published private(set) var timeoutDuration: TimeInterval = 15
     @Published var error: String?
 
     private var manager: CBCentralManager?
@@ -78,6 +80,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var refreshTimer: Timer?
     private var connectionTimer: Timer?
     private var scanTimer: Timer?
+    private var availabilityTimer: Timer?
     private var timedOut = false
     private var pendingCommands: [Data] = []
     private var writing = false
@@ -86,11 +89,72 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var incompatibleIdentifiers: Set<UUID> = []
 
     func start() {
+        if AppTestMode.progressPreview {
+            error = nil
+            beginTimedCheck(seconds: 15)
+            scanTimer?.invalidate()
+            scanTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
+                self?.endTimedCheck()
+                self?.error = "The app can't find DashBridge's setup connection. Check that it's powered, then try again."
+            }
+            return
+        }
         if manager == nil {
+            waitForBluetooth()
             manager = CBCentralManager(delegate: self, queue: .main)
         } else if manager?.state == .poweredOn {
             findExistingOrScan()
+        } else if let state = manager?.state {
+            reportBluetoothState(state)
         }
+    }
+
+    private func reportBluetoothState(_ state: CBManagerState) {
+        availabilityTimer?.invalidate()
+        availabilityTimer = nil
+        switch state {
+        case .poweredOn:
+            endTimedCheck()
+            error = nil
+        case .poweredOff:
+            endTimedCheck()
+            error = "Turn on Bluetooth in iPhone Settings, then try again."
+        case .unauthorized:
+            endTimedCheck()
+            error = "Allow Bluetooth for DashBridge in iPhone Settings."
+        case .unsupported:
+            endTimedCheck()
+#if targetEnvironment(simulator)
+            error = "The simulator can't connect to Bluetooth accessories. Use Preview without hardware."
+#else
+            error = "Bluetooth accessories aren't available on this iPhone."
+#endif
+        case .unknown, .resetting:
+            waitForBluetooth()
+        @unknown default:
+            endTimedCheck()
+            error = "Bluetooth isn't available right now. Try again in a moment."
+        }
+    }
+
+    private func waitForBluetooth() {
+        availabilityTimer?.invalidate()
+        error = nil
+        beginTimedCheck(seconds: 15)
+        availabilityTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
+            guard let self, self.manager?.state != .poweredOn else { return }
+            self.endTimedCheck()
+            self.error = "Bluetooth didn't become ready. Try again in a moment."
+        }
+    }
+
+    private func beginTimedCheck(seconds: TimeInterval) {
+        timeoutDuration = seconds
+        timeoutStartedAt = Date()
+    }
+
+    private func endTimedCheck() {
+        timeoutStartedAt = nil
     }
 
     private func findExistingOrScan(clearError: Bool = true, tryRemembered: Bool = true) {
@@ -132,6 +196,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         discovered = nil
         scanning = true
         connectionStage = "Looking nearby"
+        beginTimedCheck(seconds: 15)
         // ANCS service solicitation occupies the advertising packet today.
         // We scan in the foreground, match its local name, and verify our GATT
         // service after connecting. No background scan is claimed.
@@ -140,6 +205,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             guard let self, self.scanning else { return }
             self.manager?.stopScan()
             self.scanning = false
+            self.endTimedCheck()
             self.error = "The app can't find DashBridge's setup connection. Check that it's powered, then try again."
         }
     }
@@ -150,6 +216,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         scanTimer = nil
         scanning = false
         manager.stopScan()
+        beginTimedCheck(seconds: 20)
         peripheral = discovered
         connectionStage = "Opening Bluetooth link"
         notificationPermission = nil
@@ -180,6 +247,10 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     func retry() {
         error = nil
         timedOut = false
+        if let state = manager?.state, state != .poweredOn {
+            reportBluetoothState(state)
+            return
+        }
         if let peripheral, peripheral.state != .disconnected {
             manager?.cancelPeripheralConnection(peripheral)
         }
@@ -248,6 +319,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         pendingCommands.removeAll()
         writing = false
         commandError = nil
+        endTimedCheck()
         peripheral = nil
     }
 }
@@ -256,14 +328,14 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         bluetoothReady = central.state == .poweredOn
         if bluetoothReady {
+            availabilityTimer?.invalidate()
+            availabilityTimer = nil
             findExistingOrScan()
         }
         else {
             scanning = false
             clearConnection()
-            if central.state == .unauthorized {
-                error = "Allow Bluetooth for DashBridge in iPhone Settings."
-            }
+            reportBluetoothState(central.state)
         }
     }
 
@@ -278,6 +350,7 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
         scanTimer?.invalidate()
         scanTimer = nil
         scanning = false
+        endTimedCheck()
         central.stopScan()
         if UserDefaults.standard.string(forKey: rememberedKey) == peripheral.identifier.uuidString {
             connectFound()
@@ -370,6 +443,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
                 connectionStage = "Ready"
                 connectionTimer?.invalidate()
                 connectionTimer = nil
+                endTimedCheck()
             }
             catch { self.error = error.localizedDescription }
         } else if characteristic.uuid == BridgeService.policy {

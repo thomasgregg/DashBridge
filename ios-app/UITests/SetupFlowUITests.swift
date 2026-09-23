@@ -1,6 +1,30 @@
 import XCTest
 
 final class SetupFlowUITests: XCTestCase {
+    func testDiscoveryProgressReachesItsDeadline() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-progress-preview"]
+        app.launch()
+
+        app.buttons["Get started"].tap()
+        let progress = app.progressIndicators["Connection check progress"]
+        XCTAssertTrue(progress.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Looking nearby…"].exists)
+        XCTAssertTrue(app.staticTexts["The app can't find DashBridge's setup connection. Check that it's powered, then try again."].waitForExistence(timeout: 18))
+        XCTAssertFalse(progress.exists)
+        XCTAssertFalse(app.staticTexts["Looking nearby…"].exists)
+    }
+
+    func testSimulatorDiscoveryOffersPreviewInsteadOfSpinning() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing"]
+        app.launch()
+
+        app.buttons["Get started"].tap()
+        XCTAssertTrue(app.buttons["Preview without hardware"].waitForExistence(timeout: 20))
+        XCTAssertFalse(app.staticTexts["Looking nearby…"].exists)
+    }
+
     func testBackNavigationKeepsTheExistingConnection() {
         let app = XCUIApplication()
         app.launchArguments = ["-dashbridge-ui-testing"]
