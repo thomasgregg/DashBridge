@@ -1,5 +1,6 @@
 import FamilyControls
 import ManagedSettings
+import OSLog
 import SwiftUI
 
 enum AppTestMode {
@@ -35,6 +36,7 @@ struct AppChoice: Identifiable {
 
 @MainActor
 final class AppCatalog: ObservableObject {
+    private let logger = Logger(subsystem: "dev.dashbridge.companion", category: "AppCatalog")
     enum Access { case notRequested, loading, available, unavailable }
 
     @Published private(set) var access: Access = .notRequested
@@ -111,8 +113,13 @@ final class AppCatalog: ObservableObject {
                 access = .available
                 message = nil
             } catch {
+                logger.error("Installed-app lookup failed: \(String(describing: error), privacy: .public)")
                 access = .unavailable
+#if targetEnvironment(simulator)
+                message = "This simulator build can’t read installed apps. It needs a valid App & Website Usage entitlement. Try a properly signed build, or use DashBridge on your iPhone."
+#else
                 message = "Couldn’t load apps on this iPhone. Try again in a moment."
+#endif
             }
         }
     }

@@ -4,11 +4,11 @@ This is the native companion for the simplified setup flow. It finds Board A ove
 
 ## Run the preview
 
-Open `DashBridge.xcodeproj` in Xcode and choose an iPhone simulator. The simulator cannot pair with the ESP32 boards, so tap **Preview without hardware** on the welcome screen to walk through the screens. On the app-choice page, iOS may ask once for App & Website Usage permission to show the installed-app list. Granting it in the simulator affects the simulator only. For command-line simulator builds, keep ad-hoc signing enabled so the test entitlements are included; an unsigned build cannot read the app list.
+Open `DashBridge.xcodeproj` in Xcode and choose an iPhone simulator. The simulator cannot pair with the ESP32 boards, so tap **Preview without hardware** on the welcome screen to walk through the screens. On the app-choice page, iOS may ask once for App & Website Usage permission to show the installed-app list. Granting it in the simulator affects the simulator only. Before relying on that list, inspect the installed app's signed entitlements: an unsigned or ad-hoc command-line build may not contain the Family Controls entitlements, even if `App.entitlements` lists them. Such a build can preview other screens but cannot load installed apps.
 
 The Xcode project is generated from `project.yml` with `xcodegen generate`. After changing the project spec, regenerate it before building.
 
-Run the simulator navigation checks with `xcodebuild -project DashBridge.xcodeproj -scheme DashBridge -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test`. The UI tests use a debug-only preview and sample app list, so they do not ask for App & Website Usage permission or touch real hardware.
+Run simulator navigation checks on a dedicated test simulator, not the one used for manual preview: `xcodebuild -project DashBridge.xcodeproj -scheme DashBridge -destination 'platform=iOS Simulator,id=TEST_SIMULATOR_ID' test`. Xcode installs the test build over the app on its destination simulator, and an unsigned test build will break the real installed-app lookup there. The UI tests themselves use a debug-only preview and sample app list; they do not ask for App & Website Usage permission or touch real hardware.
 
 ## Test with a physical iPhone
 
