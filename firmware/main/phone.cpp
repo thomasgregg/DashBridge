@@ -607,8 +607,8 @@ void phone_setup_apps() {
 bool phone_setup_allow(const std::string &id, Preview preview) {
     auto prior = policy;
     auto *entry = seen(id);
-    if (!entry && !policy.find(id)) return false;
-    std::string name = entry ? entry->name : policy.find(id)->name;
+    // The companion app can select an installed app before ANCS has seen it.
+    std::string name = entry ? entry->name : policy.find(id) ? policy.find(id)->name : app_name_fallback(id);
     if (!policy.allow(id, name, preview) || !save_policy()) { policy = prior; return false; }
     return true;
 }
@@ -622,8 +622,17 @@ bool phone_setup_discover() {
     discover_until = now() + 60000;
     return true;
 }
+std::string phone_setup_policy_ids() {
+    std::string ids;
+    for (const auto &rule : policy.rules()) {
+        ids += rule.id;
+        ids += '\n';
+    }
+    return ids;
+}
 void phone_start() {
     load_policy();
+    setup_ble_start();
     ESP_LOGI(tag, "BLE notification diagnostics enabled; configuration status -1=pending, 0=success");
     ESP_LOGI(tag, "BLE discovery compatibility test: ANCS + generic HID advertisement; no input reports");
     advertising.adv_int_min = 0x100;

@@ -6,8 +6,28 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from build_scope import current
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def require_current_source(board):
+    try:
+        remote = subprocess.check_output(
+            ["git", "ls-remote", "origin", "refs/heads/main"],
+            cwd=ROOT, text=True, stderr=subprocess.PIPE).split()[0]
+        tracking = subprocess.check_output(
+            ["git", "rev-parse", "refs/remotes/origin/main"],
+            cwd=ROOT, text=True, stderr=subprocess.PIPE).strip()
+    except (subprocess.CalledProcessError, IndexError):
+        raise SystemExit("Could not confirm GitHub main. Check your connection; nothing was flashed.")
+    if remote != tracking:
+        raise SystemExit("GitHub main has changed. Fetch the latest code before flashing.")
+    if subprocess.run(["git", "merge-base", "--is-ancestor", remote, "HEAD"],
+                      cwd=ROOT, check=False).returncode != 0:
+        raise SystemExit("This checkout is behind GitHub main. Update it before flashing.")
+    if not current(ROOT, board):
+        raise SystemExit("The packaged image does not match this source. Rebuild it before flashing.")
 
 
 def main():
@@ -29,6 +49,7 @@ def main():
         return
     if not args.board or not args.port:
         parser.error("Specify both --board and --port, or use --list.")
+    require_current_source(args.board)
     manifest = json.loads((ROOT / "dist" / "manifest.json").read_text())
     entry = manifest["images"][args.board]
     image = ROOT / "dist" / entry["file"]

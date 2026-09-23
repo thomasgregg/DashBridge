@@ -71,6 +71,7 @@ static void open_pairing(Peer peer) {
     pairing.open(peer, now());
     ESP_LOGI("setup", "%s pairing open for 120 seconds", peer == Peer::phone ? "iPhone" : "Tesla");
 }
+void setup_open_pairing(Peer peer) { open_pairing(peer); }
 static void open_pairing() {
 #if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
     open_pairing(Peer::phone);
