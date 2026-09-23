@@ -80,6 +80,9 @@ private struct SetupView: View {
     @State private var reviewingCarStep = false
     @State private var helpReturnStep: Step = .car
     @State private var copiedConnectionDetails = false
+    @State private var checkingStartedAt: Date?
+
+    private var checkingDuration: TimeInterval { AppTestMode.checkingPreview ? 3 : 25 }
 
     private var status: BridgeStatus? { isPreview ? previewStatus : bridge.status }
     private var selected: Set<String> { isPreview ? previewAllowed : bridge.allowedIDs }
@@ -155,6 +158,26 @@ private struct SetupView: View {
         .onChange(of: step) { _, value in
             if value == .apps || value == .ready { catalog.loadIfNeeded() }
         }
+        .task(id: step) {
+            guard step == .checking else {
+                checkingStartedAt = nil
+                return
+            }
+            checkingStartedAt = Date()
+            // A status can arrive while the found screen is still visible.
+            // Equatable onChange won't fire again if the next read is identical.
+            if let status { route(for: status) }
+            guard step == .checking else { return }
+            do {
+                try await Task.sleep(for: .seconds(checkingDuration))
+            } catch { return }
+            guard step == .checking else { return }
+            bridge.error = connected
+                ? "Your iPhone connected to DashBridge, but the app couldn't check its setup yet."
+                : "The app couldn't reach DashBridge's setup connection yet."
+            helpReturnStep = .checking
+            step = .help
+        }
     }
 
     @ViewBuilder
@@ -202,7 +225,7 @@ private struct SetupView: View {
         case .checking:
             VStack(spacing: 16) {
                 Text("Checking your connection…").foregroundStyle(Theme.muted)
-                timeoutBar
+                checkingTimeoutBar
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 32)
@@ -339,6 +362,19 @@ private struct SetupView: View {
             TimelineView(.periodic(from: .now, by: 0.1)) { timeline in
                 let elapsed = timeline.date.timeIntervalSince(started)
                 let fraction = min(1, max(0, elapsed / bridge.timeoutDuration))
+                ProgressView(value: fraction)
+                    .tint(Theme.accent)
+                    .accessibilityLabel("Connection check progress")
+                    .accessibilityValue("\(Int(fraction * 100)) percent")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var checkingTimeoutBar: some View {
+        if let started = checkingStartedAt {
+            TimelineView(.periodic(from: .now, by: 0.1)) { timeline in
+                let fraction = min(1, max(0, timeline.date.timeIntervalSince(started) / checkingDuration))
                 ProgressView(value: fraction)
                     .tint(Theme.accent)
                     .accessibilityLabel("Connection check progress")
@@ -586,12 +622,17 @@ private struct SetupView: View {
                     }
                 case .found:
                     primary(connected ? "Continue" : "Connect") {
-                        if isPreview {
+                        if isPreview && AppTestMode.checkingPreview {
+                            step = .checking
+                        } else if isPreview && AppTestMode.cachedStatusPreview {
+                            previewStatus = BridgeStatus(bits: 0b0000_0101)
+                            step = .checking
+                        } else if isPreview {
                             previewStatus = BridgeStatus(bits: 0b0000_1111)
                             step = .apps
                         } else if connected {
-                            step = status?.phoneCalls == true && status?.notifications == true
-                                ? .apps : .checking
+                            step = .checking
+                            if let status { route(for: status) }
                         } else {
                             step = .checking
                             bridge.connectFound()

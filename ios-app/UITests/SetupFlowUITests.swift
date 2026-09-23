@@ -1,6 +1,31 @@
 import XCTest
 
 final class SetupFlowUITests: XCTestCase {
+    func testCheckingKeepsProgressUntilItOffersRetry() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-checking-preview"]
+        app.launch()
+
+        app.buttons["Preview without hardware"].tap()
+        app.buttons["Continue"].tap()
+        XCTAssertTrue(app.staticTexts["Checking your connection…"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.progressIndicators["Connection check progress"].exists)
+        XCTAssertTrue(app.staticTexts["Couldn't check DashBridge yet."].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Check again"].exists)
+        XCTAssertFalse(app.staticTexts["Checking your connection…"].exists)
+    }
+
+    func testCheckingUsesStatusAlreadyReceived() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-cached-status-preview"]
+        app.launch()
+
+        app.buttons["Preview without hardware"].tap()
+        app.buttons["Continue"].tap()
+        XCTAssertTrue(app.staticTexts["Dash Messages is connected."].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Checking your connection…"].exists)
+    }
+
     func testDiscoveryProgressReachesItsDeadline() {
         let app = XCUIApplication()
         app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-progress-preview"]

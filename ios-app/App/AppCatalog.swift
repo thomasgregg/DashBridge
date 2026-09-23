@@ -13,6 +13,10 @@ enum AppTestMode {
 
     static let progressPreview = enabled && ProcessInfo.processInfo.arguments.contains(
         "-dashbridge-ui-progress-preview")
+    static let checkingPreview = enabled && ProcessInfo.processInfo.arguments.contains(
+        "-dashbridge-ui-checking-preview")
+    static let cachedStatusPreview = enabled && ProcessInfo.processInfo.arguments.contains(
+        "-dashbridge-ui-cached-status-preview")
 }
 
 struct AppChoice: Identifiable {
