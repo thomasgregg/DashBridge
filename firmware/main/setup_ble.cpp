@@ -107,6 +107,7 @@ void callback(esp_gatts_cb_event_t event, esp_gatt_if_t id, esp_ble_gatts_cb_par
     Guard guard;
     switch (event) {
     case ESP_GATTS_REG_EVT:
+        ESP_LOGI("setup_ble", "GATT server registration: status=0x%02x", unsigned(p->reg.status));
         if (p->reg.status == ESP_GATT_OK)
             esp_ble_gatts_create_attr_tab(attributes, id, count, 0);
         break;
@@ -114,12 +115,21 @@ void callback(esp_gatts_cb_event_t event, esp_gatt_if_t id, esp_ble_gatts_cb_par
         if (p->add_attr_tab.status == ESP_GATT_OK && p->add_attr_tab.num_handle == count) {
             std::memcpy(handles, p->add_attr_tab.handles, sizeof handles);
             esp_ble_gatts_start_service(handles[service]);
+            ESP_LOGI("setup_ble", "Setup service created");
         } else ESP_LOGE("setup_ble", "Could not create setup service");
+        break;
+    case ESP_GATTS_START_EVT:
+        ESP_LOGI("setup_ble", "Setup service started: status=0x%02x", unsigned(p->start.status));
+        break;
+    case ESP_GATTS_CONNECT_EVT:
+        ESP_LOGI("setup_ble", "Setup link connected: id=%u role=%u",
+                 unsigned(p->connect.conn_id), unsigned(p->connect.link_role));
         break;
     case ESP_GATTS_MTU_EVT:
         mtu = p->mtu.mtu;
         break;
     case ESP_GATTS_READ_EVT:
+        ESP_LOGI("setup_ble", "Setup value read: handle=0x%04x", unsigned(p->read.handle));
         if (p->read.need_rsp) respond_read(id, p);
         break;
     case ESP_GATTS_WRITE_EVT:

@@ -73,6 +73,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var policyCharacteristic: CBCharacteristic?
     private var commandCharacteristic: CBCharacteristic?
     private var refreshTimer: Timer?
+    private var connectionTimer: Timer?
+    private var timedOut = false
     private var pendingCommands: [Data] = []
     private var writing = false
     private var lastPolicyRead = Date.distantPast
@@ -106,6 +108,16 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         peripheral = discovered
         discovered.delegate = self
         manager.connect(discovered)
+        connectionTimer?.invalidate()
+        connectionTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: false) { [weak self] _ in
+            guard let self, self.status == nil else { return }
+            self.timedOut = true
+            self.error = "DashBridge didn't finish connecting. Check that it is powered, then try again."
+            if let peripheral = self.peripheral {
+                self.manager?.cancelPeripheralConnection(peripheral)
+            }
+            self.clearConnection()
+        }
     }
 
     func send(_ operation: UInt8, appID: String? = nil) {
@@ -143,13 +155,19 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private func refresh() {
         guard let peripheral, let statusCharacteristic else { return }
         peripheral.readValue(for: statusCharacteristic)
-        if let policyCharacteristic, Date().timeIntervalSince(lastPolicyRead) > 15 {
+        // Do not ask for an encrypted app-policy read during initial setup.
+        // The user must first pair Dash Messages for notification sharing;
+        // otherwise this read can start a competing security exchange.
+        if let policyCharacteristic, status?.notifications == true,
+           Date().timeIntervalSince(lastPolicyRead) > 15 {
             lastPolicyRead = Date()
             peripheral.readValue(for: policyCharacteristic)
         }
     }
 
     private func clearConnection() {
+        connectionTimer?.invalidate()
+        connectionTimer = nil
         refreshTimer?.invalidate()
         refreshTimer = nil
         connected = false
@@ -208,16 +226,17 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
-        clearConnection()
         self.error = error?.localizedDescription ?? "Could not connect to DashBridge."
-        scan()
+        clearConnection()
+        scan(clearError: false)
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral,
                         error: Error?) {
-        clearConnection()
         if let error { self.error = error.localizedDescription }
-        scan(clearError: error == nil && !incompatibleIdentifiers.contains(peripheral.identifier))
+        clearConnection()
+        scan(clearError: error == nil && !timedOut && !incompatibleIdentifiers.contains(peripheral.identifier))
+        timedOut = false
     }
 }
 
@@ -266,7 +285,11 @@ extension BridgeBluetooth: CBPeripheralDelegate {
         }
         guard let data = characteristic.value else { return }
         if characteristic.uuid == BridgeService.status {
-            do { status = try BridgeStatus(data) }
+            do {
+                status = try BridgeStatus(data)
+                connectionTimer?.invalidate()
+                connectionTimer = nil
+            }
             catch { self.error = error.localizedDescription }
         } else if characteristic.uuid == BridgeService.policy {
             let text = String(decoding: data, as: UTF8.self)

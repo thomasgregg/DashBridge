@@ -35,6 +35,7 @@ static_assert(sizeof(advertisement) <= 31, "Legacy BLE advertisement exceeds 31 
 static esp_ble_adv_params_t advertising = {};
 static esp_gatt_if_t interface_id = ESP_GATT_IF_NONE;
 static uint16_t connection = 0, start_handle = 0, end_handle = 0;
+static uint16_t setup_connection = UINT16_MAX;
 static uint16_t source_handle = 0, data_handle = 0, control_handle = 0, subscribing = 0;
 static esp_bd_addr_t peer = {};
 static bool linked = false, secured = false, mtu_ready = false, searching = false, ready = false;
@@ -349,6 +350,21 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         ESP_LOGI(tag, "BLE connection event: id=%u role=%u address_type=%u already_linked=%d",
                  unsigned(p->connect.conn_id), unsigned(p->connect.link_role),
                  unsigned(p->connect.ble_addr_type), linked);
+        // The companion app connects *to* Board A (slave/peripheral role).
+        // Only a Board-A-initiated master link may be used to query iPhone ANCS.
+        // Trying to start ANCS encryption on the setup link fails authentication
+        // and can discard a previously saved Bluetooth bond.
+        if (p->connect.link_role != 0) {
+            setup_connection = p->connect.conn_id;
+            esp_ble_gatt_creat_conn_params_t setup_params = {};
+            memcpy(setup_params.remote_bda, p->connect.remote_bda, 6);
+            setup_params.remote_addr_type = p->connect.ble_addr_type;
+            setup_params.own_addr_type = BLE_ADDR_TYPE_RPA_PUBLIC;
+            setup_params.is_direct = true;
+            log_request("setup GATT open", esp_ble_gattc_enh_open(interface_id, &setup_params));
+            ESP_LOGI(tag, "BLE setup link connected; ANCS discovery not started");
+            break;
+        }
         if (linked)
             break;
         adv_state = "connected";
@@ -370,6 +386,10 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
     case ESP_GATTC_OPEN_EVT: {
         ESP_LOGI(tag, "BLE GATT open complete: status=0x%02x id=%u mtu=%u",
                  unsigned(p->open.status), unsigned(p->open.conn_id), unsigned(p->open.mtu));
+        if (p->open.conn_id == setup_connection) {
+            ESP_LOGI(tag, "BLE setup GATT opened; ANCS encryption not requested");
+            break;
+        }
         if (p->open.status != ESP_GATT_OK) {
             disconnect("GATT open failed");
             break;
@@ -526,6 +546,13 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
     case ESP_GATTC_DISCONNECT_EVT:
         ESP_LOGI(tag, "BLE disconnected: id=%u reason=0x%02x",
                  unsigned(p->disconnect.conn_id), unsigned(p->disconnect.reason));
+        if (p->disconnect.conn_id == setup_connection)
+            setup_connection = UINT16_MAX;
+        if (!linked || p->disconnect.conn_id != connection) {
+            ESP_LOGI(tag, "BLE setup link disconnected; ANCS state unchanged");
+            if (!linked) start_advertising();
+            break;
+        }
         phone_status();
         linked = secured = mtu_ready = searching = ready = active = false;
         start_handle = end_handle = source_handle = data_handle = control_handle = subscribing = 0;

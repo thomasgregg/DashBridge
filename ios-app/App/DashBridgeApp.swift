@@ -122,7 +122,7 @@ private struct SetupView: View {
         }
         .onChange(of: bridge.connected) { _, value in
             if value && (step == .found || step == .finding) { step = .checking }
-            if !value && !isPreview && step == .checking { step = .finding }
+            if !value && !isPreview && step == .checking && bridge.error == nil { step = .finding }
         }
         .onChange(of: bridge.deviceID) { _, value in
             guard let id = value?.uuidString else { return }
@@ -513,7 +513,7 @@ private struct SetupView: View {
                         bridge.error = nil
                         if testConfirmed { step = .ready }
                         else if status?.teslaMessages == true { step = .test }
-                        else if connected { step = .car }
+                        else if status != nil { step = .car }
                         else { step = .finding; bridge.start() }
                     }
                 default:

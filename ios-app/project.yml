@@ -12,6 +12,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: DashBridge
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "2"
         NSBluetoothAlwaysUsageDescription: DashBridge uses Bluetooth to find and set up your bridge.
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
