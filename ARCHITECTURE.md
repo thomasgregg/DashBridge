@@ -103,10 +103,11 @@ sequenceDiagram
     A->>A: Close pairing when both sides are ready
 ```
 
-The app does not silently bypass Apple approval. It initiates and explains the
-Dash Messages step; iOS still displays the security and notification-sharing
-prompts. Without the app, `pair phone` opens the same firmware window and the
-user pairs Dash Messages first, then Dash Calls. Unknown Classic devices are
+The app starts the Dash Messages connection and guides the user through setup.
+iOS still asks the user to confirm Bluetooth pairing and allow notification
+sharing. The user then pairs Dash Calls in iPhone Settings → Bluetooth. Without
+the app, `pair phone` opens the same firmware window and the user pairs Dash
+Messages first, then Dash Calls. Unknown Classic devices are
 accepted only while that window is open and ANCS is already ready. Previously
 bonded devices may reconnect without reopening pairing.
 
