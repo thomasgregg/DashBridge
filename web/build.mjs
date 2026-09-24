@@ -14,8 +14,8 @@ export async function prepareFirmware(repository, output) {
     throw new Error('Installer only supports original ESP32 with 4 MB flash');
   }
   await mkdir(path.join(output, 'firmware'), { recursive: true });
-  const release = (await readFile(path.join(repository, 'firmware/version.txt'), 'utf8')).trim();
-  if (manifest.version !== release) throw new Error('Manifest release differs from firmware/version.txt');
+  const release = (await readFile(path.join(repository, 'version.txt'), 'utf8')).trim();
+  if (manifest.version !== release) throw new Error('Manifest release differs from version.txt');
   const result = {
     version: release,
     releaseNotes: `https://github.com/thomasgregg/DashBridge/blob/main/docs/releases/${release}.md`,

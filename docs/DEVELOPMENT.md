@@ -28,21 +28,32 @@ There is **no PBAP contacts service, audio routing, A2DP or HFP call passthrough
 
 This is not a claim of complete MAP conformance. Unsupported listing filters and parameter masks are not fully implemented; some clients may require them. The message body's group subtitle is preserved. Sender numbers are not available from ANCS. A fake dialable number is not invented.
 
-## Local wire format
+## Board-to-board links
 
-UART2, 115200 baud, 8N1, GPIO17 transmit/GPIO16 receive. Frame:
+UART2, 115200 baud, 8N1, GPIO17 transmit/GPIO16 receive is the reliable
+control link. It carries DashLink v2 frames:
 
 ```text
-54 57 | version=01 | operation | payload-length BE16 | payload | CRC32 LE32
+44 4c | version=02 | typed-domain tag | payload-length BE16 | payload | CRC32 LE32
 ```
 
-CRC32/IEEE covers version through the end of payload. Payload is session LE32, notification UID LE32, followed by five fields: application, title, subtitle, body, date. Each field has a BE16 byte length and UTF-8 bytes. Sender limits are respectively 128, 128, 128, 768 and 32 bytes. Maximum payload is 1,302 bytes. Operations: reset=1, add=2, update=3, remove=4, heartbeat=5.
+CRC32/IEEE covers version through the end of payload. The domain tag selects a
+strict payload type: heartbeat, notification change, call control, music state,
+music command, contact reset, contact entry, contact completion, or contact
+acknowledgement. Strings and total frames are bounded, malformed domain states
+are rejected, and the streaming decoder resynchronizes after corrupt bytes.
+
+UART1 on GPIO25/GPIO26 is a separate low-latency media link. It carries only
+the dedicated call-audio and music-audio codecs. Music metadata and media-button
+commands remain on DashLink; actual SBC audio remains on UART1. Keeping bulk
+real-time media out of the reliable control queue prevents audio timing from
+blocking setup, calls, notifications, contacts, or heartbeats.
 
 Both boards send a heartbeat each second. Board B's heartbeat UID is 1 only when its MAP session, notification registration and MNS connection are ready. A discards offline events and starts a new random session when readiness changes. B clears entries on reset, Tesla disconnect or five seconds without an A frame. A considers B lost after three seconds. There is no offline replay, persistent outbox or delivery guarantee. UART CRC detects corruption but does not acknowledge or retry packets.
 
 The inbox holds at most 32 notifications, identified within a phone session by iOS UID. Repeated adds and edits of retained UIDs do not generate repeated NewMessage events. Handles increase for the lifetime of B. Eviction, iOS grouping and reconnects mean this is not a general exactly-once messaging system. B sends an event once and logs rejection; it does not blindly retry an event that might already have alerted the driver.
 
-Bluetooth callbacks and the main UART loop share a recursive mutex. UART writes are queued outside the lock. SPP writes retain data until their completion callback and honor congestion. Queue bounds intentionally drop excess work rather than grow RAM without limit.
+Bluetooth callbacks and the main UART loop share a recursive mutex. UART writes are queued outside the lock, with call control prioritized over other control packets. SPP writes retain data until their completion callback and honor congestion. Queue bounds intentionally drop excess work rather than grow RAM without limit.
 
 ## Build
 
@@ -63,7 +74,7 @@ the SDK environment; only the pinned SDK is supported.
 
 ### Firmware versions
 
-`firmware/version.txt` is the single release-version source. Each board appends
+`version.txt` at the repository root is the single release-version source. Each board appends
 a deterministic 12-character build ID derived from its relevant source and
 build-tool checksums, for example `0.3.1-alpha+0123456789ab`. A B-only source edit
 changes B's ID without rebuilding or relabelling A. Documentation and web-only

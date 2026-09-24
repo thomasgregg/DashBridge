@@ -13,8 +13,10 @@ class BuildScopeTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.write("firmware/version.txt", "0.3.1-alpha")
-        for name in ("main/phone.cpp", "main/car.cpp", "main/main.cpp",
+        self.write("version.txt", "0.3.1-alpha")
+        for name in ("adapters/phone/esp_ancs_adapter/esp_ancs_adapter.cpp",
+                     "adapters/car/esp_tesla_adapter/esp_tesla_adapter.cpp",
+                     "apps/dashbridge_app/app_main.cpp",
                      "sdkconfig.phone", "sdkconfig.car", "sdkconfig.single", "sdkconfig.defaults",
                      "sdp_diagnostics/patch.py", "audio_codec/patch.py"):
             self.write("firmware/" + name, "original")
@@ -43,12 +45,12 @@ class BuildScopeTest(unittest.TestCase):
 
     def test_role_changes(self):
         for path, expected in (
-            ("main/phone.cpp", ["phone", "single"]), ("sdkconfig.phone", ["phone"]),
+            ("adapters/phone/esp_ancs_adapter/esp_ancs_adapter.cpp", ["phone", "single"]), ("sdkconfig.phone", ["phone"]),
             ("sdkconfig.single", ["single"]),
-            ("main/car.cpp", ["car", "single"]), ("sdkconfig.car", ["car"]),
+            ("adapters/car/esp_tesla_adapter/esp_tesla_adapter.cpp", ["car", "single"]), ("sdkconfig.car", ["car"]),
             ("sdp_diagnostics/patch.py", ["car", "single"]),
             ("audio_codec/patch.py", ["phone", "car", "single"]),
-            ("main/main.cpp", ["phone", "car", "single"]),
+            ("apps/dashbridge_app/app_main.cpp", ["phone", "car", "single"]),
             ("sdkconfig.defaults", ["phone", "car", "single"]),
         ):
             with self.subTest(path=path):
@@ -58,10 +60,10 @@ class BuildScopeTest(unittest.TestCase):
                 self.write("firmware/" + path, "original")
 
     def test_new_and_deleted_sources(self):
-        self.write("firmware/main/new.hpp", "new dependency")
+        self.write("firmware/core/new.hpp", "new dependency")
         self.assertEqual(select(self.root), ["single"])
-        (self.root / "firmware/main/new.hpp").unlink()
-        (self.root / "firmware/main/car.cpp").unlink()
+        (self.root / "firmware/core/new.hpp").unlink()
+        (self.root / "firmware/adapters/car/esp_tesla_adapter/esp_tesla_adapter.cpp").unlink()
         self.assertEqual(select(self.root), ["single"])
 
     def test_corrupt_and_missing_artifacts(self):
@@ -75,7 +77,7 @@ class BuildScopeTest(unittest.TestCase):
     def test_relay_selects_only_stale_two_board_images(self):
         self.write("firmware/sdkconfig.phone", "CONFIG_BRIDGE_CALL_RELAY=y")
         self.assertEqual(select(self.root), ["phone"])
-        self.write("firmware/main/car.cpp", "changed")
+        self.write("firmware/adapters/car/esp_tesla_adapter/esp_tesla_adapter.cpp", "changed")
         self.assertEqual(select(self.root), ["phone", "car"])
 
     def test_manual_selection_forces_only_requested_roles(self):
@@ -89,12 +91,12 @@ class BuildScopeTest(unittest.TestCase):
         self.write("README.md", "docs only")
         self.write("web/app.js", "web only")
         self.assertEqual(before, {r: firmware_version(self.root, r) for r in ROLES})
-        self.write("firmware/main/car.cpp", "new B code")
+        self.write("firmware/adapters/car/esp_tesla_adapter/esp_tesla_adapter.cpp", "new B code")
         self.assertEqual(before['phone'], firmware_version(self.root, 'phone'))
         self.assertNotEqual(before['car'], firmware_version(self.root, 'car'))
-        self.write("firmware/main/car.cpp", "original")
+        self.write("firmware/adapters/car/esp_tesla_adapter/esp_tesla_adapter.cpp", "original")
         self.assertEqual(before['car'], firmware_version(self.root, 'car'))
-        self.write("firmware/version.txt", "0.3.2-alpha")
+        self.write("version.txt", "0.3.2-alpha")
         for role in ROLES:
             self.assertTrue(firmware_version(self.root, role).startswith('0.3.2-alpha+'))
             self.assertLessEqual(len(firmware_version(self.root, role)), 31)

@@ -14,7 +14,7 @@ def sources(root, role):
     excluded = {f"firmware/sdkconfig.{other}" for other in ROLES if other != role}
     if role != "single":
         other = "car" if role == "phone" else "phone"
-        excluded.add(f"firmware/main/{other}.cpp")
+        excluded.add(f"firmware/adapters/{'car/esp_tesla_adapter/esp_tesla_adapter' if other == 'car' else 'phone/esp_ancs_adapter/esp_ancs_adapter'}.cpp")
     result = {}
     for p in sorted((root / "firmware").rglob("*")):
         name = p.relative_to(root).as_posix()
@@ -30,7 +30,7 @@ def sources(root, role):
 
 
 def release_version(root):
-    value = (root / "firmware/version.txt").read_text().strip()
+    value = (root / "version.txt").read_text().strip()
     if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?", value):
         raise ValueError("Invalid firmware release version")
     return value

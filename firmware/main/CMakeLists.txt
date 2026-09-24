@@ -1,6 +1,0 @@
-if(CONFIG_BT_HFP_USE_EXTERNAL_CODEC)
-    set(call_audio_source "call_audio_external.cpp")
-else()
-    set(call_audio_source "call_audio.cpp")
-endif()
-idf_component_register(SRCS "main.cpp" "phone.cpp" "setup_ble.cpp" "car.cpp" "call_relay.cpp" "music_relay.cpp" "contacts_relay.cpp" "${call_audio_source}" INCLUDE_DIRS "." REQUIRES bridge_core bt nvs_flash esp_driver_uart esp_driver_gpio esp_timer esp_app_format)

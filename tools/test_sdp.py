@@ -24,7 +24,7 @@ validator = section(
     "static bool esp_sdp_record_integrity_check(",
     "\nesp_err_t esp_sdp_register_callback(",
 )
-record = section(ROOT / "firmware/main/car.cpp",
+record = section(ROOT / "firmware/adapters/car/esp_tesla_adapter/esp_tesla_adapter.cpp",
                  "static void record() {", "\nstatic void drop_mns()")
 harness = r'''
 #include <cstring>

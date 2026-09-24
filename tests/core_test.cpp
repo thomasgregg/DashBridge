@@ -1,10 +1,49 @@
-#include "bridge_core.hpp"
-#include "../firmware/main/console_commands.hpp"
-#include "../firmware/main/local_bridge.hpp"
+#include "dashbridge/adapters/ancs_codec.hpp"
+#include "dashbridge/adapters/map_adapter.hpp"
+#include "dashbridge/adapters/pbap_adapter.hpp"
+#include "dashbridge/core/contacts.hpp"
+#include "dashbridge/core/setup.hpp"
+#include "dashbridge/protocols/dashlink_v2.hpp"
+#include "dashbridge/protocols/obex.hpp"
+#include "dashbridge/platform/console_commands.hpp"
+#include "dashbridge/transport/dashlink_transport.hpp"
 #include <cassert>
 #include <iostream>
 #include <random>
-using namespace bridge;
+namespace ancs = dashbridge::adapters::ancs;
+namespace messages = dashbridge::core::messages;
+namespace setup = dashbridge::core::setup;
+namespace map_adapter = dashbridge::adapters::car::map;
+namespace pbap_adapter = dashbridge::adapters::car::pbap;
+namespace contacts_core = dashbridge::core::contacts;
+namespace dashlink = dashbridge::protocols::dashlink_v2;
+namespace obex = dashbridge::protocols::obex;
+using MasServer = map_adapter::Server;
+using PbapServer = pbap_adapter::Server;
+using Phonebook = contacts_core::Store;
+using PhonebookRepository = contacts_core::Repository;
+using ObexFramer = obex::Framer;
+using map_adapter::handle_text;
+using obex::byte_header;
+using Bytes = obex::Bytes;
+using Notice = messages::Message;
+using AppPolicy = setup::ApplicationPolicy;
+using Preview = setup::Preview;
+
+static Bytes obex_packet(uint8_t code, const Bytes &headers = {}) {
+    return obex::packet(code, headers);
+}
+static Bytes mns_event(uint32_t connection_id, uint64_t handle) {
+    return map_adapter::notification_event(connection_id, handle);
+}
+static bool obex_connection_id(const Bytes &packet, uint32_t &connection_id) {
+    return map_adapter::notification_connection_id(packet, connection_id);
+}
+
+static uint64_t apply(messages::Store &store, messages::ChangeKind kind, uint32_t session,
+                      const Notice &notice = {}) {
+    return store.apply({kind, session, notice});
+}
 
 static Notice example(uint32_t id = 42) {
     return {id,
@@ -74,24 +113,25 @@ template<class Server> static std::string get_body(Server &s, Bytes r, size_t mt
         r = s.request(obex_packet(0x83));
     }
 }
-static void wire_test() {
-    WireMessage input{Op::add, 1234, example()};
-    auto packet = encode(input);
+static void dashlink_test() {
+    dashlink::Notification input{messages::ChangeKind::add, 1234, example()};
+    auto packet = dashlink::encode(input);
     for (size_t cut = 0; cut <= packet.size(); ++cut) {
-        WireDecoder decoder;
+        dashlink::Decoder decoder;
         int received = 0;
-        auto check = [&](const WireMessage &m) {
+        auto check = [&](dashlink::Packet packet) {
             ++received;
-            assert(m.session == 1234 && m.op == Op::add);
-            assert(m.notice.id == 42 && m.notice.body == input.notice.body);
+            const auto *message = std::get_if<dashlink::Notification>(&packet);
+            assert(message && message->session == 1234 && message->kind == messages::ChangeKind::add);
+            assert(message->message.id == 42 && message->message.body == input.message.body);
         };
         decoder.feed(packet.data(), cut, check);
         decoder.feed(packet.data() + cut, packet.size() - cut, check);
         assert(received == 1);
     }
-    WireDecoder decoder;
+    dashlink::Decoder decoder;
     int received = 0;
-    auto count = [&](const WireMessage &) { ++received; };
+    auto count = [&](dashlink::Packet) { ++received; };
     auto corrupt = packet;
     corrupt[15] ^= 1;
     decoder.feed(corrupt.data(), corrupt.size(), count);
@@ -100,10 +140,83 @@ static void wire_test() {
     assert(received == 1);
     Notice long_text = example();
     long_text.body = std::string(767, 'a') + "👋";
-    auto clipped = encode({Op::add, 1, long_text});
+    auto clipped = dashlink::encode(dashlink::Notification{messages::ChangeKind::add, 1, long_text});
     decoder.feed(clipped.data(), clipped.size(),
-                 [&](const WireMessage &m) { assert(m.notice.body == std::string(767, 'a')); });
-    std::cout << "PASS UART fragmentation, checksum recovery, UTF-8 boundary\n";
+                 [&](dashlink::Packet packet) {
+                     assert(std::get<dashlink::Notification>(packet).message.body == std::string(767, 'a'));
+                 });
+    assert(decoder.crc_failures() == 1);
+    std::cout << "PASS typed DashLink fragmentation, checksum recovery, UTF-8 boundary\n";
+}
+static dashlink::Packet dashlink_roundtrip(const dashlink::Packet &input) {
+    const auto frame = dashlink::encode(input);
+    assert(!frame.empty() && frame.size() <= dashlink::maximum_frame_size);
+    dashlink::Decoder decoder;
+    dashlink::Packet output;
+    unsigned received = 0;
+    for (uint8_t byte : frame)
+        decoder.feed(&byte, 1, [&](dashlink::Packet packet) {
+            output = std::move(packet);
+            ++received;
+        });
+    assert(received == 1 && decoder.crc_failures() == 0 && decoder.malformed() == 0);
+    return output;
+}
+static void dashlink_types_test() {
+    auto heartbeat = std::get<dashlink::Heartbeat>(dashlink_roundtrip(
+        dashlink::Heartbeat{dashlink::Board::phone, 77, 0x1234}));
+    assert(heartbeat.source == dashlink::Board::phone && heartbeat.session == 77 && heartbeat.flags == 0x1234);
+
+    dashlink::Call call{77, 9, "dial", "+491234", "3", "88"};
+    auto decoded_call = std::get<dashlink::Call>(dashlink_roundtrip(call));
+    assert(decoded_call.kind == call.kind && decoded_call.payload == call.payload &&
+           decoded_call.auxiliary == call.auxiliary && decoded_call.destination == call.destination);
+
+    dashbridge::core::music::State state;
+    state.session = 77; state.revision = 4; state.playback = 1;
+    state.length_ms = 10000; state.position_ms = 2500;
+    state.title = "Song"; state.artist = "Artist"; state.album = "Album";
+    state.track = "2"; state.track_count = "9"; state.genre = "Jazz";
+    auto decoded_music = std::get<dashlink::MusicState>(dashlink_roundtrip(dashlink::MusicState{state}));
+    assert(decoded_music.state.session == 77 && decoded_music.state.title == "Song" &&
+           decoded_music.state.position_ms == 2500);
+    auto command = std::get<dashlink::MusicCommand>(dashlink_roundtrip(
+        dashlink::MusicCommand{77, 5, 0x44, 1}));
+    assert(command.session == 77 && command.sequence == 5 && command.key == 0x44 && command.state == 1);
+
+    assert(std::get<dashlink::ContactReset>(dashlink_roundtrip(dashlink::ContactReset{77})).session == 77);
+    contacts_core::Entry entry{contacts_core::Repository::favorites, "Alice", "CELL\t+49123",
+                               "Street 1, Berlin", "20260924T120000"};
+    auto decoded_entry = std::get<dashlink::ContactEntry>(dashlink_roundtrip(
+        dashlink::ContactEntry{77, 1, entry}));
+    assert(decoded_entry.sequence == 1 && decoded_entry.entry.repository == entry.repository &&
+           decoded_entry.entry.name == entry.name && decoded_entry.entry.phones == entry.phones &&
+           decoded_entry.entry.addresses == entry.addresses);
+    assert(std::get<dashlink::ContactDone>(dashlink_roundtrip(dashlink::ContactDone{77, 1})).count == 1);
+    auto ack = std::get<dashlink::ContactAck>(dashlink_roundtrip(dashlink::ContactAck{77, 1, true}));
+    assert(ack.count == 1 && ack.accepted);
+
+    assert(dashlink::encode(dashlink::Heartbeat{dashlink::Board::phone, 0, 0}).empty());
+    assert(dashlink::encode(dashlink::Heartbeat{dashlink::Board::car, 1, 0}).empty());
+    assert(dashlink::encode(dashlink::Notification{messages::ChangeKind::add, 0, example()}).empty());
+    assert(dashlink::encode(dashlink::Call{77, 1, "", {}, {}, {}}).empty());
+    assert(dashlink::encode(dashlink::MusicCommand{77, 0, 0x44, 1}).empty());
+    assert(dashlink::encode(dashlink::MusicCommand{77, 1, 0x44, 2}).empty());
+    assert(dashlink::encode(dashlink::ContactEntry{77, 0, entry}).empty());
+
+    dashlink::Decoder decoder;
+    unsigned received = 0;
+    auto valid = dashlink::encode(dashlink::Heartbeat{dashlink::Board::car, 0, 1});
+    auto invalid_version = valid; invalid_version[2] = 99;
+    auto invalid_type = valid; invalid_type[3] = 99;
+    const dashlink::Bytes oversized = {'D', 'L', 2, 1, 0xff, 0xff};
+    auto accept = [&](dashlink::Packet) { ++received; };
+    decoder.feed(invalid_version.data(), invalid_version.size(), accept);
+    decoder.feed(invalid_type.data(), invalid_type.size(), accept);
+    decoder.feed(oversized.data(), oversized.size(), accept);
+    decoder.feed(valid.data(), valid.size(), accept);
+    assert(received == 1 && decoder.malformed() >= 3);
+    std::cout << "PASS all DashLink domains, invalid states, type/version bounds and resynchronization\n";
 }
 static void ancs_test() {
     Bytes p = {0, 42, 0, 0, 0};
@@ -120,13 +233,13 @@ static void ancs_test() {
     attr(3, n.body);
     attr(5, n.date);
     for (size_t cut = 0; cut < p.size(); ++cut) {
-        AncsResponse parser;
+        ancs::NotificationResponse parser;
         Notice got;
         assert(parser.feed(p.data(), cut, 42, got) == 0);
         assert(parser.feed(p.data() + cut, p.size() - cut, 42, got) == 1);
         assert(got.app == n.app && got.body == n.body && got.date == n.date);
     }
-    AncsResponse parser;
+    ancs::NotificationResponse parser;
     Notice got;
     assert(parser.feed(p.data(), p.size(), 99, got) == -1);
     Bytes too_big(2049, 0);
@@ -136,13 +249,13 @@ static void ancs_test() {
     Bytes app_id = {0, 42, 0, 0, 0, 0, uint8_t(n.app.size()), 0};
     app_id.insert(app_id.end(), n.app.begin(), n.app.end());
     for (size_t cut = 0; cut < app_id.size(); ++cut) {
-        AncsAppIdResponse identity;
+        ancs::ApplicationIdResponse identity;
         std::string id;
         assert(identity.feed(app_id.data(), cut, 42, id) == 0);
         assert(identity.feed(app_id.data() + cut, app_id.size() - cut, 42, id) == 1);
         assert(id == n.app);
     }
-    AncsAppIdResponse identity;
+    ancs::ApplicationIdResponse identity;
     std::string id;
     assert(identity.feed(app_id.data(), app_id.size(), 43, id) == -1);
     Bytes app_name = {1};
@@ -150,7 +263,7 @@ static void ancs_test() {
     app_name.insert(app_name.end(), {0, 0, 8, 0});
     app_name.insert(app_name.end(), {'W', 'h', 'a', 't', 's', 'A', 'p', 'p'});
     for (size_t cut = 0; cut < app_name.size(); ++cut) {
-        AncsAppNameResponse names;
+        ancs::ApplicationNameResponse names;
         std::string label;
         assert(names.feed(app_name.data(), cut, n.app, label) == 0);
         assert(names.feed(app_name.data() + cut, app_name.size() - cut, n.app, label) == 1);
@@ -163,7 +276,7 @@ static void app_policy_test() {
     assert(policy.rules().empty());
     assert(!policy.find("com.example.Chat"));
     assert(policy.allow("com.example.Chat", "Chat", Preview::sender));
-    auto hidden = apply_preview(example(), {"net.whatsapp.WhatsApp", "WhatsApp", Preview::app});
+    auto hidden = ancs::apply_preview(example(), {"net.whatsapp.WhatsApp", "WhatsApp", Preview::app});
     assert(hidden.title == "WhatsApp" && hidden.body == "New notification" && hidden.subtitle.empty());
     auto stored = policy.serialize();
     AppPolicy restored;
@@ -183,30 +296,30 @@ static void app_policy_test() {
     std::cout << "PASS empty app choice defaults, persistence, validation and preview privacy\n";
 }
 static void inbox_test() {
-    Inbox box;
+    messages::Store box;
     auto n = example();
-    auto h = box.apply({Op::add, 1, n});
+    auto h = apply(box, messages::ChangeKind::add, 1, n);
     assert(h);
-    assert(!box.apply({Op::add, 1, n}) && box.messages().size() == 1);
+    assert(!apply(box, messages::ChangeKind::add, 1, n) && box.messages().size() == 1);
     n.body = "Edited";
-    assert(!box.apply({Op::update, 1, n}));
-    assert(box.find(h)->notice.body == "Edited");
+    assert(!apply(box, messages::ChangeKind::update, 1, n));
+    assert(box.find(h)->message.body == "Edited");
     n.id = 99;
-    assert(!box.apply({Op::update, 1, n}));
+    assert(!apply(box, messages::ChangeKind::update, 1, n));
     assert(box.messages().size() == 1);
     n = example(100);
-    assert(!box.apply({Op::history_add, 1, n}));
-    assert(box.messages().size() == 2 && box.messages().back().notice.id == 100);
+    assert(!apply(box, messages::ChangeKind::history_add, 1, n));
+    assert(box.messages().size() == 2 && box.messages().back().message.id == 100);
     n = example(101);
     n.app = "Signal";
-    assert(box.apply({Op::add, 1, n}));
-    box.apply({Op::remove, 1, example()});
-    assert(box.messages().size() == 2 && box.messages()[0].notice.id == 100);
-    box.apply({Op::add, 2, example()});
-    box.apply({Op::reset, 3, {}});
+    assert(apply(box, messages::ChangeKind::add, 1, n));
+    apply(box, messages::ChangeKind::remove, 1, example());
+    assert(box.messages().size() == 2 && box.messages()[0].message.id == 100);
+    apply(box, messages::ChangeKind::add, 2, example());
+    apply(box, messages::ChangeKind::reset, 3);
     assert(box.messages().empty());
     for (int i = 0; i < 40; ++i)
-        box.apply({Op::add, 3, example(i)});
+        apply(box, messages::ChangeKind::add, 3, example(i));
     assert(box.messages().size() == 32);
     std::cout << "PASS multi-app live/history, duplicate/update handling, session clearing and bounds\n";
 }
@@ -254,9 +367,62 @@ static void phonebook_test() {
     assert(favorite.find("TEL;TYPE=CELL:+491234") != std::string::npos);
     std::cout << "PASS grouped contacts, addresses, favorites and call-history PBAP repositories\n";
 }
+
+static void contact_transfer_test() {
+    using namespace contacts_core;
+    const Entry jane{Repository::contacts, "Jane Doe", "CELL\t+491234", "Main Street 1", {}};
+    const Entry alice{Repository::favorites, "Alice", "VOICE\t5550100", {}, {}};
+    Store store;
+    TransferReceiver receiver(store);
+    assert(receiver.reset(10) == ReceiveResult::accepted);
+    assert(receiver.entry(9, 1, jane) == ReceiveResult::ignored);
+    assert(receiver.entry(10, 1, jane) == ReceiveResult::accepted);
+    assert(receiver.entry(10, 2, jane) == ReceiveResult::accepted); // exact duplicate is idempotent
+    assert(receiver.received() == 2 && store.size() == 0);
+    assert(receiver.done(9, 1) == ReceiveResult::ignored);
+    assert(receiver.done(10, 2) == ReceiveResult::completed); // duplicate is coalesced atomically
+    assert(store.ready() && store.size() == 1 && receiver.pending_ack() &&
+           receiver.pending_ack()->accepted);
+    receiver.ack_sent();
+
+    assert(receiver.reset(11) == ReceiveResult::accepted);
+    assert(receiver.entry(11, 2, jane) == ReceiveResult::rejected); // missing first frame
+    assert(receiver.entry(11, 1, jane) == ReceiveResult::rejected); // rejected session stays poisoned
+    assert(receiver.done(11, 1) == ReceiveResult::rejected && store.size() == 1 && store.ready());
+
+    assert(receiver.reset(12) == ReceiveResult::accepted);
+    assert(receiver.entry(12, 1, jane) == ReceiveResult::accepted);
+    assert(receiver.entry(12, 2, alice) == ReceiveResult::accepted);
+    assert(receiver.done(12, 2) == ReceiveResult::completed);
+    assert(store.ready() && store.size() == 2 && receiver.pending_ack()->accepted);
+    assert(receiver.reset(0) == ReceiveResult::rejected && store.ready() && store.size() == 2);
+
+    TransferSender sender;
+    assert(!sender.start(0, true));
+    assert(sender.start(20, false) && sender.step(2) == SendStep::reset);
+    sender.sent(2);
+    assert(sender.step(2) == SendStep::wait_source);
+    sender.source_ready();
+    assert(sender.step(2) == SendStep::entry && sender.next() == 0);
+    sender.sent(2);
+    sender.sent(2);
+    assert(sender.step(2) == SendStep::done);
+    sender.sent(2);
+    assert(sender.step(2) == SendStep::wait_ack);
+    assert(sender.accept({19, 2, true}, 2) == AckResult::ignored);
+    assert(sender.accept({20, 1, true}, 2) == AckResult::retry &&
+           sender.step(2) == SendStep::reset);
+    sender.sent(2);
+    sender.sent(2);
+    sender.sent(2);
+    sender.sent(2);
+    assert(sender.accept({20, 2, true}, 2) == AckResult::complete &&
+           sender.step(2) == SendStep::complete);
+    std::cout << "PASS atomic contact transfer, stale sessions, gaps, retries and acknowledgements\n";
+}
 static void map_test() {
-    Inbox box;
-    auto h = box.apply({Op::add, 1, example()});
+    messages::Store box;
+    auto h = apply(box, messages::ChangeKind::add, 1, example());
     MasServer server(box);
     assert(server.request(obex_packet(0x83))[0] == 0xc1);
     connect(server);
@@ -312,17 +478,17 @@ static void framer_test() {
 }
 static void fuzz_test() {
     std::mt19937 random(20260920);
-    Inbox box;
+    messages::Store box;
     MasServer server(box);
     for (int i = 0; i < 10000; ++i) {
         Bytes bytes(random() % 256);
         for (auto &v : bytes)
             v = random();
-        AncsResponse ancs;
+        ancs::NotificationResponse parser;
         Notice n;
-        ancs.feed(bytes.data(), bytes.size(), random(), n);
-        WireDecoder wire;
-        wire.feed(bytes.data(), bytes.size(), [](const WireMessage &) {});
+        parser.feed(bytes.data(), bytes.size(), random(), n);
+        dashlink::Decoder wire;
+        wire.feed(bytes.data(), bytes.size(), [](dashlink::Packet) {});
         ObexFramer obex;
         obex.feed(bytes.data(), bytes.size(), [](const Bytes &) {});
         if (i % 100 == 0)
@@ -382,61 +548,54 @@ static void console_test() {
     std::cout << "PASS USB commands: fragmented input, CRLF once, bounds, invalid lines and recovery\n";
 }
 static void single_board_test() {
-    using namespace runtime;
-    PairingWindows pairing;
-    for (auto first : {Peer::phone, Peer::car}) {
-        auto second = first == Peer::phone ? Peer::car : Peer::phone;
-        pairing.open(first, 1000);
-        pairing.open(second, 1000);
-        pairing.paired(first);
-        assert(!pairing.allowed(first, 1001));
-        assert(pairing.allowed(second, 1001));
-        assert(pairing.allowed(second, 120999));
-        assert(!pairing.allowed(second, 121000));
-    }
+    using namespace dashbridge::transport;
     LocalBridge link;
-    WireMessage message{};
+    dashlink::Packet message;
     assert(!link.pop_for_phone(message) && !link.pop_for_car(message));
     // Saturation cannot block a reset or leak old messages into a new session.
     for (size_t i = 0; i < LocalBridge::capacity; ++i)
-        assert(link.send_to_car({Op::add, 1, example(unsigned(i))}));
-    assert(!link.send_to_car({Op::add, 1, example(999)}));
-    assert(link.send_to_car({Op::reset, 2, {}}));
+        assert(link.send_to_car(dashlink::Notification{messages::ChangeKind::add, 1, example(unsigned(i))}));
+    assert(!link.send_to_car(dashlink::Notification{messages::ChangeKind::add, 1, example(999)}));
+    assert(link.send_to_car(dashlink::Notification{messages::ChangeKind::reset, 2, {}}));
     assert(link.queued() == 1);
-    assert(link.send_to_car({Op::add, 2, example(3)}));
-    Inbox inbox;
-    assert(link.pop_for_car(message) && message.op == Op::reset);
-    inbox.apply(message);
-    assert(link.pop_for_car(message) && message.notice.id == 3);
-    assert(inbox.apply(message) != 0);
+    assert(link.send_to_car(dashlink::Notification{messages::ChangeKind::add, 2, example(3)}));
+    messages::Store inbox;
+    assert(link.pop_for_car(message));
+    auto reset = std::get<dashlink::Notification>(message);
+    assert(reset.kind == messages::ChangeKind::reset);
+    apply(inbox, reset.kind, reset.session, reset.message);
+    assert(link.pop_for_car(message));
+    auto added = std::get<dashlink::Notification>(message);
+    assert(added.message.id == 3);
+    assert(apply(inbox, added.kind, added.session, added.message) != 0);
     assert(!link.pop_for_car(message));
     auto oversized = example();
     oversized.title = std::string(200, 'T');
     oversized.body = std::string(767, 'x') + "👋";
     oversized.subtitle = std::string("a\x01\n\tb", 5);
-    auto encoded = encode({Op::add, 2, oversized});
-    WireMessage wire_result{};
-    WireDecoder wire;
-    wire.feed(encoded.data(), encoded.size(), [&](const WireMessage &m) { wire_result = m; });
-    assert(link.send_to_car({Op::add, 2, oversized}));
+    auto encoded = dashlink::encode(dashlink::Notification{messages::ChangeKind::add, 2, oversized});
+    dashlink::Packet wire_result;
+    dashlink::Decoder wire;
+    wire.feed(encoded.data(), encoded.size(), [&](dashlink::Packet packet) { wire_result = std::move(packet); });
+    assert(link.send_to_car(dashlink::Notification{messages::ChangeKind::add, 2, oversized}));
     assert(link.pop_for_car(message));
-    assert(message.notice.title.size() == 128);
-    assert(message.notice.body == std::string(767, 'x'));
-    assert(message.notice.subtitle == "a\n\tb");
-    assert(message.notice.body == wire_result.notice.body && message.notice.title == wire_result.notice.title
-           && message.notice.subtitle == wire_result.notice.subtitle);
+    const auto local = std::get<dashlink::Notification>(message);
+    const auto remote = std::get<dashlink::Notification>(wire_result);
+    assert(local.message.title.size() == 128);
+    assert(local.message.body == std::string(767, 'x'));
+    assert(local.message.subtitle == "a\n\tb");
+    assert(local.message.body == remote.message.body && local.message.title == remote.message.title
+           && local.message.subtitle == remote.message.subtitle);
     assert(inbox.messages().size() == 1);
     // Readiness updates coalesce in each direction rather than growing queues.
     for (unsigned i = 0; i < 1000; ++i) {
-        Notice heartbeat;
-        heartbeat.id = i % 2;
-        link.send_to_phone({Op::heartbeat, 0, heartbeat});
-        assert(link.send_to_car({Op::heartbeat, 2, {}}));
+        link.send_to_phone(dashlink::Heartbeat{dashlink::Board::car, 0, i % 2});
+        assert(link.send_to_car(dashlink::Heartbeat{dashlink::Board::phone, 2, 0}));
     }
     assert(link.queued() == 1);
-    assert(link.pop_for_phone(message) && message.notice.id == 1);
+    assert(link.pop_for_phone(message) && std::get<dashlink::Heartbeat>(message).flags == 1);
     assert(!link.pop_for_phone(message));
-    assert(link.pop_for_car(message) && message.session == 2);
+    assert(link.pop_for_car(message) && std::get<dashlink::Heartbeat>(message).session == 2);
     assert(!link.pop_for_car(message));
     std::cout << "PASS single-board routing, bounded queues, session reset and independent pairing\n";
 }
@@ -444,28 +603,31 @@ static void ancs_flags_test() {
     // Values from Apple's ANCS specification, independent of production constants.
     // Fresh notifications may offer Dismiss (0x10) and Reply (0x08).
     for (uint8_t flags : {0x00, 0x10, 0x18, 0x1b}) {
-        Inbox inbox;
+        messages::Store inbox;
         uint64_t handle = 0;
-        if (!ancs_is_preexisting(flags)) handle = inbox.apply({Op::add, 1, example()});
+        if (!ancs::is_preexisting(flags))
+            handle = apply(inbox, messages::ChangeKind::add, 1, example());
         assert(handle != 0 && inbox.messages().size() == 1);
     }
     // Old Notification Center entries become silent history: stored, no new-message handle.
     for (uint8_t flags : {0x04, 0x14, 0x1c, 0x1f}) {
-        Inbox inbox;
-        auto handle = inbox.apply({ancs_is_preexisting(flags) ? Op::history_add : Op::add, 1, example()});
+        messages::Store inbox;
+        auto kind = ancs::is_preexisting(flags) ? messages::ChangeKind::history_add
+                                                : messages::ChangeKind::add;
+        auto handle = apply(inbox, kind, 1, example());
         assert(!handle && inbox.messages().size() == 1);
     }
     std::cout << "PASS ANCS fresh notifications alert; pre-existing notifications import silently\n";
 }
 static void heartbeat_origin_test() {
-    WireMessage car{Op::heartbeat, 0, {}};
-    WireMessage phone{Op::heartbeat, 42, {}};
-    assert(heartbeat_from_car(car) && !heartbeat_from_phone(car));
-    assert(heartbeat_from_phone(phone) && !heartbeat_from_car(phone));
+    dashlink::Packet car = dashlink::Heartbeat{dashlink::Board::car, 0, 0};
+    dashlink::Packet phone = dashlink::Heartbeat{dashlink::Board::phone, 42, 0};
+    assert(dashlink::is_car_heartbeat(car) && !dashlink::is_phone_heartbeat(car));
+    assert(dashlink::is_phone_heartbeat(phone) && !dashlink::is_car_heartbeat(phone));
     // Reflected heartbeats cannot refresh the opposite board's link state.
-    assert(!heartbeat_from_car(phone) && !heartbeat_from_phone(car));
-    assert(!heartbeat_from_car({Op::reset, 0, {}}));
-    assert(!heartbeat_from_phone({Op::reset, 42, {}}));
+    assert(!dashlink::is_car_heartbeat(phone) && !dashlink::is_phone_heartbeat(car));
+    dashlink::Packet reset = dashlink::Notification{messages::ChangeKind::reset, 42, {}};
+    assert(!dashlink::is_car_heartbeat(reset) && !dashlink::is_phone_heartbeat(reset));
     std::cout << "PASS board heartbeats reject reflected or wrong-operation frames\n";
 }
 int main() {
@@ -474,10 +636,12 @@ int main() {
     heartbeat_origin_test();
     single_board_test();
     console_test();
-    wire_test();
+    dashlink_test();
+    dashlink_types_test();
     ancs_test();
     inbox_test();
     phonebook_test();
+    contact_transfer_test();
     map_test();
     framer_test();
     fuzz_test();

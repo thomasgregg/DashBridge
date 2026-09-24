@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parent.parent
-source = (root / 'firmware/main/call_relay.cpp').read_text()
+source = (root / 'firmware/adapters/calls/esp_hfp_adapter/esp_hfp_adapter.cpp').read_text()
 def function(signature):
     start = source.index(signature)
     return source[start:source.index('\n}', start) + 2]
@@ -37,6 +37,12 @@ int64_t now(){return tick;}
 void call_audio_set(int,int,unsigned){}
 int esp_bt_gap_get_bond_device_num(){return bonded?1:0;}
 int esp_bt_gap_get_bond_device_list(int*count,esp_bd_addr_t*out){assert(*count==1);memcpy(out[0],bonded_address,6);return 0;}
+bool classic_bond_known(const uint8_t*address){
+ int count=esp_bt_gap_get_bond_device_num(); esp_bd_addr_t bonds[16];
+ if(count<1||count>16||esp_bt_gap_get_bond_device_list(&count,bonds)!=ESP_OK)return false;
+ for(int index=0;index<count;++index)if(!memcmp(bonds[index],address,6))return true;
+ return false;
+}
 int nvs_open(const char*,int mode,int*h){*h=1;return (mode==NVS_READONLY&&!stored)?ESP_ERR_NVS_NOT_FOUND:ESP_OK;}
 int nvs_set_blob(int,const char*,const void*p,size_t n){assert(n==6);memcpy(saved,p,n);stored=true;stored_size=n;return 0;}
 int nvs_get_blob(int,const char*,void*p,size_t*n){if(!stored)return ESP_ERR_NVS_NOT_FOUND;assert(*n==6);memcpy(p,saved,stored_size);*n=stored_size;return 0;}
@@ -45,7 +51,7 @@ void nvs_close(int){}
 int esp_hf_ag_slc_connect(uint8_t*p){assert(!memcmp(p,bonded_address,6));++opens;return ESP_OK;}
 int esp_hf_ag_slc_disconnect(uint8_t*){++closes;return ESP_OK;}
 '''
-for signature in ['static bool known(', 'static void save_peer(', 'static void load_peer(', 'static void set_connected(']:
+for signature in ['static void save_peer(', 'static void load_peer(', 'static void set_connected(']:
     harness += function(signature) + '\n'
 harness += 'void poll(){\n'+poll+'\n}\n'
 harness += r'''

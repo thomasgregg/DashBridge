@@ -21,7 +21,7 @@ def byte_array(text, marker):
     return bytes(int(value, 16) for value in re.findall(r'0x([0-9a-fA-F]{2})', body))
 
 
-protocol = (ROOT / 'firmware/main/call_protocol.hpp').read_text()
+protocol = (ROOT / 'firmware/protocols/calls_v3/include/dashbridge/protocols/calls_v3.hpp').read_text()
 plc_source = (SBC / 'plc/sbc_plc.c').read_text()
 firmware_silence = byte_array(protocol, 'msbc_silence_frame = {')
 sdk_silence = byte_array(plc_source, 'static const uint8_t indices0[] = {')
