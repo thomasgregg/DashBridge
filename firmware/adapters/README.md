@@ -12,8 +12,8 @@ The calls ESP HFP adapter owns the external Bluetooth boundary for both roles:
 Board A is an HFP client toward the iPhone and Board B is an HFP audio gateway
 toward the Tesla. Its SCO/eSCO audio transport is contained in the same adapter,
 while call state remains owned by the portable calls controller.
-The adapter's remaining runtime effects are an explicit migration seam. Call
-control already crosses the boards as a typed DashLink call message.
+Runtime effects are accessed only through the narrow `runtime_ports` interface.
+Call control crosses the boards as a typed DashLink call message.
 
 The music adapter maps the iPhone A2DP sink and AVRCP controller to the Tesla
 A2DP source and AVRCP target. Portable state owns metadata sessions, replay

@@ -19,6 +19,27 @@ def require(condition: bool, message: str) -> None:
         failures.append(message)
 
 
+readme = (ROOT / "README.md").read_text()
+architecture_document = (ROOT / "ARCHITECTURE.md").read_text()
+require("[Architecture](ARCHITECTURE.md)" in readme,
+        "README must link the canonical architecture guide")
+for section in (
+    "## Bluetooth identities",
+    "## Functional paths",
+    "## Pairing and reconnection",
+    "## Software architecture",
+    "## Compatibility boundaries",
+    "## Failure containment and edge cases",
+):
+    require(section in architecture_document,
+            f"canonical architecture guide is missing section: {section}")
+
+require(not (ROOT / "docs/architecture/MIGRATION.md").exists(),
+        "completed migration ledger must not return")
+require(not (ROOT / "docs/decisions/0001-clean-core-incremental-migration.md").exists(),
+        "completed migration decision record must not return")
+
+
 required_directories = (
     "contracts/setup_gatt_v1",
     "firmware/apps",
