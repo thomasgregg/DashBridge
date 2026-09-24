@@ -141,7 +141,7 @@ live only in `version.txt`; directory names are never version identifiers.
 
 | Directory | Responsibility |
 | --- | --- |
-| `firmware/apps/dashbridge_app` | Selects the A, B, or historical single-board role and composes the product. The only `app_main()` lives here. |
+| `firmware/apps/dashbridge_app` | Selects the Board A or Board B role and composes the product. The only `app_main()` lives here. |
 | `firmware/core/dashbridge_domain_core` | Portable state machines and rules for setup, connections, messages, calls, music/audio focus, contacts, and bounded sessions |
 | `firmware/core/runtime_ports` | Narrow interfaces through which adapters request time, persistence, pairing state, transport, and coordination effects |
 | `firmware/adapters` | iPhone and Tesla Bluetooth behavior: ANCS, Setup GATT, HFP, A2DP/AVRCP, PBAP, and MAP projection |
@@ -158,12 +158,10 @@ FreeRTOS, Bluetooth-stack, adapter, platform, or application headers. Adapters
 do not import the application. Bluetooth callbacks report facts to the core;
 they do not become competing owners of domain state.
 
-The project uses ESP-IDF's normal component discovery. There is no compatibility
-`firmware/main`, broad runtime facade, `legacy_runtime`, or `bridge_core`
-wrapper. The former generic `WireMessage` is also gone: DashLink v2 decodes to
-explicit typed packets for heartbeat, notification, call, music, and contact
-traffic. Real-time media has its own codecs and never enters the control packet
-variant.
+ESP-IDF discovers a single application composition component. DashLink v2
+decodes control data directly into explicit heartbeat, notification, call,
+music, and contact packets. Real-time media has dedicated codecs and never
+enters the control packet variant.
 
 ## Compatibility boundaries
 

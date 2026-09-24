@@ -56,7 +56,7 @@ flowchart TB
 
 **Board A** receives iPhone notifications through Apple ANCS and forwards only apps the owner allows. It also connects to iPhone call, music, and phonebook services. **Board B** presents a Bluetooth phone, message inbox, music source, and phonebook server to the Tesla. The five wires include separate serial paths for encoded call/music audio and message/control data, plus ground.
 
-The original single-board design delivered notifications but displaced the iPhone as the Tesla's active phone. Two boards give each side its own Bluetooth radio, with the bridge relaying the services between them. Earlier hardware calls exposed audio distortion; the latest audio path has not yet been validated by listening.
+The two boards give the iPhone-facing and Tesla-facing profile groups independent Bluetooth radios. Earlier hardware calls exposed audio distortion; the latest audio path has not yet been validated by listening.
 
 Initial phone setup is now deliberately staged: Dash Messages and notification
 sharing finish before Dash Calls becomes discoverable. On reconnect, HFP
@@ -66,8 +66,8 @@ wake-up and daily-use reliability still require physical testing.
 
 See the [architecture guide](ARCHITECTURE.md) for every Bluetooth identity,
 functional route, pairing/reconnect rule, software layer, and compatibility
-boundary. The [call-relay guide](docs/CALL_RELAY.md) covers wiring and parked-car
-testing; the implementation notes describe the earlier notification milestone.
+boundary. The [setup guide](docs/SETUP.md) covers installation, wiring, pairing,
+and the parked-car checks.
 
 ## Project status
 
@@ -129,7 +129,7 @@ For the **AZDelivery ESP32 Dev Kit C V2 (38 pins, ASIN B074RGW2VQ)**, use this s
 | GPIO **26** · audio RX | GPIO **25** · audio TX |
 | **GND** | **GND** |
 
-Power both boards over USB. Do **not** connect their 5V, VIN, or 3V3 pins together. Use short wires and follow the [full wiring guide](docs/CALL_RELAY.md#hardware-and-wiring).
+Power both boards over USB. Do **not** connect their 5V, VIN, or 3V3 pins together. Use short wires and follow the [setup guide](docs/SETUP.md).
 
 ## Get started
 
@@ -246,8 +246,6 @@ Protocol fixes, parser tests, and documentation improvements are welcome too. Re
 | [Architecture](ARCHITECTURE.md) | Boards, Bluetooth identities, feature routes, pairing/reconnect rules, code layers, and compatibility boundaries |
 | [Setup](docs/SETUP.md) | Current pairing, installation layout, and links to the parked-car checklist |
 | [USB commands](docs/USB_COMMANDS.md) | Complete interactive console and browser setup command reference |
-| [Implementation](docs/DEVELOPMENT.md) | ANCS, MAP subset, wire format, and state handling; earlier milestone |
-| [Validation](docs/CALL_RELAY_VALIDATION.md) | Historical call-audio and hardware results from earlier images |
 | [Audio tests](docs/AUDIO_ISOLATION_TESTS.md) | Current call tone/loopback diagnostics, limits, expected routes, and interpretation |
 | [Sources](docs/SOURCES.md) | Specifications, upstream references, and project provenance |
 | [Contributing](CONTRIBUTING.md) | Development workflow and useful hardware reports |

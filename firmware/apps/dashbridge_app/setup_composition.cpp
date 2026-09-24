@@ -5,7 +5,7 @@
 #include "dashbridge/core/setup.hpp"
 #include "sdkconfig.h"
 
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
 namespace runtime {
 using namespace dashbridge::ports;
 namespace setup = dashbridge::core::setup;

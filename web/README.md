@@ -14,8 +14,7 @@ The static site uses ESP Web Tools 10.4.0 and the repository’s prebuilt images
 The completion instructions use Dash Calls, Dash Messages and Dash Tesla.
 The 0.4.3-alpha release pairs this USB installer with the internal-test iPhone
 companion setup flow. The [release notes](../docs/releases/0.4.3-alpha.md)
-distinguish implementation from hardware validation; the older
-[call validation](../docs/CALL_RELAY_VALIDATION.md) is historical.
+distinguish implementation from hardware validation.
 
 ## Build and preview
 
@@ -46,7 +45,7 @@ The `Web installer` workflow builds and tests on relevant pull requests. On `mai
 
 ## Validation boundary
 
-Browser checks can validate the page, manifest-to-image mapping, help, fallback states and USB-picker cancellation. They cannot establish that a physical flash completes or that the Tesla and iPhone accept the prototype. Validate those on the actual original ESP32-WROOM-32 boards using `docs/CALL_RELAY.md`.
+Browser checks can validate the page, manifest-to-image mapping, help, fallback states and USB-picker cancellation. They cannot establish that a physical flash completes or that the Tesla and iPhone accept the prototype. Validate those on ESP32-WROOM-32 boards using `docs/SETUP.md`.
 
 The main page is a stable A/B installer shell. On each visit it resolves the
 current manifests, public release number and matching release-notes URL from

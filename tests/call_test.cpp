@@ -337,11 +337,11 @@ int main() {
     for (auto c : corrupt) decoder.feed(c, accept);
     assert(received == 1);
     assert(decoder.crc_failures() == 1);
-    std::array<uint8_t, 136> legacy{};
-    legacy[0] = 'D'; legacy[1] = 'A'; legacy[2] = 1; legacy[3] = 120;
-    auto legacy_crc = crc16(legacy.data(), legacy.size() - 2);
-    legacy[134] = legacy_crc; legacy[135] = legacy_crc >> 8;
-    for (auto c : legacy) decoder.feed(c, accept);
+    std::array<uint8_t, 136> obsolete_frame{};
+    obsolete_frame[0] = 'D'; obsolete_frame[1] = 'A'; obsolete_frame[2] = 1; obsolete_frame[3] = 120;
+    auto obsolete_crc = crc16(obsolete_frame.data(), obsolete_frame.size() - 2);
+    obsolete_frame[134] = obsolete_crc; obsolete_frame[135] = obsolete_crc >> 8;
+    for (auto c : obsolete_frame) decoder.feed(c, accept);
     assert(received == 1); // Never play v1 8 kHz data at 16 kHz.
     for (int i = 0; i < 55; ++i) decoder.feed(frame[i], accept); // Truncated frame followed by fresh frame.
     for (auto c : frame) decoder.feed(c, accept);

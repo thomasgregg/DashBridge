@@ -13,11 +13,7 @@ namespace dashlink = dashbridge::protocols::dashlink_v2;
 namespace {
 
 dashbridge::platform::EspRuntime platform_runtime;
-#if CONFIG_BRIDGE_SINGLE
-dashbridge::transport::LocalBridge local;
-#else
 dashbridge::transport::ControlQueue outgoing;
-#endif
 
 class RuntimeSetupActions final : public setup::Actions {
   public:
@@ -25,7 +21,7 @@ class RuntimeSetupActions final : public setup::Actions {
     void lock() override { platform_runtime.lock(); }
     void unlock() override { platform_runtime.unlock(); }
     std::string recent_application_name(std::string_view id) const override {
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
         return phone_setup_recent_application_name(id);
 #else
         (void)id;
@@ -33,7 +29,7 @@ class RuntimeSetupActions final : public setup::Actions {
 #endif
     }
     bool persist_policy(const setup::Bytes &bytes) override {
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
         return phone_setup_save_policy(bytes);
 #else
         (void)bytes;
@@ -41,7 +37,7 @@ class RuntimeSetupActions final : public setup::Actions {
 #endif
     }
     bool start_test_notification() override {
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
         return phone_setup_test_notification();
 #else
         return false;
@@ -92,12 +88,8 @@ class AppServices final : public dashbridge::ports::RuntimeServices {
   private:
     bool send(const dashlink::Packet &packet, bool to_car) {
         Guard guard;
-#if CONFIG_BRIDGE_SINGLE
-        const bool accepted = to_car ? local.send_to_car(packet) : local.send_to_phone(packet);
-#else
         (void)to_car;
         const bool accepted = outgoing.push(packet);
-#endif
         if (!accepted) platform_runtime.warn("dashlink", "Typed control queue full or packet invalid");
         return accepted;
     }
@@ -131,15 +123,14 @@ static void receive_packet(const dashlink::Packet &packet, bool for_phone) {
     }
 #endif
     if (const auto *heartbeat = std::get_if<dashlink::Heartbeat>(&packet)) {
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
         if (for_phone) phone_receive(*heartbeat);
-#endif
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#else
         if (!for_phone) car_receive(*heartbeat);
 #endif
         return;
     }
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_CAR
     if (!for_phone)
         if (const auto *notification = std::get_if<dashlink::Notification>(&packet))
             car_receive(*notification);
@@ -152,10 +143,9 @@ static void open_pairing(Peer peer) {
     platform_runtime.info("setup", "%s pairing open for 120 seconds", peer == Peer::phone ? "iPhone" : "Tesla");
 }
 static void open_pairing() {
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
     open_pairing(Peer::phone);
-#endif
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#else
     open_pairing(Peer::car);
 #endif
 }
@@ -164,63 +154,55 @@ static void status() {
 #if CONFIG_BRIDGE_CALL_RELAY
     relay_status();
 #endif
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
     platform_runtime.info("status", "iPhone notifications: %s; pairing: %s", phone_notifications_ready() ? "ready" : "not ready",
              pairing_allowed(Peer::phone) ? "open" : "closed");
     phone_status();
-#endif
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#else
     platform_runtime.info("status", "Tesla notifications: %s; pairing: %s", car_notifications_ready() ? "ready" : "not ready",
              pairing_allowed(Peer::car) ? "open" : "closed");
 #endif
     platform_runtime.log_memory();
-#if CONFIG_BRIDGE_SINGLE
-    platform_runtime.info("status", "Local messages queued: %u", unsigned(local.queued()));
-#endif
 }
 static void setup_status() {
     const char *role =
 #if CONFIG_BRIDGE_PHONE
         "phone";
-#elif CONFIG_BRIDGE_CAR
-        "car";
 #else
-        "single";
+        "car";
 #endif
     bool board_link =
 #if CONFIG_BRIDGE_PHONE
         phone_board_link_ready();
-#elif CONFIG_BRIDGE_CAR
-        car_board_link_ready();
 #else
-        true;
+        car_board_link_ready();
 #endif
     bool phone_ready =
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
         phone_notifications_ready();
 #else
         car_phone_notification_ready();
 #endif
     bool phone_bluetooth =
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
         phone_bluetooth_ready();
 #else
         car_phone_bluetooth_ready();
 #endif
     bool car_ready =
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_CAR
         car_notifications_ready();
 #else
         phone_car_message_ready();
 #endif
     bool car_transport =
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_CAR
         car_message_transport_ready();
 #else
         phone_car_transport_ready();
 #endif
     bool car_sync =
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_CAR
         car_message_sync_ready();
 #else
         phone_car_sync_ready();
@@ -257,7 +239,7 @@ static void setup_result(bool ok, const char *message) {
 static void setup_command(const std::string &line) {
     if (line == "db status") { setup_status(); return; }
     if (line == "db pair") { open_pairing(); setup_result(true, "Pairing opened for two minutes."); return; }
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
     if (line == "db apps") { phone_setup_apps(); return; }
     if (line == "db discover") {
         bool ok = phone_setup_discover();
@@ -282,7 +264,7 @@ static void setup_command(const std::string &line) {
         return;
     }
 #endif
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_CAR
     if (line == "db test") {
         bool ok = car_notifications_ready();
         if (ok) ok = car_test();
@@ -305,19 +287,17 @@ static void console_command(Command command) {
     if (command == Command::audio_car_tone) { relay_audio_test(false, Mode::tone); return; }
     if (command == Command::audio_car_loopback) { relay_audio_test(false, Mode::loopback); return; }
 #endif
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
     if (command == Command::pair_phone) { open_pairing(Peer::phone); return; }
 #endif
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_CAR
     if (command == Command::pair_car) { open_pairing(Peer::car); return; }
     if (command == Command::test) { car_test(); return; }
 #endif
 #if CONFIG_BRIDGE_CALL_RELAY
     platform_runtime.info("setup", "Audio tests (active call, 60s): audio phone tone, audio phone loopback, audio car tone, audio car loopback, audio off");
 #endif
-#if CONFIG_BRIDGE_SINGLE
-    platform_runtime.info("setup", "USB commands: test, pair phone, pair car, pair (both), status, help");
-#elif CONFIG_BRIDGE_CAR
+#if CONFIG_BRIDGE_CAR
     platform_runtime.info("setup", "USB commands: test, pair car, pair, status, help");
 #else
     platform_runtime.info("setup", "USB commands: pair phone, pair, status, help. Send test on the Tesla receiver.");
@@ -330,10 +310,7 @@ extern "C" void app_main() {
     dashbridge::ports::install_runtime_services(app_services);
     {
     Guard startup_guard;
-#if CONFIG_BRIDGE_SINGLE
-    platform_runtime.info("bridge", "DashBridge single-board prototype: iPhone BLE + Tesla Classic. No call/audio relay.");
-#endif
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
     if (!platform_runtime.has_ble_bond()
 #if CONFIG_BRIDGE_CALL_RELAY
         || !platform_runtime.has_classic_bond()
@@ -341,8 +318,7 @@ extern "C" void app_main() {
     ) open_pairing(Peer::phone);
     phone_start();
     setup_ble_start();
-#endif
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#else
     if (!platform_runtime.has_classic_bond()) open_pairing(Peer::car);
     car_start();
 #endif
@@ -350,10 +326,8 @@ extern "C" void app_main() {
     relay_start();
 #endif
     }
-#if !CONFIG_BRIDGE_SINGLE
     dashlink::Decoder decoder;
     uint8_t buf[256];
-#endif
     ConsoleCommands console;
     SetupLines setup_lines;
     console_command(Command::help);
@@ -362,11 +336,7 @@ extern "C" void app_main() {
     bool pressed = false;
     int64_t last_status = 0;
     for (;;) {
-#if CONFIG_BRIDGE_SINGLE
-        platform_runtime.delay(20);
-#else
         int n = platform_runtime.read_control(buf, sizeof buf, 20);
-#endif
         int console_n = platform_runtime.read_console(console_buf, sizeof console_buf);
         {
             Guard g;
@@ -375,7 +345,6 @@ extern "C" void app_main() {
                 auto command = setup_lines.feed(console_buf[i]);
                 if (!command.empty()) setup_command(command);
             }
-        #if !CONFIG_BRIDGE_SINGLE
             if (n > 0)
                 decoder.feed(buf, n, [](dashlink::Packet packet) {
 #if CONFIG_BRIDGE_PHONE
@@ -384,7 +353,6 @@ extern "C" void app_main() {
                     receive_packet(packet, false);
 #endif
                 });
-        #endif
             bool low = platform_runtime.button_pressed();
             if (low && !pressed) {
                 pressed = true;
@@ -398,25 +366,17 @@ extern "C" void app_main() {
                     platform_runtime.erase_pairing_and_restart();
                 } else if (held >= 2000)
                     open_pairing();
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_CAR
                 else if (held >= 50)
                     car_test();
 #endif
             }
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_CAR
             car_poll();
 #endif
-#if CONFIG_BRIDGE_SINGLE
-            dashlink::Packet message;
-            if (local.pop_for_phone(message)) receive_packet(message, true);
-#endif
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
             phone_poll();
             setup_refresh_status();
-#endif
-#if CONFIG_BRIDGE_SINGLE
-            for (size_t i = 0; i < dashbridge::transport::LocalBridge::capacity && local.pop_for_car(message); ++i)
-                receive_packet(message, false);
 #endif
 #if CONFIG_BRIDGE_CALL_RELAY
             relay_poll();
@@ -426,7 +386,6 @@ extern "C" void app_main() {
                 status();
             }
         }
-#if !CONFIG_BRIDGE_SINGLE
         dashlink::Bytes frame;
         {
             Guard g;
@@ -434,6 +393,5 @@ extern "C" void app_main() {
         }
         if (!frame.empty() && !platform_runtime.write_control(frame.data(), frame.size()))
             platform_runtime.warn("dashlink", "UART control write failed");
-#endif
     }
 }

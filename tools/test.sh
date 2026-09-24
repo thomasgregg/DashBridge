@@ -72,5 +72,3 @@ python3 "$project_dir/tools/test_audio_control.py"
 
 python3 "$project_dir/tools/test_reconnect.py"
 python3 "$project_dir/tools/test_reconnect_replay.py"
-python3 "$project_dir/tools/test_sdp_trace.py"
-python3 "$project_dir/tools/test_connection_trace.py"

@@ -33,7 +33,7 @@ def require_current_source(board):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="List serial ports without writing")
-    parser.add_argument("--board", choices=("phone", "car", "single"))
+    parser.add_argument("--board", choices=("phone", "car"))
     parser.add_argument("--port", help="Explicit serial device, e.g. /dev/cu.usbserial-0001")
     args = parser.parse_args()
     try:

@@ -2,7 +2,7 @@
 #include "dashbridge/adapters/ancs_codec.hpp"
 #include "dashbridge/ports/runtime_services.hpp"
 #include "sdkconfig.h"
-#if CONFIG_BRIDGE_PHONE || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_PHONE
 #include "esp_gap_ble_api.h"
 #include "esp_gattc_api.h"
 #include "esp_log.h"
@@ -36,7 +36,7 @@ static uint8_t advertisement[] = {2,    0x01, 0x06, 17,   0x15, 0xd0, 0x00, 0x2d
                                   0x0f, 0xa4, 0x99, 0x4e, 0xce, 0xb5, 0x31, 0xf4, 0x05, 0x79,
                                   3, 0x03, 0x12, 0x18, // Complete 16-bit service list: HID, 0x1812.
                                   3, 0x19, 0xc0, 0x03}; // Appearance: generic HID, 0x03c0.
-static_assert(sizeof(advertisement) <= 31, "Legacy BLE advertisement exceeds 31 bytes");
+static_assert(sizeof(advertisement) <= 31, "BLE advertisement exceeds 31 bytes");
 static esp_ble_adv_params_t advertising = {};
 static esp_gatt_if_t interface_id = ESP_GATT_IF_NONE;
 static uint16_t connection = 0, start_handle = 0, end_handle = 0;
@@ -360,11 +360,7 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
             break;
         }
         interface_id = id;
-        #if CONFIG_BRIDGE_SINGLE
-        ESP_ERROR_CHECK(esp_ble_gap_set_device_name("DashBridge"));
-#else
         ESP_ERROR_CHECK(esp_ble_gap_set_device_name("Dash Messages"));
-#endif
         ESP_ERROR_CHECK(log_request("privacy configuration", esp_ble_gap_config_local_privacy(true)));
         break;
     case ESP_GATTC_CONNECT_EVT: {

@@ -8,7 +8,9 @@ Use local tests before building firmware or asking for another in-car trial.
 
 The reconnect checks cover A’s retry policy and B’s passive gateway policy, saved-peer persistence across a simulated reboot, rejection of missing/invalid bonds, and later incoming connection success. NVS, Bluetooth API results and connection outcomes are substitutes supplied by the test. **It does not reproduce Tesla's radio handshake or explain the remote disconnect.** Its value is quickly detecting a regression in our handling of those events.
 
-With the matching SDK installed, `bash tools/local_dev.sh check /absolute/path/to/esp-idf` also tests the actual SDK SDP parser, late feature failures and SSP confirmation callback. These checks include historical patch regressions and do not mean the patches are enabled in current firmware. They do not need an ESP32, GitHub or a firmware installation.
+With the matching SDK installed, `bash tools/local_dev.sh check /absolute/path/to/esp-idf`
+runs the same host and build-scope checks. They do not need an ESP32, GitHub, or
+a firmware installation.
 
 ## Native build setup
 

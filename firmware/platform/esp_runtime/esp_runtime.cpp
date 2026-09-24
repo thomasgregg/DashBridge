@@ -38,11 +38,9 @@ void EspRuntime::initialize() {
     uart.stop_bits = UART_STOP_BITS_1;
     uart.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
     uart.source_clk = UART_SCLK_DEFAULT;
-#if !CONFIG_BRIDGE_SINGLE
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_2, &uart));
     ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2, 17, 16, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2, 4096, 4096, 0, nullptr, 0));
-#endif
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 512, 0, 0, nullptr, 0));
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &uart));
     ESP_ERROR_CHECK(uart_set_pin(UART_NUM_0, 1, 3, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
@@ -87,20 +85,10 @@ bool EspRuntime::classic_bond_known(const uint8_t *address) const {
 void EspRuntime::lock() { xSemaphoreTakeRecursive(static_cast<SemaphoreHandle_t>(mutex_), portMAX_DELAY); }
 void EspRuntime::unlock() { xSemaphoreGiveRecursive(static_cast<SemaphoreHandle_t>(mutex_)); }
 int EspRuntime::read_control(uint8_t *data, size_t size, uint32_t timeout_ms) {
-#if CONFIG_BRIDGE_SINGLE
-    (void)data; (void)size; (void)timeout_ms;
-    return 0;
-#else
     return uart_read_bytes(UART_NUM_2, data, size, pdMS_TO_TICKS(timeout_ms));
-#endif
 }
 bool EspRuntime::write_control(const uint8_t *data, size_t size) {
-#if CONFIG_BRIDGE_SINGLE
-    (void)data; (void)size;
-    return false;
-#else
     return uart_write_bytes(UART_NUM_2, data, size) == int(size);
-#endif
 }
 int EspRuntime::read_console(uint8_t *data, size_t size) { return uart_read_bytes(UART_NUM_0, data, size, 0); }
 void EspRuntime::write_console(std::string_view text) { uart_write_bytes(UART_NUM_0, text.data(), text.size()); }

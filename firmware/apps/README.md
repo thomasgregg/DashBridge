@@ -1,5 +1,5 @@
 # Board applications
 
-This directory will contain `board_a_phone` and `board_b_tesla`. An application
-is a composition root: it selects adapters, constructs the core, and starts the
-platform runtime. Feature logic is not allowed here.
+`dashbridge_app` is the only composition root. The selected build configuration
+chooses Board A or Board B, then the app wires the matching adapters to the
+portable core and starts the platform runtime. Feature logic is not allowed here.

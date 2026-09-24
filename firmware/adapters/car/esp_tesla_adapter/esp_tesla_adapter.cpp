@@ -4,7 +4,7 @@
 #include "dashbridge/adapters/pbap_adapter.hpp"
 #include "dashbridge/protocols/obex.hpp"
 #include "sdkconfig.h"
-#if CONFIG_BRIDGE_CAR || CONFIG_BRIDGE_SINGLE
+#if CONFIG_BRIDGE_CAR
 #include "esp_bt_device.h"
 #include "esp_gap_bt_api.h"
 #include "esp_hf_ag_api.h"
@@ -511,11 +511,7 @@ bool car_phone_bluetooth_ready() { return car_board_link_ready() && (phone_flags
 bool car_phone_call_ready() { return car_board_link_ready() && (phone_flags & 2); }
 void car_start() {
     ESP_ERROR_CHECK(esp_bt_gap_register_callback(gap_cb));
-    #if CONFIG_BRIDGE_SINGLE
-    ESP_ERROR_CHECK(esp_bt_gap_set_device_name("DashBridge"));
-#else
     ESP_ERROR_CHECK(esp_bt_gap_set_device_name("Dash Tesla"));
-#endif
     esp_bt_io_cap_t cap = ESP_BT_IO_CAP_NONE;
     ESP_ERROR_CHECK(esp_bt_gap_set_security_param(ESP_BT_SP_IOCAP_MODE, &cap, sizeof cap));
 #if !CONFIG_BRIDGE_CALL_RELAY

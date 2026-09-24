@@ -547,58 +547,6 @@ static void console_test() {
     assert(requests.back() == "db apps");
     std::cout << "PASS USB commands: fragmented input, CRLF once, bounds, invalid lines and recovery\n";
 }
-static void single_board_test() {
-    using namespace dashbridge::transport;
-    LocalBridge link;
-    dashlink::Packet message;
-    assert(!link.pop_for_phone(message) && !link.pop_for_car(message));
-    // Saturation cannot block a reset or leak old messages into a new session.
-    for (size_t i = 0; i < LocalBridge::capacity; ++i)
-        assert(link.send_to_car(dashlink::Notification{messages::ChangeKind::add, 1, example(unsigned(i))}));
-    assert(!link.send_to_car(dashlink::Notification{messages::ChangeKind::add, 1, example(999)}));
-    assert(link.send_to_car(dashlink::Notification{messages::ChangeKind::reset, 2, {}}));
-    assert(link.queued() == 1);
-    assert(link.send_to_car(dashlink::Notification{messages::ChangeKind::add, 2, example(3)}));
-    messages::Store inbox;
-    assert(link.pop_for_car(message));
-    auto reset = std::get<dashlink::Notification>(message);
-    assert(reset.kind == messages::ChangeKind::reset);
-    apply(inbox, reset.kind, reset.session, reset.message);
-    assert(link.pop_for_car(message));
-    auto added = std::get<dashlink::Notification>(message);
-    assert(added.message.id == 3);
-    assert(apply(inbox, added.kind, added.session, added.message) != 0);
-    assert(!link.pop_for_car(message));
-    auto oversized = example();
-    oversized.title = std::string(200, 'T');
-    oversized.body = std::string(767, 'x') + "👋";
-    oversized.subtitle = std::string("a\x01\n\tb", 5);
-    auto encoded = dashlink::encode(dashlink::Notification{messages::ChangeKind::add, 2, oversized});
-    dashlink::Packet wire_result;
-    dashlink::Decoder wire;
-    wire.feed(encoded.data(), encoded.size(), [&](dashlink::Packet packet) { wire_result = std::move(packet); });
-    assert(link.send_to_car(dashlink::Notification{messages::ChangeKind::add, 2, oversized}));
-    assert(link.pop_for_car(message));
-    const auto local = std::get<dashlink::Notification>(message);
-    const auto remote = std::get<dashlink::Notification>(wire_result);
-    assert(local.message.title.size() == 128);
-    assert(local.message.body == std::string(767, 'x'));
-    assert(local.message.subtitle == "a\n\tb");
-    assert(local.message.body == remote.message.body && local.message.title == remote.message.title
-           && local.message.subtitle == remote.message.subtitle);
-    assert(inbox.messages().size() == 1);
-    // Readiness updates coalesce in each direction rather than growing queues.
-    for (unsigned i = 0; i < 1000; ++i) {
-        link.send_to_phone(dashlink::Heartbeat{dashlink::Board::car, 0, i % 2});
-        assert(link.send_to_car(dashlink::Heartbeat{dashlink::Board::phone, 2, 0}));
-    }
-    assert(link.queued() == 1);
-    assert(link.pop_for_phone(message) && std::get<dashlink::Heartbeat>(message).flags == 1);
-    assert(!link.pop_for_phone(message));
-    assert(link.pop_for_car(message) && std::get<dashlink::Heartbeat>(message).session == 2);
-    assert(!link.pop_for_car(message));
-    std::cout << "PASS single-board routing, bounded queues, session reset and independent pairing\n";
-}
 static void ancs_flags_test() {
     // Values from Apple's ANCS specification, independent of production constants.
     // Fresh notifications may offer Dismiss (0x10) and Reply (0x08).
@@ -634,7 +582,6 @@ int main() {
     app_policy_test();
     ancs_flags_test();
     heartbeat_origin_test();
-    single_board_test();
     console_test();
     dashlink_test();
     dashlink_types_test();

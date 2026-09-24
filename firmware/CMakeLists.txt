@@ -21,8 +21,8 @@ set(EXTRA_COMPONENT_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/platform/esp_runtime"
     "${CMAKE_CURRENT_LIST_DIR}/apps/dashbridge_app"
 )
-if(NOT DASHBRIDGE_ROLE MATCHES "^(phone|car|single)$")
-    message(FATAL_ERROR "Build with tools/build.sh, or specify -DDASHBRIDGE_ROLE=phone|car|single")
+if(NOT DASHBRIDGE_ROLE MATCHES "^(phone|car)$")
+    message(FATAL_ERROR "Build with tools/build.sh, or specify -DDASHBRIDGE_ROLE=phone|car")
 endif()
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/../tools/build_scope.py"

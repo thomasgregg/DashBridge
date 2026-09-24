@@ -51,7 +51,3 @@ Tesla delivery and reconnection still need a parked-car test.
 In the previous development-board test, iPhone phonebook and call-history
 pulls returned zero records; music sound, Tesla controls, and clear call audio
 remain unverified.
-
-The original one-board prototype is historical. Its source and instructions
-remain in the [`archive/single-board` branch](https://github.com/thomasgregg/DashBridge/tree/archive/single-board),
-not in this release's downloads.

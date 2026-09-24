@@ -34,12 +34,6 @@ for section in (
     require(section in architecture_document,
             f"canonical architecture guide is missing section: {section}")
 
-require(not (ROOT / "docs/architecture/MIGRATION.md").exists(),
-        "completed migration ledger must not return")
-require(not (ROOT / "docs/decisions/0001-clean-core-incremental-migration.md").exists(),
-        "completed migration decision record must not return")
-
-
 required_directories = (
     "contracts/setup_gatt_v1",
     "firmware/apps",
@@ -90,15 +84,12 @@ require((ROOT / "version.txt").is_file(), "version.txt must be at the repository
 require(not (ROOT / "firmware/version.txt").exists(),
         "firmware/version.txt must not return; version.txt is the only product-version source")
 
-require(not (ROOT / "firmware/main").exists(),
-        "firmware/main is obsolete; app_main belongs only in firmware/apps/dashbridge_app")
-require(not (ROOT / "firmware/legacy_runtime").exists(),
-        "the completed legacy-runtime marker directory must not return")
-require(not (ROOT / "firmware/components/bridge_core").exists(),
-        "the bridge_core compatibility wrapper must not return")
-for obsolete_name in ("runtime.hpp", "bridge_core.hpp"):
-    require(not any(path.name == obsolete_name for path in (ROOT / "firmware").rglob("*")),
-            f"obsolete compatibility header must not return: {obsolete_name}")
+role_configs = sorted(path.name for path in (ROOT / "firmware").glob("sdkconfig.*"))
+require(role_configs == ["sdkconfig.car", "sdkconfig.defaults", "sdkconfig.phone"],
+        "firmware must define only shared defaults plus the phone and car role configurations")
+composition_roots = list((ROOT / "firmware").rglob("app_main.cpp"))
+require(composition_roots == [ROOT / "firmware/apps/dashbridge_app/app_main.cpp"],
+        "firmware must have exactly one application composition root")
 
 forbidden_core_includes = (
     "esp_",
@@ -107,9 +98,6 @@ forbidden_core_includes = (
     "hal/",
     "nvs",
     "sdkconfig.h",
-    "bridge_core.hpp",
-    "runtime.hpp",
-    "legacy_runtime/",
     "adapters/",
     "platform/",
 )
@@ -182,8 +170,6 @@ if contract:
 
     require("esp_" not in setup_composition and "freertos/" not in setup_composition,
             "setup composition must not contain ESP-IDF or Bluetooth adapter code")
-    require("LegacySetupPort" not in setup_composition,
-            "the deleted legacy setup facade must not return")
     require("PairingWindows" not in app_main + transport_header + transport_source,
             "pairing-window authority must remain in the portable setup controller")
     require("static AppPolicy policy" not in phone_source,
@@ -370,4 +356,4 @@ if failures:
         print(f"architecture: {failure}", file=sys.stderr)
     raise SystemExit(1)
 
-print("Architecture boundaries, no legacy wrappers, typed DashLink v2, dual control/media links, setup GATT v1, MAP/PBAP/OBEX, calls, contacts, and music/audio focus passed")
+print("Architecture boundaries, two board roles, typed DashLink v2, dual control/media links, setup GATT v1, MAP/PBAP/OBEX, calls, contacts, and music/audio focus passed")

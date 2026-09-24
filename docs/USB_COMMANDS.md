@@ -24,9 +24,6 @@ an invalid command prints the role-appropriate help text and does nothing else.
 | `pair car` | Not available; prints help and changes nothing | Open Tesla pairing for 120 seconds |
 | `test` | Not available; the test must be sent by Board B | Send one test message if the Tesla message channel is ready |
 
-The historical single-board build accepts `pair phone`, `pair car`, `pair`,
-`test`, `status`, and `help`. On that build, `pair` opens both pairing windows.
-
 ### Pairing without the iPhone app
 
 On Board A, enter `pair phone`. Pair **Dash Messages** from the iPhone first and
@@ -67,13 +64,13 @@ Responses are single lines beginning with `@DB ` followed by JSON.
 
 | Command | Valid image | Response or effect |
 | --- | --- | --- |
-| `db status` | A, B, single | Emit current role, firmware version, and connection/profile readiness as a `status` object |
-| `db pair` | A, B, single | Open the pairing window or windows for 120 seconds and emit a `result` |
-| `db apps` | A, single | Emit saved and recently seen application rules as an `apps` object |
-| `db discover` | A, single | Listen for a fresh notification's app for 60 seconds; notification sharing must already be ready |
-| `db allow <app-id> <preview>` | A, single | Allow or update a discovered application and persist the rule |
-| `db deny <app-id>` | A, single | Remove a saved application rule |
-| `db test` | B, single | Send one Tesla test message when its message channel is ready |
+| `db status` | A, B | Emit current role, firmware version, and connection/profile readiness as a `status` object |
+| `db pair` | A, B | Open that board's pairing window for 120 seconds and emit a `result` |
+| `db apps` | A | Emit saved and recently seen application rules as an `apps` object |
+| `db discover` | A | Listen for a fresh notification's app for 60 seconds; notification sharing must already be ready |
+| `db allow <app-id> <preview>` | A | Allow or update a discovered application and persist the rule |
+| `db deny <app-id>` | A | Remove a saved application rule |
+| `db test` | B | Send one Tesla test message when its message channel is ready |
 
 For `db allow`, `<app-id>` is an iOS bundle identifier such as
 `net.whatsapp.WhatsApp`. The preview value is:

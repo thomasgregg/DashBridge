@@ -50,6 +50,6 @@ was attempted, not that it succeeded. These fields do not drive connection polic
 Notification diagnostic logs contain state, handles and error codes, not message
 text or encryption keys.
 
-Use the [current setup guide](CALL_RELAY.md) for wiring and firmware installation,
-and the [validation record](CALL_RELAY_VALIDATION.md) for installed versions and
-remaining tests.
+Use the [current setup guide](SETUP.md) for wiring and firmware installation,
+and the [README](../README.md#project-status) for current evidence and remaining
+hardware tests.

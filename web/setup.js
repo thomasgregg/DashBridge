@@ -45,7 +45,7 @@ class BoardConnection {
     this.poll = setInterval(() => {
       if (this.closed) return;
       this.send('db status');
-      if (this.role === 'phone' || this.role === 'single') this.send('db apps');
+      if (this.role === 'phone') this.send('db apps');
     }, 4000);
   }
   async send(command) {
@@ -58,8 +58,7 @@ class BoardConnection {
     return this.writes;
   }
   label() {
-    return this.role === 'phone' ? 'Board A' : this.role === 'car' ? 'Board B' :
-      this.role === 'single' ? 'DashBridge' : 'the board';
+    return this.role === 'phone' ? 'Board A' : this.role === 'car' ? 'Board B' : 'the board';
   }
   async readLoop() {
     const decoder = new TextDecoder();
@@ -106,12 +105,12 @@ class BoardConnection {
   }
   handle(message) {
     if (!message || typeof message !== 'object') return;
-    if (message.type === 'status' && ['phone', 'car', 'single'].includes(message.role)) {
+    if (message.type === 'status' && ['phone', 'car'].includes(message.role)) {
       this.role = message.role;
       this.status = message;
       this.statusAt = Date.now();
       if (this.role === 'phone' || this.role === 'car') usbLostAt[this.role] = 0;
-      if (message.role === 'phone' || message.role === 'single') this.send('db apps');
+      if (message.role === 'phone') this.send('db apps');
     } else if (message.type === 'apps') {
       this.apps = message;
       this.appsAt = Date.now();
@@ -135,7 +134,7 @@ class BoardConnection {
 }
 
 function activeBoards() { return boards.filter(item => !item.closed); }
-function board(role) { return activeBoards().find(item => item.role === role || (role === 'phone' && item.role === 'single')); }
+function board(role) { return activeBoards().find(item => item.role === role); }
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;

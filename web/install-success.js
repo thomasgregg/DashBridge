@@ -4,7 +4,7 @@ export function successRenderer(role, onSelectOther, version) {
   const phone = role === 'phone';
   const board = phone ? 'A' : 'B';
   const other = phone ? 'B' : 'A';
-  const guide = 'https://github.com/thomasgregg/DashBridge/blob/main/docs/CALL_RELAY.md#first-physical-test-parked';
+  const guide = 'https://github.com/thomasgregg/DashBridge/blob/main/docs/SETUP.md';
 
   return ({ close, showLogs }) => [
     `Board ${board} installed`,
