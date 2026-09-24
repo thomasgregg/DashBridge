@@ -175,7 +175,7 @@ function renderChecks() {
     ['Boards talking', state.boardLink,
       'Both halves of DashBridge can communicate.', 'Power both boards and check their connection.'],
     ['iPhone Bluetooth', state.phoneBluetooth,
-      'Board A is connected to the iPhone.', 'Open iPhone pairing and connect Dash Messages. Pair Dash Calls separately for calls.'],
+      'Board A is connected to the iPhone.', 'Open iPhone pairing and connect Dash Messages first. Allow notification sharing; Dash Calls appears afterwards.'],
     ['Notification sharing', state.notificationSharing,
       'The iPhone is sharing new notifications.', 'Allow “Share System Notifications” for Dash Messages on your iPhone.'],
     ['Tesla message link', state.teslaTransport,

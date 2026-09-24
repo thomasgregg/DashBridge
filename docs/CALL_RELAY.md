@@ -140,9 +140,10 @@ supply and long-term automotive installation are separate work.
    the same **0.3.3-alpha** release.
 2. Wire the boards as above, then power both. Open each board's USB log console
    separately and send `status`. Each should detect the other board's call relay.
-3. On A send `pair phone`. In iPhone Bluetooth settings pair **Dash Calls**
-   and **Dash Messages**. Accept the pairing prompts and enable **Share System
-   Notifications** for Dash Messages when offered. A needs both connections.
+3. On A send `pair phone`. In iPhone Bluetooth settings pair **Dash Messages**
+   first. Accept the pairing prompts and enable **Share System Notifications**.
+   After notification sharing is ready, **Dash Calls** becomes discoverable;
+   pair it next. A needs both connections, but no longer establishes them concurrently.
    Pairing stays open until both are ready, or for at most 120 seconds.
 4. On B send `pair car`. Pair **Dash Tesla** from the Tesla Bluetooth screen,
    enable message syncing and select B as the active phone. The iPhone's direct

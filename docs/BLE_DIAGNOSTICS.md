@@ -22,10 +22,11 @@ firmware updates. These results do not establish daily reliability.
 
 1. Open Board A's USB console at 115200 baud. Use `status` without resetting it
    when preserving the current connection or failure evidence matters.
-2. Send `pair phone`. In iPhone Settings → Bluetooth, pair **Dash Calls** and
-   **Dash Messages** and accept the prompts.
-3. Enable **Share System Notifications** for Dash Messages. Record the iOS
-   version and firmware version with the log.
+2. Send `pair phone`. In iPhone Settings → Bluetooth, pair **Dash Messages**
+   first and accept the prompts.
+3. Enable **Share System Notifications** for Dash Messages. Wait for the board
+   to report notification readiness, then pair **Dash Calls** when it appears.
+   Record the iOS version and firmware version with the log.
 4. Check for both `Call profile: ready` and `iPhone notifications: ready`.
 5. For delivery testing, ensure Tesla is connected to Dash Tesla and the car
    notification service is ready before receiving a new WhatsApp message.

@@ -25,7 +25,7 @@ harness = r'''
 using esp_err_t=int; using esp_bd_addr_t=uint8_t[6]; using nvs_handle_t=int;
 constexpr int ESP_OK=0, ESP_ERR_NVS_NOT_FOUND=1, NVS_READONLY=0, NVS_READWRITE=1;
 struct State { bool linked=false; } self;
-bool dirty=false, connecting=false, peer_saved=false;
+bool dirty=false, connecting=false, peer_saved=false, classic_base=false;
 unsigned reconnect_attempts=0, reconnect_delay=5000, audio_rate=0;
 int last_connect_result=ESP_OK;
 int64_t tick=0,next_connect=5000;
@@ -35,6 +35,7 @@ size_t stored_size=6;
 int opens=0,closes=0;
 int64_t now(){return tick;}
 void call_audio_set(int,int,unsigned){}
+void classic_base_link_changed(bool connected){classic_base=connected;}
 int esp_bt_gap_get_bond_device_num(){return bonded?1:0;}
 int esp_bt_gap_get_bond_device_list(int*count,esp_bd_addr_t*out){assert(*count==1);memcpy(out[0],bonded_address,6);return 0;}
 bool classic_bond_known(const uint8_t*address){
@@ -56,13 +57,13 @@ for signature in ['static void save_peer(', 'static void load_peer(', 'static vo
 harness += 'void poll(){\n'+poll+'\n}\n'
 harness += r'''
 void restart(){
- self={};connecting=false;peer_saved=false;memset(peer,0,6);
+ self={};connecting=false;peer_saved=false;classic_base=false;memset(peer,0,6);
  reconnect_attempts=0;reconnect_delay=5000;last_connect_result=0;
  tick=0;next_connect=5000;opens=closes=0;load_peer();
 }
 int main(){
  // Real save/load helpers, backed by persistent fake NVS and bond storage.
- set_connected(true,bonded_address);assert(stored&&peer_saved&&self.linked);
+ set_connected(true,bonded_address);assert(stored&&peer_saved&&self.linked&&classic_base);
  restart();assert(peer_saved&&!self.linked&&!memcmp(peer,bonded_address,6));
  tick=5000;poll();tick=25000;poll();assert(opens==0&&closes==0&&!connecting);
  // Replaying the old rejection callbacks must not schedule another outgoing
@@ -72,7 +73,7 @@ int main(){
 for event in fixture['events']:
     if event['event'] == 'disconnected':
         harness += f'''tick={event['ms']};set_connected(false,bonded_address);
- assert(!connecting&&!self.linked&&peer_saved&&bonded&&stored);
+ assert(!connecting&&!self.linked&&!classic_base&&peer_saved&&bonded&&stored);
  tick+=60000;poll();assert(opens==0&&closes==0);
 '''
     else:

@@ -5,6 +5,11 @@ python3 "$project_dir/tools/check_architecture.py"
 mkdir -p "$project_dir/build/tests"
 "${CXX:-clang++}" -std=c++17 -Wall -Wextra -Werror -g -fsanitize=address,undefined \
   -I "$project_dir/firmware/core/dashbridge_domain_core/include" \
+  "$project_dir/firmware/core/dashbridge_domain_core/connections.cpp" \
+  "$project_dir/tests/connections_test.cpp" -o "$project_dir/build/tests/connections_test"
+"$project_dir/build/tests/connections_test"
+"${CXX:-clang++}" -std=c++17 -Wall -Wextra -Werror -g -fsanitize=address,undefined \
+  -I "$project_dir/firmware/core/dashbridge_domain_core/include" \
   -I "$project_dir/firmware/adapters/phone/esp_ancs_adapter/include" \
   -I "$project_dir/firmware/protocols/dashlink_v2/include" \
   -I "$project_dir/firmware/protocols/obex/include" \

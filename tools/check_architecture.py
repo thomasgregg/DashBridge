@@ -32,6 +32,30 @@ required_directories = (
 for name in required_directories:
     require((ROOT / name).is_dir(), f"required architecture directory is missing: {name}")
 
+usb_commands_path = ROOT / "docs/USB_COMMANDS.md"
+require(usb_commands_path.is_file(), "canonical USB command reference is missing")
+if usb_commands_path.is_file():
+    usb_commands = usb_commands_path.read_text()
+    console_parser = (ROOT / "firmware/platform/esp_runtime/include/dashbridge/platform/console_commands.hpp").read_text()
+    app_composition = (ROOT / "firmware/apps/dashbridge_app/app_main.cpp").read_text()
+    documented_commands = set(re.findall(
+        r'if \(line == "([^"]+)"\) return Command::', console_parser
+    ))
+    documented_commands.update(re.findall(r'if \(line == "(db [^"]+)"\)', app_composition))
+    prefixed_setup_commands = re.findall(r'line\.rfind\("(db [^"]+ )", 0\)', app_composition)
+    setup_arguments = {
+        "db allow ": "<app-id> <preview>",
+        "db deny ": "<app-id>",
+    }
+    for prefix in prefixed_setup_commands:
+        require(prefix in setup_arguments,
+                f"USB setup command needs an architecture-check argument description: {prefix}")
+        if prefix in setup_arguments:
+            documented_commands.add(prefix + setup_arguments[prefix])
+    for command in documented_commands:
+        require(f"`{command}`" in usb_commands,
+                f"USB command is missing from docs/USB_COMMANDS.md: {command}")
+
 require((ROOT / "firmware/protocols/dashlink_v2").is_dir(),
         "typed DashLink v2 protocol component is missing")
 for path in (ROOT / "firmware").rglob("*"):
@@ -121,6 +145,8 @@ if contract:
     music_adapter = (ROOT / "firmware/adapters/music/esp_a2dp_avrcp_adapter/esp_a2dp_avrcp_adapter.cpp").read_text()
     contacts_header = (ROOT / "firmware/core/dashbridge_domain_core/include/dashbridge/core/contacts.hpp").read_text()
     contacts_source = (ROOT / "firmware/core/dashbridge_domain_core/contacts.cpp").read_text()
+    connections_header = (ROOT / "firmware/core/dashbridge_domain_core/include/dashbridge/core/connections.hpp").read_text()
+    connections_source = (ROOT / "firmware/core/dashbridge_domain_core/connections.cpp").read_text()
     contacts_protocol = (ROOT / "firmware/protocols/contacts_v1/include/dashbridge/protocols/contacts_v1.hpp").read_text()
     contacts_adapter = (ROOT / "firmware/adapters/contacts/esp_contacts_adapter/esp_contacts_adapter.cpp").read_text()
     pbap_header = (ROOT / "firmware/adapters/car/pbap_adapter/include/dashbridge/adapters/pbap_adapter.hpp").read_text()
@@ -193,6 +219,20 @@ if contract:
             "contact_core::TransferSender" in contacts_adapter and
             "contact_core::TransferReceiver" in contacts_adapter,
             "the contacts adapter must compose iPhone PBAP and compatibility transfer with portable state")
+    require("class Coordinator" in connections_header and
+            "Coordinator::try_begin" in connections_source and
+            "classic_connections" in app_main,
+            "the app must own one portable Classic profile connection coordinator")
+    require("try_begin_classic_profile(connections::Profile::music)" in music_adapter and
+            "try_begin_classic_profile(connections::Profile::contacts)" in contacts_adapter,
+            "music and contacts must serialize supplemental Classic connection attempts")
+    require("staged_pairing" in call_relay and
+            "pairing_allowed(Peer::phone) && phone_notifications_ready()" in call_relay and
+            "ESP_BT_NON_DISCOVERABLE" in call_relay,
+            "Dash Calls must remain hidden until BLE/ANCS pairing is ready")
+    require("tap Dash Calls. Dash Messages is already connected by this app" in all_swift and
+            "tap Dash Calls and Dash Messages" not in all_swift,
+            "the iOS app must own BLE pairing and request only manual Dash Calls pairing")
     require("class Server" in pbap_header and "x-bt/phonebook" in pbap_source and
             "X-IRMC-CALL-DATETIME" in pbap_source,
             "Tesla PBAP projection must remain in the car adapter")

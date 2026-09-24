@@ -256,12 +256,22 @@ private struct SetupView: View {
             .padding(.horizontal, 32)
         case .pair:
             brandedList {
-                headerRow("Connect your iPhone.", "In Settings → Bluetooth, tap Dash Calls and Dash Messages.")
-                Section {
-                    LabeledContent("Dash Calls", value: status?.phoneCalls == true ? "Connected" : "Waiting")
-                    LabeledContent("Dash Messages", value: status?.phoneBluetooth == true ? "Connected" : "Waiting")
-                } footer: {
-                    Text("Dash Messages may briefly disappear while Dash Calls pairs. Wait for it to reappear; we’ll continue when both connect.")
+                if status?.notifications == true {
+                    headerRow("Connect calls and music.", "In Settings → Bluetooth, tap Dash Calls. Dash Messages is already connected by this app.")
+                    Section {
+                        LabeledContent("Dash Messages", value: "Connected")
+                        LabeledContent("Dash Calls", value: status?.phoneCalls == true ? "Connected" : "Waiting")
+                    } footer: {
+                        Text("Only Dash Calls needs to be selected in Settings. We’ll continue automatically when it connects.")
+                    }
+                } else {
+                    headerRow("Connect notification access.", "Keep this app open and accept the iPhone pairing and notification-sharing prompts.")
+                    Section {
+                        LabeledContent("Dash Messages", value: status?.phoneBluetooth == true ? "Authorizing" : "Connecting")
+                        LabeledContent("Dash Calls", value: "Waiting")
+                    } footer: {
+                        Text("Dash Calls becomes visible only after Dash Messages is ready, preventing the two pairings from competing.")
+                    }
                 }
                 if status?.phonePairingOpen == false {
                     Section {
@@ -274,7 +284,7 @@ private struct SetupView: View {
             }
         case .sharing:
             brandedList {
-                headerRow("Dash Messages is connected.", "If iPhone asks to share notifications, tap Allow. DashBridge will continue when messages are ready.")
+                headerRow("Finish notification access.", "If iPhone asks to share system notifications, tap Allow. DashBridge will continue when messages are ready.")
                 Section {
                     LabeledContent("Bluetooth pairing", value: "Connected")
                     LabeledContent("iPhone permission", value: bridge.notificationPermission == true ? "Allowed" : bridge.notificationPermission == false ? "Not allowed" : "Waiting")

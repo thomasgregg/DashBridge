@@ -159,7 +159,7 @@ This is a full-image flash and may require pairing the iPhone and Tesla again. T
 
 ### 2. Wire and pair the boards
 
-Unplug both boards and connect the five wires shown above. Power them again. Pair both **Dash Calls** and **Dash Messages** with the iPhone and allow notification sharing; pair **Dash Tesla** with the Tesla and enable message and contact syncing where offered. The native iPhone companion app is currently available only through internal TestFlight testing and can choose apps returned by iOS; the [USB setup page](https://thomasgregg.github.io/DashBridge/setup.html) remains available in Chrome or Edge for pairing controls, diagnostics, and learning an app from a fresh notification. The [setup guide](docs/SETUP.md) has more detail. Console commands `pair phone`, `pair car`, and `status` remain available for diagnostics.
+Unplug both boards and connect the five wires shown above. Power them again. With the companion app, accept its **Dash Messages** pairing and notification-sharing prompts, then pair **Dash Calls** in iPhone Bluetooth settings when the app asks. Without the app, open phone pairing over USB, pair **Dash Messages** first, allow notification sharing, and then pair **Dash Calls** when it appears. Pair **Dash Tesla** with the Tesla and enable message and contact syncing where offered. The native iPhone companion app is currently available only through internal TestFlight testing and can choose apps returned by iOS; the [USB setup page](https://thomasgregg.github.io/DashBridge/setup.html) remains available in Chrome or Edge for pairing controls, diagnostics, and learning an app from a fresh notification. The [setup guide](docs/SETUP.md) has more detail. Console commands `pair phone`, `pair car`, and `status` remain available for diagnostics.
 
 ### 3. Run the parked-car checks
 
@@ -236,9 +236,10 @@ Protocol fixes, parser tests, and documentation improvements are welcome too. Re
 | Guide | What you will find |
 | :--- | :--- |
 | [Setup](docs/SETUP.md) | Current pairing, installation layout, and links to the parked-car checklist |
+| [USB commands](docs/USB_COMMANDS.md) | Complete interactive console and browser setup command reference |
 | [Implementation](docs/DEVELOPMENT.md) | ANCS, MAP subset, wire format, and state handling; earlier milestone |
 | [Validation](docs/CALL_RELAY_VALIDATION.md) | Historical call-audio and hardware results from earlier images |
-| [Audio tests](docs/AUDIO_ISOLATION_TESTS.md) | Historical tone/loopback diagnostics; those modes are **not active** in the current encoded-audio image |
+| [Audio tests](docs/AUDIO_ISOLATION_TESTS.md) | Current call tone/loopback diagnostics, limits, expected routes, and interpretation |
 | [Sources](docs/SOURCES.md) | Specifications, upstream references, and project provenance |
 | [Contributing](CONTRIBUTING.md) | Development workflow and useful hardware reports |
 

@@ -47,6 +47,12 @@ application component.
 Adapters receive platform and app effects through the narrow portable
 `runtime_ports` interface. They may not include or depend on the app.
 
+Initial iPhone setup is deliberately staged: the BLE/ANCS bond completes before
+the Classic `Dash Calls` identity becomes discoverable. After HFP establishes
+the shared Classic base link, the portable connection coordinator admits only
+one supplemental A2DP or PBAP connection attempt at a time. Profile adapters
+report outcomes; they do not compete for controller connection establishment.
+
 ## Migration completion
 
 A domain is migrated only when its authoritative state lives in the new core,

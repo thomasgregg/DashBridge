@@ -54,7 +54,7 @@ final class SetupFlowUITests: XCTestCase {
 
         app.buttons["Preview without hardware"].tap()
         app.buttons["Continue"].tap()
-        XCTAssertTrue(app.staticTexts["Dash Messages is connected."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Finish notification access."].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Checking your connection…"].exists)
     }
 

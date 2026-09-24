@@ -15,6 +15,7 @@
 
 namespace runtime {
 using namespace dashbridge::ports;
+namespace connections = dashbridge::core::connections;
 namespace dashlink = dashbridge::protocols::dashlink_v2;
 namespace {
 namespace music_core = dashbridge::core::music;
@@ -301,6 +302,7 @@ static void a2dp_event(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
     case ESP_A2D_CONNECTION_STATE_EVT:
         connecting = param->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTING;
         if (param->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
+            finish_classic_profile(connections::Profile::music);
             linked = true;
             connecting = false;
             connection = param->conn_stat.conn_hdl;
@@ -310,6 +312,7 @@ static void a2dp_event(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
             sequence = 0;
             ESP_LOGI(tag, "A2DP connected: handle=%u mtu=%u", unsigned(connection), unsigned(connection_mtu));
         } else if (param->conn_stat.state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
+            finish_classic_profile(connections::Profile::music);
             clear_connection();
             next_connect = now() + 5000;
             ESP_LOGW(tag, "A2DP disconnected; reconnect scheduled");
@@ -426,6 +429,7 @@ void music_peer_disconnected(const uint8_t *address) {
 #endif
     }
     clear_connection();
+    finish_classic_profile(connections::Profile::music);
     next_connect = now() + 5000;
 }
 
@@ -466,18 +470,22 @@ bool music_audio_allowed() {
 }
 
 void music_poll() {
-    if (profile_ready && peer_known && !linked && !connecting && now() >= next_connect) {
+    if (profile_ready && peer_known && !linked && !connecting && now() >= next_connect &&
+        try_begin_classic_profile(connections::Profile::music)) {
 #if CONFIG_BRIDGE_PHONE
         const auto error = esp_a2d_sink_connect(peer);
 #else
         const auto error = esp_a2d_source_connect(peer);
 #endif
         connecting = error == ESP_OK;
+        if (!connecting)
+            finish_classic_profile(connections::Profile::music);
         next_connect = now() + (connecting ? 20000 : 5000);
         ESP_LOGI(tag, "A2DP connect request: %s", esp_err_to_name(error));
     }
     if (connecting && now() >= next_connect) {
         connecting = false;
+        finish_classic_profile(connections::Profile::music);
         next_connect = now() + 5000;
         ESP_LOGW(tag, "A2DP connect timed out; retry scheduled");
     }

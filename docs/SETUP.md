@@ -12,8 +12,11 @@ checklist. Install the matching Board A and Board B images from the same
 | Board A on iPhone | Dash Messages | Notification sharing |
 | Board B on Tesla | Dash Tesla | Tesla phone, messages, music, and phonebook |
 
-On Board A's USB console, enter `pair phone`, then pair both iPhone devices and
-allow notification sharing. On Board B, enter `pair car`, pair Dash Tesla with
+With the companion app, keep it open and accept the **Dash Messages** pairing
+and notification-sharing prompts; then pair **Dash Calls** in iPhone Settings
+when the app asks. Without the app, enter `pair phone` on Board A's USB console,
+pair **Dash Messages** first, allow notification sharing, and then pair
+**Dash Calls** after it becomes visible. On Board B, enter `pair car`, pair Dash Tesla with
 the car, and enable message/contact syncing where offered. Each pairing window
 lasts 120 seconds. Use `status` on both boards to check actual profile states;
 `Dash Messages` need not show “Connected” in iPhone Settings for ANCS to be ready.
@@ -26,6 +29,8 @@ available for pairing controls, connection checks, and a Tesla test message.
 Use Chrome or Edge on a computer with a USB data connection to a board. Its
 one-minute app-discovery fallback learns a new app after a fresh notification;
 notification text is requested only for allowed apps. Settings stay on Board A.
+The complete interactive and browser protocol is documented in the
+[USB command reference](USB_COMMANDS.md).
 
 The Tesla selects Dash Tesla as its active phone. The separate iPhone-to-Tesla
 phone-key pairing remains in place. Do all tests while parked.

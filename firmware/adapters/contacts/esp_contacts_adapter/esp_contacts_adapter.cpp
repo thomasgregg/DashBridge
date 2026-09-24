@@ -19,6 +19,7 @@ extern "C" {
 
 namespace runtime {
 using namespace dashbridge::ports;
+namespace connections = dashbridge::core::connections;
 namespace contact_core = dashbridge::core::contacts;
 namespace contact_protocol = dashbridge::protocols::contacts_v1;
 namespace dashlink = dashbridge::protocols::dashlink_v2;
@@ -110,6 +111,7 @@ static void callback(esp_pbac_event_t event, esp_pbac_param_t *parameter) {
         profile_ready = true;
         ESP_LOGI(tag, "iPhone phonebook and call-history service ready");
     } else if (event == ESP_PBAC_CONNECTION_STATE_EVT) {
+        finish_classic_profile(connections::Profile::contacts);
         connecting = false;
         linked = parameter->conn_stat.connected;
         handle = linked ? parameter->conn_stat.handle : ESP_PBAC_INVALID_HANDLE;
@@ -225,6 +227,7 @@ void contacts_peer_disconnected(const uint8_t *address) {
     if (linked && handle != ESP_PBAC_INVALID_HANDLE)
         esp_pbac_disconnect(handle);
     linked = connecting = pulling = downloaded = false;
+    finish_classic_profile(connections::Profile::contacts);
     handle = ESP_PBAC_INVALID_HANDLE;
     repository_index = 0;
     directory.clear();
@@ -236,14 +239,18 @@ void contacts_peer_disconnected(const uint8_t *address) {
 
 void contacts_poll() {
 #if CONFIG_BRIDGE_PHONE
-    if (profile_ready && peer_known && !linked && !connecting && now() >= next_connect) {
+    if (profile_ready && peer_known && !linked && !connecting && now() >= next_connect &&
+        try_begin_classic_profile(connections::Profile::contacts)) {
         const auto error = esp_pbac_connect(peer);
         connecting = error == ESP_OK;
+        if (!connecting)
+            finish_classic_profile(connections::Profile::contacts);
         next_connect = now() + 15000;
         ESP_LOGI(tag, "Phonebook connect request: %s", esp_err_to_name(error));
     }
     if (connecting && now() >= next_connect) {
         connecting = false;
+        finish_classic_profile(connections::Profile::contacts);
         next_connect = now() + 10000;
     }
     if (linked && !pulling && !downloaded) {

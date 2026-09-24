@@ -302,8 +302,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         guard let peripheral, let statusCharacteristic else { return }
         peripheral.readValue(for: statusCharacteristic)
         // Do not ask for an encrypted app-policy read during initial setup.
-        // The user must first pair Dash Messages for notification sharing;
-        // otherwise this read can start a competing security exchange.
+        // The app-owned ANCS handshake must finish first; otherwise this read
+        // can start a competing security exchange.
         if let policyCharacteristic, status?.notifications == true,
            Date().timeIntervalSince(lastPolicyRead) > 15 {
             lastPolicyRead = Date()

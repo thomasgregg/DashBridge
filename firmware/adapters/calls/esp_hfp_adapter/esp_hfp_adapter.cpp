@@ -153,6 +153,7 @@ static void set_connected(bool connected, const uint8_t *address) {
 #if CONFIG_BRIDGE_PHONE
     connecting = false;
 #endif
+    classic_base_link_changed(connected);
     if (connected) {
         save_peer(address); self.linked = 1;
 #if CONFIG_BRIDGE_MUSIC_RELAY
@@ -195,9 +196,13 @@ static void reply(uint32_t id, uint32_t destination, bool ok) {
 }
 static void phone_gap(esp_bt_gap_cb_event_t e, esp_bt_gap_cb_param_t *p) {
     Guard guard;
-    if (e == ESP_BT_GAP_CFM_REQ_EVT)
-        esp_bt_gap_ssp_confirm_reply(p->cfm_req.bda,
-                                     pairing_allowed(Peer::phone) || classic_bond_known(p->cfm_req.bda));
+    if (e == ESP_BT_GAP_CFM_REQ_EVT) {
+        const bool bonded = classic_bond_known(p->cfm_req.bda);
+        const bool staged_pairing = pairing_allowed(Peer::phone) && phone_notifications_ready();
+        ESP_LOGI("calls", "Classic confirmation: bonded=%d pairing_open=%d notifications_ready=%d accepted=%d",
+                 bonded, pairing_allowed(Peer::phone), phone_notifications_ready(), bonded || staged_pairing);
+        esp_bt_gap_ssp_confirm_reply(p->cfm_req.bda, bonded || staged_pairing);
+    }
     else if (e == ESP_BT_GAP_PIN_REQ_EVT) {
         esp_bt_pin_code_t pin = {};
         esp_bt_gap_pin_reply(p->pin_req.bda, false, 0, pin);
@@ -607,7 +612,8 @@ void relay_poll() {
     static int64_t last_scan = 0;
     if (now() - last_scan >= 1000) {
         last_scan = now();
-        esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, pairing_allowed(Peer::phone) ?
+        const bool staged_pairing = pairing_allowed(Peer::phone) && phone_notifications_ready();
+        esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, staged_pairing ?
                                 ESP_BT_GENERAL_DISCOVERABLE : ESP_BT_NON_DISCOVERABLE);
     }
 #endif
@@ -654,6 +660,9 @@ void relay_start() {
 #if CONFIG_BRIDGE_PHONE
     ESP_ERROR_CHECK(esp_bt_gap_register_callback(phone_gap));
     ESP_ERROR_CHECK(esp_bt_gap_set_device_name("Dash Calls"));
+    // Initial setup is staged: the app establishes BLE/ANCS first. Dash Calls
+    // becomes discoverable only after notification sharing is ready.
+    ESP_ERROR_CHECK(esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_NON_DISCOVERABLE));
     esp_bt_io_cap_t capability = ESP_BT_IO_CAP_NONE;
     ESP_ERROR_CHECK(esp_bt_gap_set_security_param(ESP_BT_SP_IOCAP_MODE, &capability, sizeof capability));
     esp_bt_cod_t cod = {}; cod.major = ESP_BT_COD_MAJOR_DEV_AV; cod.minor = 1;

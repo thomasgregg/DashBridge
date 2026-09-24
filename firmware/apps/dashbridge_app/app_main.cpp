@@ -1,5 +1,6 @@
 #include "app_internal.hpp"
 #include "dashbridge/adapters/features.hpp"
+#include "dashbridge/core/connections.hpp"
 #include "dashbridge/platform/console_commands.hpp"
 #include "dashbridge/platform/esp_runtime.hpp"
 #include "dashbridge/ports/runtime_services.hpp"
@@ -50,6 +51,7 @@ class RuntimeSetupActions final : public setup::Actions {
 
 RuntimeSetupActions setup_actions;
 setup::Controller setup_state(setup_actions);
+dashbridge::core::connections::Coordinator classic_connections;
 
 setup::Peer setup_peer(Peer peer) {
     return peer == Peer::phone ? setup::Peer::phone : setup::Peer::tesla;
@@ -61,6 +63,15 @@ class AppServices final : public dashbridge::ports::RuntimeServices {
     uint32_t random_token() const override { return platform_runtime.random_token(); }
     bool classic_bond_known(const uint8_t *address) const override {
         return platform_runtime.classic_bond_known(address);
+    }
+    void classic_base_link_changed(bool connected) override {
+        classic_connections.base_link_changed(connected);
+    }
+    bool try_begin_classic_profile(dashbridge::core::connections::Profile profile) override {
+        return classic_connections.try_begin(profile);
+    }
+    void finish_classic_profile(dashbridge::core::connections::Profile profile) override {
+        classic_connections.finish(profile);
     }
     void lock() override { platform_runtime.lock(); }
     void unlock() override { platform_runtime.unlock(); }
