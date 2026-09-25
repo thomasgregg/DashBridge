@@ -1,5 +1,7 @@
+import AccessorySetupKit
 import CoreBluetooth
 import Foundation
+import UIKit
 
 final class BridgeBluetooth: NSObject, ObservableObject {
     static let notFoundMessage = "The app can't find DashBridge. Make sure it's powered and not connected to another iPhone, then try again."
@@ -32,6 +34,13 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var presenceTimer: Timer?
     private var availabilityTimer: Timer?
     private var timedOut = false
+#if !targetEnvironment(simulator)
+    private var accessorySession: ASAccessorySession?
+    private var accessorySessionReady = false
+    private var pickerAccessory: ASAccessory?
+    private var authorizedPeripheralID: UUID?
+    private var connectAfterAuthorization = false
+#endif
     private struct PendingCommand {
         let command: BridgeCommand
         let payload: Data
@@ -59,6 +68,89 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             }
             return
         }
+#if !targetEnvironment(simulator)
+        startAccessorySession()
+#else
+        if manager == nil {
+            waitForBluetooth()
+            manager = CBCentralManager(delegate: self, queue: .main)
+        } else if manager?.state == .poweredOn {
+            findExistingOrScan()
+        } else if let state = manager?.state {
+            reportBluetoothState(state)
+        }
+#endif
+    }
+
+#if !targetEnvironment(simulator)
+    private func startAccessorySession() {
+        if accessorySessionReady {
+            prepareAuthorizedAccessoryOrPicker()
+            return
+        }
+        guard accessorySession == nil else { return }
+        error = nil
+        beginTimedCheck(seconds: 15)
+        let session = ASAccessorySession()
+        accessorySession = session
+        session.activate(on: .main) { [weak self] event in
+            self?.handleAccessoryEvent(event)
+        }
+    }
+
+    private func handleAccessoryEvent(_ event: ASAccessoryEvent) {
+        switch event.eventType {
+        case .activated:
+            accessorySessionReady = true
+            endTimedCheck()
+            prepareAuthorizedAccessoryOrPicker()
+        case .accessoryAdded, .accessoryChanged:
+            if let accessory = event.accessory { pickerAccessory = accessory }
+        case .migrationComplete:
+            pickerAccessory = accessorySession?.accessories.first(where: { $0.state == .authorized })
+        case .pickerDidDismiss:
+            guard let accessory = pickerAccessory ?? accessorySession?.accessories.first(where: {
+                $0.state == .authorized
+            }) else { return }
+            pickerAccessory = nil
+            guard let identifier = accessory.bluetoothIdentifier else {
+                error = "iPhone paired DashBridge but did not provide its Bluetooth connection. Try again."
+                return
+            }
+            authorizedPeripheralID = identifier
+            connectAfterAuthorization = true
+            foundName = accessory.displayName
+            beginCoreBluetooth()
+        case .pickerSetupFailed:
+            error = event.error?.localizedDescription ?? "iPhone couldn't set up DashBridge. Try again nearby."
+        case .invalidated:
+            accessorySessionReady = false
+            accessorySession = nil
+            error = event.error?.localizedDescription ?? "Accessory setup stopped. Try again."
+        case .pickerDidPresent, .pickerSetupBridging, .pickerSetupPairing,
+             .pickerSetupRename, .accessoryRemoved, .accessoryDiscovered, .unknown:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    private func prepareAuthorizedAccessoryOrPicker() {
+        guard let session = accessorySession else { return }
+        if let accessory = session.accessories.first(where: {
+            $0.state == .authorized && $0.bluetoothIdentifier != nil
+        }), let identifier = accessory.bluetoothIdentifier {
+            authorizedPeripheralID = identifier
+            foundName = accessory.displayName
+            beginCoreBluetooth()
+        } else {
+            // Session activation proves the system picker is ready. Discovery
+            // itself begins only after the user taps Connect my iPhone.
+            foundName = "DashBridge"
+        }
+    }
+
+    private func beginCoreBluetooth() {
         if manager == nil {
             waitForBluetooth()
             manager = CBCentralManager(delegate: self, queue: .main)
@@ -68,6 +160,56 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             reportBluetoothState(state)
         }
     }
+
+    private func showAccessoryPicker() {
+        guard let session = accessorySession, accessorySessionReady else {
+            error = "Accessory setup is still getting ready. Try again in a moment."
+            return
+        }
+        let descriptor = ASDiscoveryDescriptor()
+        descriptor.bluetoothServiceUUID = BridgeService.service
+        descriptor.bluetoothNameSubstring = "DashBridge"
+        descriptor.bluetoothRange = .immediate
+        descriptor.supportedOptions = [.bluetoothPairingLE, .bluetoothTransportBridging]
+
+        let image = Self.pickerProductImage()
+        let item: ASPickerDisplayItem
+        if let remembered = rememberedPeripheralStore.loadIdentifier() {
+            let migration = ASMigrationDisplayItem(name: "DashBridge", productImage: image,
+                                                   descriptor: descriptor)
+            migration.peripheralIdentifier = remembered
+            migration.setupOptions = [.finishInApp]
+            item = migration
+        } else {
+            let display = ASPickerDisplayItem(name: "DashBridge", productImage: image,
+                                              descriptor: descriptor)
+            display.setupOptions = [.finishInApp]
+            item = display
+        }
+        pickerAccessory = nil
+        session.showPicker(for: [item]) { [weak self] error in
+            if let error { self?.error = error.localizedDescription }
+        }
+    }
+
+    private static func pickerProductImage() -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 3
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: CGSize(width: 180, height: 120), format: format).image { _ in
+            let card = UIBezierPath(roundedRect: CGRect(x: 18, y: 8, width: 144, height: 104),
+                                    cornerRadius: 24)
+            UIColor(red: 0.918, green: 0.961, blue: 0.937, alpha: 1).setFill()
+            card.fill()
+            let configuration = UIImage.SymbolConfiguration(pointSize: 46, weight: .ultraLight)
+            guard let symbol = UIImage(systemName: "powerplug.fill", withConfiguration: configuration)?
+                .withTintColor(UIColor(red: 0.09, green: 0.42, blue: 0.33, alpha: 1),
+                               renderingMode: .alwaysOriginal) else { return }
+            symbol.draw(at: CGPoint(x: 90 - symbol.size.width / 2,
+                                    y: 60 - symbol.size.height / 2))
+        }
+    }
+#endif
 
     private func reportBluetoothState(_ state: CBManagerState) {
         availabilityTimer?.invalidate()
@@ -120,6 +262,24 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private func findExistingOrScan(clearError: Bool = true, tryRemembered: Bool = true) {
         guard let manager, manager.state == .poweredOn, !connected else { return }
         if clearError { error = nil }
+#if !targetEnvironment(simulator)
+        if let identifier = authorizedPeripheralID,
+           let selected = manager.retrievePeripherals(withIdentifiers: [identifier]).first {
+            discovered = selected
+            foundName = selected.name ?? "DashBridge"
+            if connectAfterAuthorization {
+                connectAfterAuthorization = false
+                connectFound(requiresANCS: true)
+            }
+            return
+        }
+        // AccessorySetupKit owns first-time discovery. Core Bluetooth is used
+        // only after the system has authorized one selected accessory.
+        if accessorySession != nil {
+            foundName = "DashBridge"
+            return
+        }
+#endif
         // A paired ANCS accessory can remain connected to iOS while it is no
         // longer advertising. A scan cannot find it, but Core Bluetooth can
         // attach this app to the existing system connection.
@@ -181,7 +341,12 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     }
 
     func connectFound(requiresANCS: Bool = true) {
-        guard let discovered, let manager else { return }
+        guard let discovered, let manager else {
+#if !targetEnvironment(simulator)
+            showAccessoryPicker()
+#endif
+            return
+        }
         scanTimer?.invalidate()
         scanTimer = nil
         presenceTimer?.invalidate()
@@ -219,6 +384,12 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     func retry() {
         error = nil
         timedOut = false
+#if !targetEnvironment(simulator)
+        if manager == nil {
+            prepareAuthorizedAccessoryOrPicker()
+            return
+        }
+#endif
         if let state = manager?.state, state != .poweredOn {
             reportBluetoothState(state)
             return

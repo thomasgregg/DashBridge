@@ -7,9 +7,11 @@ No extra iPhone app is required in the observed setup.
 ## Discovery and pairing
 
 The BLE advertisement solicits ANCS and includes the generic HID service UUID
-`0x1812` and appearance `0x03c0`, following the pinned SDK's ANCS example. It fits
-within the 31-byte BLE advertising limit. This is a discovery advertisement,
-not a full keyboard implementation; no input reports are sent.
+`0x1812` and appearance `0x03c0`, following the pinned SDK's ANCS example. Its
+scan response advertises the released setup-service UUID so Apple's
+AccessorySetupKit picker can authorize BLE and bridge the Classic profiles.
+Both packets fit within the 31-byte BLE limits. This is a discovery
+advertisement, not a full keyboard implementation; no input reports are sent.
 
 The iOS 27 test initially showed no notification connection in Settings.
 After the discovery change and fresh pairing, the notification-sharing prompt

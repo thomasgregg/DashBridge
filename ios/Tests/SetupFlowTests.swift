@@ -50,11 +50,24 @@ final class SetupFlowTests: XCTestCase {
         _ = machine.handle(.statusReceived(BridgeStatus(bits: 0b0000_0001)))
         XCTAssertEqual(machine.state.step, .sharing)
 
-        _ = machine.handle(.statusReceived(BridgeStatus(bits: 0b0000_0011)))
+        XCTAssertEqual(machine.handle(.statusReceived(BridgeStatus(bits: 0b0000_0011))),
+                       [.openPhonePairing])
         XCTAssertEqual(machine.state.step, .pair)
 
         XCTAssertEqual(machine.handle(.statusReceived(phoneReady)), [.loadCatalog])
         XCTAssertEqual(machine.state.step, .apps)
+
+        XCTAssertEqual(machine.handle(.back), [])
+        XCTAssertEqual(machine.state.step, .pair)
+        XCTAssertTrue(machine.state.reviewingPhoneStep)
+
+        // Repeated hardware status must not bounce the review straight back to Apps.
+        XCTAssertEqual(machine.handle(.statusReceived(phoneReady)), [])
+        XCTAssertEqual(machine.state.step, .pair)
+
+        XCTAssertEqual(machine.handle(.phoneReviewContinued), [.loadCatalog])
+        XCTAssertEqual(machine.state.step, .apps)
+        XCTAssertFalse(machine.state.reviewingPhoneStep)
     }
 
     func testCompletedChoicesRouteToCarThenAutomaticallyToTest() {

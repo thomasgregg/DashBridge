@@ -277,7 +277,7 @@ private struct SetupView: View {
                                            detail: "Allow access so selected messages can reach your Tesla.")
                         connectionGuideRow(number: 3,
                                            title: "Connect calls and music",
-                                           detail: "We’ll set up Dash Calls after notifications are ready.")
+                                           detail: "Included in the iPhone setup.")
                     }
                 }
             } else {
@@ -490,8 +490,8 @@ private struct SetupView: View {
                                     : status?.phoneBluetooth == true ? .waiting : .next)
                 connectionStatusRow("Calls and music",
                                     detail: status?.notifications == true
-                                    ? "In Settings → Bluetooth, tap Dash Calls."
-                                    : "Starts after notification access is ready.",
+                                    ? "iPhone is finishing the Dash Calls connection."
+                                    : "Included in the system setup.",
                                     symbol: "phone",
                                     state: status?.phoneCalls == true ? .ready
                                     : status?.notifications == true ? .waiting : .next)
@@ -721,7 +721,8 @@ private struct SetupView: View {
     private var actionBar: some View {
         if step == .welcome || step == .finding ||
             (step == .checking && flow.state.connectionRequestPending) || step == .apps ||
-            step == .car || step == .test || step == .help || (step == .ready && !progress.testConfirmed) {
+            (step == .pair && flow.state.reviewingPhoneStep) || step == .car || step == .test ||
+            step == .help || (step == .ready && !progress.testConfirmed) {
             VStack(spacing: 8) {
                 switch step {
                 case .welcome:
@@ -757,6 +758,12 @@ private struct SetupView: View {
                 case .checking:
                     primary("Connect my iPhone") {
                         send(.connectionGuidancePresented)
+                    }
+                case .pair:
+                    if flow.state.reviewingPhoneStep {
+                        primary("Continue") {
+                            send(.phoneReviewContinued)
+                        }
                     }
                 case .apps:
                     primary("Continue") {
@@ -983,6 +990,8 @@ private struct SetupView: View {
                     guard step == .checking, !flow.state.connectionRequestPending else { return }
                     bridge.connectFound()
                 }
+            case .openPhonePairing:
+                bridge.send(.openPhonePairing)
             case .retryBluetooth:
                 bridge.retry()
             case .loadCatalog:

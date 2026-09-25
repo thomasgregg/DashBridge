@@ -28,7 +28,7 @@ private final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any], rssi: NSNumber) {
         let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name ?? ""
-        guard name == "DashBridge A" || name == "Dash Messages" else { return }
+        guard name == "DashBridge" || name == "DashBridge A" || name == "Dash Messages" else { return }
         if scanOnly {
             report("Found \(name) advertising; no connection attempted")
             central.stopScan()

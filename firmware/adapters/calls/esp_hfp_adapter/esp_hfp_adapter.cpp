@@ -198,9 +198,12 @@ static void phone_gap(esp_bt_gap_cb_event_t e, esp_bt_gap_cb_param_t *p) {
     Guard guard;
     if (e == ESP_BT_GAP_CFM_REQ_EVT) {
         const bool bonded = classic_bond_known(p->cfm_req.bda);
-        const bool staged_pairing = pairing_allowed(Peer::phone) && phone_notifications_ready();
-        ESP_LOGI("calls", "Classic confirmation: bonded=%d pairing_open=%d notifications_ready=%d accepted=%d",
-                 bonded, pairing_allowed(Peer::phone), phone_notifications_ready(), bonded || staged_pairing);
+        // AccessorySetupKit may bridge the Classic profiles as soon as its BLE
+        // pairing is secure, before ANCS subscriptions finish. Ordinary Classic
+        // discovery remains hidden until notification sharing is ready below.
+        const bool staged_pairing = pairing_allowed(Peer::phone) && phone_bluetooth_ready();
+        ESP_LOGI("calls", "Classic confirmation: bonded=%d pairing_open=%d bluetooth_ready=%d accepted=%d",
+                 bonded, pairing_allowed(Peer::phone), phone_bluetooth_ready(), bonded || staged_pairing);
         esp_bt_gap_ssp_confirm_reply(p->cfm_req.bda, bonded || staged_pairing);
     }
     else if (e == ESP_BT_GAP_PIN_REQ_EVT) {

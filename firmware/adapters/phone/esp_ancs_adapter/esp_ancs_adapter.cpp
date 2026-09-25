@@ -37,6 +37,13 @@ static uint8_t advertisement[] = {2,    0x01, 0x06, 17,   0x15, 0xd0, 0x00, 0x2d
                                   3, 0x03, 0x12, 0x18, // Complete 16-bit service list: HID, 0x1812.
                                   3, 0x19, 0xc0, 0x03}; // Appearance: generic HID, 0x03c0.
 static_assert(sizeof(advertisement) <= 31, "BLE advertisement exceeds 31 bytes");
+// AccessorySetupKit matches the released setup service from the scan response.
+// Keep the over-the-air name short enough to fit beside the 128-bit UUID; the
+// GATT device name remains "Dash Messages" after connection.
+static uint8_t scan_response[] = {17, 0x07, 0xf0, 0xa6, 0x58, 0xc2, 0x28, 0x3d,
+                                  0xc1, 0xa0, 0x16, 0x4e, 0xb1, 0xce, 0x3d, 0x6b, 0x9b, 0x0d,
+                                  11, 0x09, 'D', 'a', 's', 'h', 'B', 'r', 'i', 'd', 'g', 'e'};
+static_assert(sizeof(scan_response) <= 31, "BLE scan response exceeds 31 bytes");
 static esp_ble_adv_params_t advertising = {};
 static esp_gatt_if_t interface_id = ESP_GATT_IF_NONE;
 static uint16_t connection = 0, start_handle = 0, end_handle = 0;
@@ -287,27 +294,42 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
             ESP_LOGE(tag, "Bluetooth privacy setup failed");
             break;
         }
-        adv_pending = 2;
-        ESP_ERROR_CHECK(esp_ble_gap_config_adv_data_raw(advertisement, sizeof advertisement));
-        esp_ble_adv_data_t scan = {};
-        scan.set_scan_rsp = true;
-        scan.include_name = true;
-        ESP_ERROR_CHECK(esp_ble_gap_config_adv_data(&scan));
+        // Bluedroid accepts only one advertising-data configuration command at
+        // a time on this ESP32. Queueing both here can lose the scan-response
+        // completion event and leave advertising permanently unopened.
+        adv_pending = 1;
+        if (log_request("advertisement configuration",
+                        esp_ble_gap_config_adv_data_raw(advertisement, sizeof advertisement)) != ESP_OK) {
+            adv_pending = 0;
+            adv_state = "configuration request failed";
+        }
         break;
     }
-    case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT:
-    case ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT: {
-        const bool raw = event == ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT;
-        int result = raw ? p->adv_data_raw_cmpl.status : p->scan_rsp_data_cmpl.status;
-        if (raw)
-            adv_data_status = result;
-        else
-            scan_data_status = result;
-        ESP_LOGI(tag, "BLE %s configured: status=0x%02x pending=%d",
-                 raw ? "advertisement (ANCS + generic HID discovery)" : "scan response (device name)",
-                 unsigned(result), adv_pending - 1);
-        if (--adv_pending == 0)
+    case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT: {
+        adv_data_status = p->adv_data_raw_cmpl.status;
+        ESP_LOGI(tag, "BLE advertisement (ANCS + generic HID discovery) configured: status=0x%02x",
+                 unsigned(adv_data_status));
+        if (adv_data_status != ESP_BT_STATUS_SUCCESS) {
+            adv_pending = 0;
+            adv_state = "advertisement configuration failed";
+            break;
+        }
+        if (log_request("scan response configuration",
+                        esp_ble_gap_config_scan_rsp_data_raw(scan_response, sizeof scan_response)) != ESP_OK) {
+            adv_pending = 0;
+            adv_state = "scan response request failed";
+        }
+        break;
+    }
+    case ESP_GAP_BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE_EVT: {
+        scan_data_status = p->scan_rsp_data_raw_cmpl.status;
+        adv_pending = 0;
+        ESP_LOGI(tag, "BLE scan response (setup service + name) configured: status=0x%02x",
+                 unsigned(scan_data_status));
+        if (scan_data_status == ESP_BT_STATUS_SUCCESS)
             ESP_ERROR_CHECK(start_advertising());
+        else
+            adv_state = "scan response configuration failed";
         break;
     }
     case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
@@ -335,14 +357,6 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
         log_request("security response", esp_ble_gap_security_rsp(p->ble_security.ble_req.bd_addr, allowed));
         break;
     }
-    case ESP_GAP_BLE_NC_REQ_EVT:
-        // Match ESP-IDF's ANCS client: explicitly accept Secure Connections
-        // numeric comparison if the peer selects that association model.
-        ESP_LOGI(tag, "BLE numeric comparison request: passkey=%06lu",
-                 static_cast<unsigned long>(p->ble_security.key_notif.passkey));
-        log_request("numeric comparison response",
-                    esp_ble_confirm_reply(p->ble_security.ble_req.bd_addr, true));
-        break;
     case ESP_GAP_BLE_AUTH_CMPL_EVT: {
         ESP_LOGI(tag, "BLE authentication complete: success=%d reason=0x%02x auth_mode=0x%02x",
                  p->ble_security.auth_cmpl.success,
@@ -436,7 +450,7 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
             break;
         }
         connection = p->open.conn_id;
-        if (log_request("encryption", esp_ble_set_encryption(peer, ESP_BLE_SEC_ENCRYPT_MITM)) != ESP_OK) {
+        if (log_request("encryption", esp_ble_set_encryption(peer, ESP_BLE_SEC_ENCRYPT)) != ESP_OK) {
             disconnect("Could not encrypt iPhone link");
             break;
         }
@@ -658,7 +672,7 @@ void phone_status() {
     ESP_LOGI(tag, "BLE setup: linked=%d encrypted=%d mtu_ready=%d discovery_started=%d ancs_ready=%d bonds=%d",
              linked, secured, mtu_ready, searching, ready, esp_ble_get_bond_device_num());
 }
-bool phone_bluetooth_ready() { return linked; }
+bool phone_bluetooth_ready() { return linked && secured; }
 bool phone_board_link_ready() { return last_car && now() - last_car < 3000; }
 bool phone_car_message_ready() { return car_ready && phone_board_link_ready(); }
 bool phone_car_transport_ready() { return phone_board_link_ready() && (car_status & 4); }
@@ -707,23 +721,12 @@ void phone_start() {
     advertising.own_addr_type = BLE_ADDR_TYPE_RPA_PUBLIC;
     advertising.channel_map = ADV_CHNL_ALL;
     advertising.adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY;
-    // ANCS characteristics require authorization. Keep these parameters in
-    // lockstep with ESP-IDF v5.5.5's production ANCS example so iOS and the
-    // controller agree on the security level before key distribution.
-    esp_ble_auth_req_t auth = ESP_LE_AUTH_REQ_SC_MITM_BOND;
+    esp_ble_auth_req_t auth = ESP_LE_AUTH_REQ_SC_BOND;
     esp_ble_io_cap_t cap = ESP_IO_CAP_NONE;
     uint8_t key_size = 16, keys = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
-    uint32_t passkey = 123456;
-    uint8_t auth_option = ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_DISABLE;
-    uint8_t oob_support = ESP_BLE_OOB_DISABLE;
-    ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof passkey));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth, sizeof auth));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP_MODE, &cap, sizeof cap));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &key_size, sizeof key_size));
-    ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH,
-                                                   &auth_option, sizeof auth_option));
-    ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_OOB_SUPPORT,
-                                                   &oob_support, sizeof oob_support));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &keys, sizeof keys));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &keys, sizeof keys));
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap));

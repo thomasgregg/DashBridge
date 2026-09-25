@@ -101,7 +101,7 @@ points must not move during refactors.
 | Encrypted policy access | Read the policy characteristic | Only after status reports notification sharing ready, avoiding a competing security exchange. |
 | App & Website Usage | Load the installed-app catalog | When entering app selection or the ready screen, never during launch. |
 | Local notification permission | Request authorization from `UNUserNotificationCenter` | Only after the user taps **Send test notification**. |
-| Dash Calls pairing | User opens iPhone Bluetooth settings | The app reports status and may open the firmware pairing window; it does not attempt to present or imitate Settings. |
+| Dash Calls pairing | AccessorySetupKit picker with Classic transport bridging | The picker appears only after **Connect my iPhone**. The app refreshes the firmware pairing window when notification access becomes ready; reconnection then remains board-owned. |
 
 Simulator tests verify the app's trigger ordering. They cannot prove whether an
 iOS dialog appears. First-pair, denied-permission, previously-paired, and

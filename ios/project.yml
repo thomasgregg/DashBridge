@@ -15,6 +15,13 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSBluetoothAlwaysUsageDescription: DashBridge uses Bluetooth to find and set up your bridge.
+        NSAccessorySetupKitSupports:
+          - Bluetooth
+        NSAccessorySetupBluetoothNames:
+          - DashBridge
+          - Dash Messages
+        NSAccessorySetupBluetoothServices:
+          - 0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F0
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:

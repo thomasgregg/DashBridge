@@ -24,6 +24,19 @@
 	<false/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>DashBridge uses Bluetooth to find and set up your bridge.</string>
+	<key>NSAccessorySetupKitSupports</key>
+	<array>
+		<string>Bluetooth</string>
+	</array>
+	<key>NSAccessorySetupBluetoothNames</key>
+	<array>
+		<string>DashBridge</string>
+		<string>Dash Messages</string>
+	</array>
+	<key>NSAccessorySetupBluetoothServices</key>
+	<array>
+		<string>0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F0</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

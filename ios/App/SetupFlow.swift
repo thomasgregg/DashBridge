@@ -20,6 +20,7 @@ struct SetupFlowState: Equatable {
     var step: SetupStep = .welcome
     var progress: SetupProgress
     var initialized = false
+    var reviewingPhoneStep = false
     var reviewingCarStep = false
     var appsReturnStep: SetupStep = .welcome
     var helpReturnStep: SetupStep = .car
@@ -39,6 +40,7 @@ enum SetupFlowEvent {
     case checkingTimedOut(connected: Bool)
     case openHelp(returnTo: SetupStep)
     case openAppsFromReady
+    case phoneReviewContinued
     case appsContinued(status: BridgeStatus?)
     case carReviewContinued
     case deferTesla
@@ -53,6 +55,7 @@ enum SetupFlowEvent {
 enum SetupFlowEffect: Equatable {
     case startBluetooth
     case connectFound
+    case openPhonePairing
     case retryBluetooth
     case loadCatalog
     case clearBluetoothError
@@ -140,6 +143,10 @@ struct SetupFlowMachine {
             state.appsReturnStep = .ready
             state.step = .apps
 
+        case .phoneReviewContinued:
+            state.reviewingPhoneStep = false
+            state.step = .apps
+
         case let .appsContinued(status):
             state.progress.choseApps = true
             if state.progress.testConfirmed || state.progress.teslaDeferred {
@@ -203,21 +210,29 @@ struct SetupFlowMachine {
             showPreview(screen)
         }
 
-        if state.step != previousStep, state.step == .apps || state.step == .ready {
-            effects.append(.loadCatalog)
+        if state.step != previousStep {
+            if state.step == .pair, !state.reviewingPhoneStep {
+                // Refresh the board's finite pairing window at the moment the
+                // system picker is actually ready to finish Dash Calls.
+                effects.append(.openPhonePairing)
+            }
+            if state.step == .apps || state.step == .ready {
+                effects.append(.loadCatalog)
+            }
         }
         return effects
     }
 
     private mutating func route(_ status: BridgeStatus) {
         if state.step == .checking || state.step == .pair || state.step == .sharing {
+            if state.reviewingPhoneStep { return }
             if status.phoneCalls && status.notifications {
                 if state.progress.choseApps {
                     state.step = state.progress.testConfirmed || state.progress.teslaDeferred
                         ? .ready
                         : (status.teslaMessages && status.teslaCalls ? .test : .car)
                 } else {
-                    state.appsReturnStep = .welcome
+                    state.appsReturnStep = .pair
                     state.step = .apps
                 }
                 return
@@ -235,8 +250,10 @@ struct SetupFlowMachine {
         case .welcome:
             break
         case .finding, .checking, .pair, .sharing:
+            state.reviewingPhoneStep = false
             state.step = .welcome
         case .apps:
+            state.reviewingPhoneStep = state.appsReturnStep == .pair
             state.step = state.appsReturnStep
         case .car:
             state.reviewingCarStep = false

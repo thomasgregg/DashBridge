@@ -172,6 +172,7 @@ if contract:
     protocol_source = protocol_source_path.read_text()
     adapter = adapter_path.read_text()
     all_swift = "\n".join(path.read_text() for path in (ROOT / "ios").rglob("*.swift"))
+    ios_info = (ROOT / "ios/App/Info.plist").read_text()
 
     require("esp_" not in setup_composition and "freertos/" not in setup_composition,
             "setup composition must not contain ESP-IDF or Bluetooth adapter code")
@@ -239,13 +240,28 @@ if contract:
             "try_begin_classic_profile(connections::Profile::contacts)" in contacts_adapter,
             "music and contacts must serialize supplemental Classic connection attempts")
     require("staged_pairing" in call_relay and
+            "pairing_allowed(Peer::phone) && phone_bluetooth_ready()" in call_relay and
             "pairing_allowed(Peer::phone) && phone_notifications_ready()" in call_relay and
             "ESP_BT_NON_DISCOVERABLE" in call_relay,
-            "Dash Calls must remain hidden until BLE/ANCS pairing is ready")
+            "the system picker may bridge Dash Calls after secure BLE pairing while ordinary discovery stays hidden until ANCS is ready")
+    require("bool phone_bluetooth_ready() { return linked && secured; }" in phone_source and
+            "ESP_LE_AUTH_REQ_SC_BOND" in phone_source and
+            "ESP_BLE_SEC_ENCRYPT_MITM" not in phone_source,
+            "iPhone pairing must report ready only after encryption and use the iOS-compatible secure-bond flow")
     require('connectionStatusRow("Calls and music"' in all_swift and
-            "In Settings → Bluetooth, tap Dash Calls." in all_swift and
-            "tap Dash Calls and Dash Messages" not in all_swift,
-            "the iOS app must own BLE pairing and request only manual Dash Calls pairing")
+            "import AccessorySetupKit" in all_swift and
+            "showPicker(for:" in all_swift and
+            ".bluetoothTransportBridging" in all_swift and
+            "In Settings → Bluetooth, tap Dash Calls." not in all_swift,
+            "the iOS app must use the system accessory picker to bridge Dash Calls pairing")
+    require("NSAccessorySetupKitSupports" in ios_info and
+            "NSAccessorySetupBluetoothServices" in ios_info and
+            contract["service_uuid"] in ios_info and
+            "esp_ble_gap_config_scan_rsp_data_raw" in phone_source and
+            "ESP_GAP_BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE_EVT" in phone_source and
+            "scan_rsp_data_raw_cmpl.status" in phone_source and
+            "0xf0, 0xa6, 0x58, 0xc2" in phone_source,
+            "AccessorySetupKit metadata and the Board A setup-service scan response must match the released contract")
     require("connectionRequestPending = true" in all_swift and
             'primary("Connect my iPhone")' in all_swift and
             "send(.connectionGuidancePresented)" in all_swift and

@@ -9,8 +9,8 @@ browser USB setup flow, and Setup GATT v1 support for the iPhone app.
 
 | Board | Complete image | Embedded version | SHA-256 |
 | --- | --- | --- | --- |
-| A — iPhone | `phone-full.bin` | `0.5.3-alpha+a228d0702f52` | `2a89b34f24b322cf1679d1a4023e65e46d1dd55f8a04b0e6f9cc21c13a216fa7` |
-| B — Tesla | `car-full.bin` | `0.5.3-alpha+5c453ca7f354` | `621263229076d30cbf3179d931d984bd78d138572624038093d22e95b2e09e5a` |
+| A — iPhone | `phone-full.bin` | `0.5.3-alpha+10e32023240b` | `49b81c7cd6c8a508591b46297b9d5430de3274137ed7adc8b03b5079646db4ee` |
+| B — Tesla | `car-full.bin` | `0.5.3-alpha+689d47c3c548` | `d19a038170821a3707347dfcc9ad22bdbd9ec6984b7eab9a66c8b3fcc2489a8c` |
 
 The complete images contain the bootloader, partition table, and application
 and are flashed at `0x0`. They may erase Bluetooth bonds and app choices.
@@ -33,12 +33,13 @@ call and music control, encoded media transport, audio timing and isolation,
 contacts, pairing order, reconnect ownership, persistence, replay protection,
 browser integrity, production Bluetooth configuration, and SDP checks pass.
 
-These exact images have been flashed to the target boards and passed boot,
-Bluetooth service-registration, inter-board-link, controlled outage/recovery,
-command failure-path, and 45-second linked/discoverable stability checks, but
-have **not** been tested end to end with an iPhone and Tesla. The
-[manifest](../dist/manifest.json) therefore records `hardware_tested: false`
-for both boards. Physical testing must confirm
+The secure BLE and Classic Bluetooth pairing changes passed a live Board A
+pairing trace. These exact images were hash-verified while flashing the target
+boards, booted with the expected embedded versions, and established the board
+link. Board A also reported active BLE advertising and was independently found
+as **DashBridge** by a Bluetooth scan. They have **not** yet completed the full
+iPhone and Tesla release check, so the [manifest](../dist/manifest.json)
+records `hardware_tested: false` for both boards. Physical testing must confirm
 notification delivery, phonebook synchronization, call controls and audible
 quality, music playback and controls, and sustained reconnection.
 

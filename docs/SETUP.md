@@ -12,10 +12,11 @@ checklist. Install the matching Board A and Board B images from the same
 | Board A on iPhone | Dash Messages | Notification sharing |
 | Board B on Tesla | Dash Tesla | Tesla phone, messages, music, and phonebook |
 
-With the companion app, keep it open and accept the **Dash Messages** pairing
-and notification-sharing prompts; then pair **Dash Calls** in iPhone Settings
-when the app asks. Without the app, enter `pair phone` on Board A's USB console,
-pair **Dash Messages** first, allow notification sharing, and then pair
+With the companion app, keep it open, tap **Connect my iPhone**, and approve
+Apple's accessory picker and notification-sharing prompts. The picker pairs
+**Dash Messages** and bridges **Dash Calls** for calls and music without a trip
+to Bluetooth Settings. Without the app, enter `pair phone` on Board A's USB console,
+pair **Dash Messages** first, allow notification sharing, and then select
 **Dash Calls** after it becomes visible. On Board B, enter `pair car`, pair Dash Tesla with
 the car, and enable message/contact syncing where offered. Explicit pairing
 windows last 120 seconds. A Board A with no saved iPhone bond accepts its first
