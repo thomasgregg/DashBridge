@@ -26,7 +26,7 @@ set +u
 set -u
 cd "$project_dir"
 if [[ "$action" == check ]]; then
-  bash tools/test.sh
+  bash tools/validate_host.sh
   python3 tools/test_build_scope.py
 else
   # Reuse the same build directory, SDK and compiler cache on every invocation.

@@ -74,7 +74,6 @@ private struct SetupView: View {
     @State private var step: Step = .welcome
     @State private var initialized = false
     @State private var showingApps = false
-    @State private var showingDetails = false
     @State private var isPreview = false
     @State private var previewStatus: BridgeStatus?
     @State private var previewAllowed: Set<String> = []
@@ -113,12 +112,6 @@ private struct SetupView: View {
                             }
                         }
                     }
-                }
-                .navigationDestination(isPresented: $showingDetails) {
-                    details
-                        .navigationTitle("Connection details")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar(.visible, for: .navigationBar)
                 }
                 .safeAreaInset(edge: .bottom) { actionBar }
                 .sheet(isPresented: $showingApps) {
@@ -362,20 +355,43 @@ private struct SetupView: View {
             .contentMargins(.top, 0, for: .scrollContent)
         case .help:
             brandedList {
-                if helpReturnStep == .checking {
+                if helpReturnStep == .checking && status == nil {
                     headerRow("Couldn't check DashBridge yet.", bridge.error ?? "The app couldn't reach DashBridge yet.")
                     Section {
                         Label("Tap Check again below. No reset or re-pairing is needed.", systemImage: "arrow.clockwise")
                     }
                 } else {
-                    headerRow("Connection help.", bridge.error ?? "Check that Dash Tesla is selected on the Tesla Bluetooth screen.")
-                    Section {
-                        LabeledContent("iPhone", value: status?.notifications == true ? "Connected" : "Check connection")
-                        LabeledContent("Tesla", value: status?.teslaMessages == true ? "Connected" : "Not connected")
+                    headerRow("Connection status.", bridge.error ?? "Live status reported by DashBridge.")
+                }
+
+                if let status {
+                    Section("iPhone") {
+                        LabeledContent("Bluetooth", value: status.phoneBluetooth ? "Connected" : "Disconnected")
+                        LabeledContent("Notification sharing", value: status.notifications ? "Ready" : "Not ready")
+                        LabeledContent("Calls", value: status.phoneCalls ? "Connected" : "Disconnected")
+                    }
+                    Section("DashBridge") {
+                        LabeledContent("Internal board link", value: status.internalLink ? "Ready" : "Not responding")
+                    }
+                    Section("Tesla") {
+                        LabeledContent("Messages", value: status.teslaMessages ? "Connected" : "Disconnected")
+                        LabeledContent("Message transport", value: status.teslaTransport ? "Ready" : "Not ready")
+                        LabeledContent("Message sync", value: status.teslaSync ? "Ready" : "Not ready")
+                        LabeledContent("Calls", value: status.teslaCalls ? "Connected" : "Disconnected")
+                    }
+                } else if helpReturnStep != .checking {
+                    Section("Connection check") {
+                        LabeledContent("Last step", value: bridge.connectionStage)
+                        Text("DashBridge has not reported its connection status yet.")
+                            .foregroundStyle(Theme.muted)
                     }
                 }
+
                 Section {
-                    Button("Connection details") { showingDetails = true }
+                    Button(copiedConnectionDetails ? "Diagnostics copied" : "Copy diagnostics") {
+                        UIPasteboard.general.string = connectionDiagnostics
+                        copiedConnectionDetails = true
+                    }
                 }
             }
         }
@@ -591,40 +607,22 @@ private struct SetupView: View {
         }
     }
 
-    private var details: some View {
-        brandedList {
-            if let status {
-                Section("iPhone") {
-                    LabeledContent("Bluetooth", value: status.phoneBluetooth ? "Connected" : "Disconnected")
-                    LabeledContent("Notification sharing", value: status.notifications ? "Ready" : "Not ready")
-                }
-                Section("DashBridge") {
-                    LabeledContent("Internal link", value: status.internalLink ? "Ready" : "Not responding")
-                }
-                Section("Tesla") {
-                    LabeledContent("Bluetooth", value: status.teslaCalls ? "Connected" : "Disconnected")
-                }
-            } else {
-                Section {
-                    LabeledContent("Last step", value: bridge.connectionStage)
-                    if let error = bridge.error { Text(error) }
-                } header: {
-                    Text("iPhone setup")
-                } footer: {
-                    Text("The app couldn't check the iPhone, DashBridge, or Tesla connections yet.")
-                }
-            }
-            Section {
-                Button(copiedConnectionDetails ? "Details copied" : "Copy details") {
-                    let summary = ["DashBridge connection details",
-                                   "Last step: \(bridge.connectionStage)",
-                                   "Problem: \(bridge.error ?? "None")",
-                                   "Status received: \(status == nil ? "No" : "Yes")"]
-                    UIPasteboard.general.string = summary.joined(separator: "\n")
-                    copiedConnectionDetails = true
-                }
-            }
+    private var connectionDiagnostics: String {
+        var lines = ["DashBridge connection diagnostics",
+                     "Last step: \(bridge.connectionStage)",
+                     "Problem: \(bridge.error ?? "None")",
+                     "Status received: \(status == nil ? "No" : "Yes")"]
+        if let status {
+            lines += ["iPhone Bluetooth: \(status.phoneBluetooth)",
+                      "Notification sharing: \(status.notifications)",
+                      "iPhone calls: \(status.phoneCalls)",
+                      "Internal board link: \(status.internalLink)",
+                      "Tesla messages: \(status.teslaMessages)",
+                      "Tesla message transport: \(status.teslaTransport)",
+                      "Tesla message sync: \(status.teslaSync)",
+                      "Tesla calls: \(status.teslaCalls)"]
         }
+        return lines.joined(separator: "\n")
     }
 
     @ViewBuilder

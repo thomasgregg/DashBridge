@@ -288,11 +288,11 @@ static void app_policy_test() {
     assert(!policy.allow("com.example.Bad ID", "Bad", Preview::full));
     assert(policy.deny("com.example.Chat"));
     assert(!policy.find("com.example.Chat"));
-    AppPolicy priorBoard;
-    assert(priorBoard.allow("net.whatsapp.WhatsAppSMB", "WhatsApp Business", Preview::full));
-    AppPolicy upgradedBoard;
-    assert(upgradedBoard.load(priorBoard.serialize()));
-    assert(upgradedBoard.find("net.whatsapp.WhatsAppSMB"));
+    AppPolicy savedPolicy;
+    assert(savedPolicy.allow("net.whatsapp.WhatsAppSMB", "WhatsApp Business", Preview::full));
+    AppPolicy loadedPolicy;
+    assert(loadedPolicy.load(savedPolicy.serialize()));
+    assert(loadedPolicy.find("net.whatsapp.WhatsAppSMB"));
     std::cout << "PASS empty app choice defaults, persistence, validation and preview privacy\n";
 }
 static void inbox_test() {
@@ -514,8 +514,8 @@ static void console_test() {
     };
     feed("te");
     assert(commands.empty());
-    feed("st\r\nPAIR\n help \r\n\r\n");
-    assert((commands == std::vector<C>{C::test, C::pair, C::help}));
+    feed("st\r\npair\n help \r\n\r\n");
+    assert((commands == std::vector<C>{C::test, C::invalid, C::help}));
     commands.clear();
     feed("pair phone\r\npair car\nSTATUS\n");
     assert((commands == std::vector<C>{C::pair_phone, C::pair_car, C::status}));
@@ -529,7 +529,7 @@ static void console_test() {
     feed("test\n");
     assert((commands == std::vector<C>{C::invalid, C::invalid, C::invalid, C::test}));
     commands.clear();
-    feed(std::string(10000, 'x') + "pair\nhelp\n");
+    feed(std::string(10000, 'x') + "pair phone\nhelp\n");
     assert((commands == std::vector<C>{C::invalid, C::help}));
     runtime::SetupLines setup;
     std::vector<std::string> requests;
@@ -557,7 +557,7 @@ static void ancs_flags_test() {
             handle = apply(inbox, messages::ChangeKind::add, 1, example());
         assert(handle != 0 && inbox.messages().size() == 1);
     }
-    // Old Notification Center entries become silent history: stored, no new-message handle.
+    // Pre-existing Notification Center entries are stored without a new-message handle.
     for (uint8_t flags : {0x04, 0x14, 0x1c, 0x1f}) {
         messages::Store inbox;
         auto kind = ancs::is_preexisting(flags) ? messages::ChangeKind::history_add

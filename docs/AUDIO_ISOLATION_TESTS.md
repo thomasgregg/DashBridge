@@ -1,7 +1,7 @@
 # Audio isolation tests
 
-These diagnostic modes are temporary and off by default. They do not claim to
-fix the reported robotic audio. Both firmware roles include the commands and
+These diagnostic modes are temporary and off by default. They isolate audio
+routes but do not establish end-to-end listening quality. Both firmware roles include the commands and
 remote control support; either USB console can control both boards.
 
 First establish an answered call routed through Dash Calls and Dash Tesla.

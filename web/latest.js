@@ -3,7 +3,7 @@ const releasePattern = /^\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?$/;
 
 export function applyLatest(choices, latest, releaseNotesLinks = []) {
   if (!latest || typeof latest !== 'object') throw new Error('Invalid latest firmware response');
-  const expectedNotes = `https://github.com/thomasgregg/DashBridge/blob/main/docs/releases/${latest.release}.md`;
+  const expectedNotes = 'https://github.com/thomasgregg/DashBridge/blob/main/docs/RELEASE.md';
   if (!releasePattern.test(latest.release) || latest.releaseNotes !== expectedNotes) {
     throw new Error('Invalid latest release metadata');
   }

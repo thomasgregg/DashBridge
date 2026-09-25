@@ -277,7 +277,6 @@ static void setup_command(const std::string &line) {
 }
 static void console_command(Command command) {
     if (command == Command::none) return;
-    if (command == Command::pair) { open_pairing(); return; }
     if (command == Command::status) { status(); return; }
 #if CONFIG_BRIDGE_CALL_RELAY
     using Mode = calls::AudioTestMode;
@@ -298,9 +297,9 @@ static void console_command(Command command) {
     platform_runtime.info("setup", "Audio tests (active call, 60s): audio phone tone, audio phone loopback, audio car tone, audio car loopback, audio off");
 #endif
 #if CONFIG_BRIDGE_CAR
-    platform_runtime.info("setup", "USB commands: test, pair car, pair, status, help");
+    platform_runtime.info("setup", "USB commands: test, pair car, status, help");
 #else
-    platform_runtime.info("setup", "USB commands: pair phone, pair, status, help. Send test on the Tesla receiver.");
+    platform_runtime.info("setup", "USB commands: pair phone, status, help. Send test on the Tesla receiver.");
 #endif
 }
 } // namespace runtime

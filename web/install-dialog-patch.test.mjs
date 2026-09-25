@@ -16,7 +16,7 @@ const renderDashboard = method('_renderDashboardNoImprov', '_renderProvision');
 function context(state, client = null, confirmed = true) {
   return {
     _installConfirmed: confirmed, _installState: state, _client: client,
-    _manifest: { name: 'DashBridge A — iPhone', version: '0.1.0' },
+    _manifest: { name: 'DashBridge A — iPhone', version: '0.5.2-alpha' },
     _renderProgress: () => 'progress',
     overrides: { renderInstallSuccess: () => ['Board A installed', 'next steps', true] },
   };

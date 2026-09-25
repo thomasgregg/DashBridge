@@ -4,7 +4,12 @@ Use local tests before building firmware or asking for another in-car trial.
 
 ## What runs without hardware
 
-`bash tools/test.sh` compiles the production protocol code and runs sanitizer checks for messages, UART, call control, audio buffering and reconnect policy. The reconnect replay additionally extracts the production peer-storage and reconnect functions and drives them with a virtual clock and the sanitized events in `tests/fixtures/tesla-reconnect-failure.json`.
+`bash tools/validate_host.sh` checks the architecture boundaries, compiles the
+portable production code with AddressSanitizer and UndefinedBehaviorSanitizer,
+and validates messages, protocols, call control, audio buffering, and reconnect
+policy. The reconnect replay additionally extracts the production peer-storage
+and reconnect functions and drives them with a virtual clock and the sanitized
+events in `tests/fixtures/passive-reconnect-events.json`.
 
 The reconnect checks cover A’s retry policy and B’s passive gateway policy, saved-peer persistence across a simulated reboot, rejection of missing/invalid bonds, and later incoming connection success. NVS, Bluetooth API results and connection outcomes are substitutes supplied by the test. **It does not reproduce Tesla's radio handshake or explain the remote disconnect.** Its value is quickly detecting a regression in our handling of those events.
 

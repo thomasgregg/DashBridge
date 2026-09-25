@@ -51,17 +51,17 @@ jobs:
           BOARD: ${{ inputs.board || 'auto' }}
         run: python3 tools/build_scope.py "$BOARD" --github-output "$GITHUB_OUTPUT"
 
-  host-tests:
-    name: Host protocol tests
+  host-validation:
+    name: Host validation
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Test with address and undefined-behavior sanitizers
+      - name: Validate architecture and host code with sanitizers
         run: |
-          bash tools/test.sh
+          bash tools/validate_host.sh
           python3 tools/test_build_scope.py
 
   firmware:

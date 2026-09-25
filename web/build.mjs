@@ -18,7 +18,7 @@ export async function prepareFirmware(repository, output) {
   if (manifest.version !== release) throw new Error('Manifest release differs from version.txt');
   const result = {
     version: release,
-    releaseNotes: `https://github.com/thomasgregg/DashBridge/blob/main/docs/releases/${release}.md`,
+    releaseNotes: 'https://github.com/thomasgregg/DashBridge/blob/main/docs/RELEASE.md',
   };
   for (const [role, label] of [['phone', 'A — iPhone'], ['car', 'B — Tesla']]) {
     const entry = manifest.images[role];
@@ -68,8 +68,8 @@ async function main() {
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
   const firmware = await prepareFirmware(root, output);
-  // A public release cannot be published without its matching versioned notes.
-  await readFile(path.join(root, 'docs/releases', `${firmware.version}.md`), 'utf8');
+  // A public release cannot be published without the canonical release page.
+  await readFile(path.join(root, 'docs/RELEASE.md'), 'utf8');
   const bundle = await build({
     absWorkingDir: path.join(root, 'web'),
     plugins: [installDialogPatch],

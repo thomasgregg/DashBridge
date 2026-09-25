@@ -80,7 +80,7 @@ static Request current = {};
 static ancs::NotificationResponse response;
 static void request_next();
 static void disconnect(const char *reason);
-static std::vector<std::array<uint8_t, 6>> previous_bonds;
+static std::vector<std::array<uint8_t, 6>> recorded_bonds;
 static void apply_message_change(messages::ChangeKind kind, const messages::Message &notice = {}) {
     message_state.apply({kind, session, notice});
 }
@@ -96,13 +96,13 @@ static esp_err_t start_advertising() {
     return result;
 }
 static bool known(const uint8_t *address) {
-    for (const auto &bond : previous_bonds)
+    for (const auto &bond : recorded_bonds)
         if (!memcmp(bond.data(), address, 6))
             return true;
     return false;
 }
 static void snapshot_bonds() {
-    previous_bonds.clear();
+    recorded_bonds.clear();
     int count = esp_ble_get_bond_device_num();
     if (count <= 0 || count > 16)
         return;
@@ -112,7 +112,7 @@ static void snapshot_bonds() {
     for (int i = 0; i < count; ++i) {
         std::array<uint8_t, 6> address;
         memcpy(address.data(), bonds[i].bd_addr, 6);
-        previous_bonds.push_back(address);
+        recorded_bonds.push_back(address);
     }
 }
 

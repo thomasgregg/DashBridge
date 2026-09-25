@@ -66,7 +66,7 @@ test('incorrect version labels or missing board images cannot be published', asy
   const { directory, output } = await fixture(t);
   const filename = path.join(directory, 'dist/manifest.json');
   const manifest = JSON.parse(await readFile(filename));
-  manifest.images.car.version = 'older-build';
+  manifest.images.car.version = 'mismatched-build';
   await writeFile(filename, JSON.stringify(manifest));
   await assert.rejects(prepareFirmware(directory, output), /Mismatched firmware version for car/);
   delete manifest.images.car;
@@ -81,7 +81,7 @@ test('relabelled binaries are rejected even if their checksum is updated', async
   const imagePath = path.join(directory, 'dist/car-full.bin');
   const binary = await readFile(imagePath);
   binary.fill(0, 0x10030, 0x10050);
-  binary.write('older-build', 0x10030, 'ascii');
+  binary.write('mismatched-build', 0x10030, 'ascii');
   await writeFile(imagePath, binary);
   manifest.images.car.sha256 = createHash('sha256').update(binary).digest('hex');
   await writeFile(filename, JSON.stringify(manifest));

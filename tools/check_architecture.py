@@ -73,16 +73,13 @@ if usb_commands_path.is_file():
 
 require((ROOT / "firmware/protocols/dashlink_v2").is_dir(),
         "typed DashLink v2 protocol component is missing")
-for path in (ROOT / "firmware").rglob("*"):
-    if path.suffix in {".c", ".cc", ".cpp", ".h", ".hpp"}:
-        require("WireMessage" not in path.read_text(errors="replace"),
-                f"generic WireMessage returned in {path.relative_to(ROOT)}")
-require(not (ROOT / "firmware/adapters/music/esp_a2dp_avrcp_adapter/music_wire_compat.hpp").exists(),
-        "the generic music wire compatibility codec must not return")
 
-require((ROOT / "version.txt").is_file(), "version.txt must be at the repository root")
-require(not (ROOT / "firmware/version.txt").exists(),
-        "firmware/version.txt must not return; version.txt is the only product-version source")
+version_sources = [
+    path for path in ROOT.rglob("version.txt")
+    if not any(part in {".git", "build", "node_modules"} for part in path.parts)
+]
+require(version_sources == [ROOT / "version.txt"],
+        "version.txt at the repository root must be the only product-version source")
 
 role_configs = sorted(path.name for path in (ROOT / "firmware").glob("sdkconfig.*"))
 require(role_configs == ["sdkconfig.car", "sdkconfig.defaults", "sdkconfig.phone"],

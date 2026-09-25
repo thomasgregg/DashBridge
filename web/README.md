@@ -12,8 +12,8 @@ any other serial log window before connecting that board in the setup page.
 The static site uses ESP Web Tools 10.4.0 and the repository’s prebuilt images. No backend, accounts or analytics. JavaScript, styles, manifests and firmware are served together by GitHub Pages. Chrome or Edge on a desktop computer is the recommended USB installation route.
 
 The completion instructions use Dash Calls, Dash Messages and Dash Tesla.
-The 0.5.1-alpha release pairs this USB installer with the internal-test iPhone
-companion setup flow. The [release notes](../docs/releases/0.5.1-alpha.md)
+The 0.5.2-alpha release pairs this USB installer with the internal-test iPhone
+companion setup flow. The [current release page](../docs/RELEASE.md)
 distinguish implementation from hardware validation.
 
 ## Build and preview
@@ -50,5 +50,5 @@ Browser checks can validate the page, manifest-to-image mapping, help, fallback 
 The main page is a stable A/B installer shell. On each visit it resolves the
 current manifests, public release number and matching release-notes URL from
 `latest.json` before enabling installation. Firmware-specific test results,
-setup requirements and limitations belong in `docs/releases/`, not in the
+setup requirements and limitations belong in `docs/RELEASE.md`, not in the
 installer copy.
