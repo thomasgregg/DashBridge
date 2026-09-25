@@ -26,7 +26,7 @@ class BuildScopeTest(unittest.TestCase):
             self.write("firmware/" + name, "original")
         manifest = {"images": {}, "target": "esp32", "flash_size": "4MB"}
         for role in ROLES:
-            name = f"{role}-merged.bin"
+            name = f"{role}-full.bin"
             self.write("dist/" + name, role)
             manifest["images"][role] = {
                 "file": name,
@@ -76,9 +76,9 @@ class BuildScopeTest(unittest.TestCase):
         self.assertEqual(select(self.root), ["car"])
 
     def test_corrupt_and_missing_artifacts(self):
-        self.write("dist/car-merged.bin", "bad")
+        self.write("dist/car-full.bin", "bad")
         self.assertEqual(select(self.root), ["car"])
-        (self.root / "dist/phone-merged.bin").unlink()
+        (self.root / "dist/phone-full.bin").unlink()
         self.assertEqual(select(self.root), ["phone", "car"])
 
     def test_manual_selection_forces_only_requested_roles(self):

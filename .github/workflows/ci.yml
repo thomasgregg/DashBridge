@@ -100,7 +100,7 @@ jobs:
         with:
           name: dashbridge-firmware-${{ matrix.board }}
           path: |
-            dist/${{ matrix.board }}-merged.bin
+            dist/${{ matrix.board }}-full.bin
             dist/manifest.json
           if-no-files-found: error
           retention-days: 14

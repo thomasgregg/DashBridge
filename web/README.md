@@ -12,8 +12,8 @@ any other serial log window before connecting that board in the setup page.
 The static site uses ESP Web Tools 10.4.0 and the repository’s prebuilt images. No backend, accounts or analytics. JavaScript, styles, manifests and firmware are served together by GitHub Pages. Chrome or Edge on a desktop computer is the recommended USB installation route.
 
 The completion instructions use Dash Calls, Dash Messages and Dash Tesla.
-The 0.5.0-alpha release pairs this USB installer with the internal-test iPhone
-companion setup flow. The [release notes](../docs/releases/0.5.0-alpha.md)
+The 0.5.1-alpha release pairs this USB installer with the internal-test iPhone
+companion setup flow. The [release notes](../docs/releases/0.5.1-alpha.md)
 distinguish implementation from hardware validation.
 
 ## Build and preview
@@ -29,7 +29,7 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory _site
 
 Open http://localhost:8765. Web Serial requires HTTPS or localhost. The generated `_site/` directory is ignored by Git.
 
-The build verifies both image checksums, sizes, bootloader target, flash offset and recorded source checksums. It refuses stale or corrupt firmware. Each role gets a distinct ESP32-only manifest and a fingerprinted binary name. Assets are fingerprinted too. Both boards install at offset zero; the existing merged images include their bootloader and partition table. Initial installation erases the selected board, including its pairing keys. Improv/Wi-Fi provisioning is disabled because DashBridge does not implement it.
+The build verifies both image checksums, sizes, bootloader target, flash offset and recorded source checksums. It refuses stale or corrupt firmware. Each role gets a distinct ESP32-only manifest and a fingerprinted binary name. Assets are fingerprinted too. Both boards install at offset zero; the full images include their bootloader, partition table, and application. Initial installation erases the selected board, including its pairing keys. Improv/Wi-Fi provisioning is disabled because DashBridge does not implement it.
 
 Dependencies are pinned in `package-lock.json`. The Material Web override is intentional: ESP Web Tools 10.4.0 imports style module names from Material 2.2.0 that were renamed in 2.5.0. Runtime dependency notices are included in the deployed site.
 

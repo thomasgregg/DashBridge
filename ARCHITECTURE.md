@@ -3,7 +3,7 @@
 This is the canonical description of the current two-board architecture. It
 explains the Bluetooth identities, functional paths, reconnection rules, source
 layout, and compatibility boundaries. It describes the implemented
-**0.5.0-alpha** design; passing software tests does not replace the outstanding
+**0.5.1-alpha** design; passing software tests does not replace the outstanding
 iPhone-and-Tesla hardware validation listed in the README.
 
 ## System overview
@@ -179,7 +179,7 @@ enters the control packet variant.
 - **USB:** Human and browser commands are documented in
   [the USB command reference](docs/USB_COMMANDS.md). The architecture test
   extracts implemented commands and fails when one is missing from that page.
-- **Firmware update:** Full merged images at `0x0` may clear bonds and policy.
+- **Firmware update:** Full images at `0x0` may clear bonds and policy.
   Application-only images at `0x10000` preserve them only when the installed
   partition layout is known to match.
 

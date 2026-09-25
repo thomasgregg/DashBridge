@@ -1,9 +1,9 @@
 {
   "images": {
     "phone": {
-      "file": "phone-merged.bin",
+      "file": "phone-full.bin",
       "flash_address": "0x0",
-      "sha256": "3315bd39f98545d7439dff8e694f4df533d9f1c694ac8f12f1e0b2bbf95feee3",
+      "sha256": "9841505b187c6b0b1ce893910bbf8c18a65cfe025a85063f16a0ecf2503a044a",
       "bytes": 1295264,
       "source_sha256": {
         "firmware/CMakeLists.txt": "32b27cbf573454aa7c7f54a9b1a9002650000327649d4165597859b36846b44a",
@@ -88,19 +88,19 @@
         "firmware/transport/dashlink_transport/dashlink_transport.cpp": "ad1a1b6713631fe1ea5d7eff8816cdecebc12576485f4d5bb479058a72c884e5",
         "firmware/transport/dashlink_transport/include/dashbridge/transport/dashlink_transport.hpp": "623950ed533850a712855412b3b7c941c1932d1cdfb15e0669ec3836a4d33230",
         "tools/build.sh": "6a55f8a10a52b44c6dd0cb5ff7ec8328cf7c4d9ebe2586b8acb8835b52fff475",
-        "tools/build_scope.py": "4a18275f6bb5bf4712d05400cf78e83e248d565221c62e06d521070a84625689",
-        "tools/package.py": "619e9ab88c47578235c727eeb6c309fdeb733f76bf7ca54907f8a577c05978fe"
+        "tools/build_scope.py": "620525b62b22d62c7d7be9b25f2821b58af6a83603f60ad6b8a6806e4eaa53c3",
+        "tools/package.py": "dbc08838935ebacdb60500e2c998ebc0782b447c104126abae68839bc1a6f1d8"
       },
       "sdkconfig_sha256": "b35dabd62559278e755b85406a34368f7c0dd93a80777158ae446bcc597ebfce",
       "hardware_tested": false,
-      "version": "0.5.0-alpha+ee8422cd0c23",
+      "version": "0.5.1-alpha+ad27146d1b37",
       "esp_idf": "v5.5.5",
       "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f"
     },
     "car": {
-      "file": "car-merged.bin",
+      "file": "car-full.bin",
       "flash_address": "0x0",
-      "sha256": "73e0842b405724a049b33c1f754af455c5e3a45192818846da1ea25ad49c4154",
+      "sha256": "e502c2bec7f8f3f1eb9b3d19c563e6b216b2b30362503f0dc310c6be0a0f09c7",
       "bytes": 1016560,
       "source_sha256": {
         "firmware/CMakeLists.txt": "32b27cbf573454aa7c7f54a9b1a9002650000327649d4165597859b36846b44a",
@@ -185,18 +185,18 @@
         "firmware/transport/dashlink_transport/dashlink_transport.cpp": "ad1a1b6713631fe1ea5d7eff8816cdecebc12576485f4d5bb479058a72c884e5",
         "firmware/transport/dashlink_transport/include/dashbridge/transport/dashlink_transport.hpp": "623950ed533850a712855412b3b7c941c1932d1cdfb15e0669ec3836a4d33230",
         "tools/build.sh": "6a55f8a10a52b44c6dd0cb5ff7ec8328cf7c4d9ebe2586b8acb8835b52fff475",
-        "tools/build_scope.py": "4a18275f6bb5bf4712d05400cf78e83e248d565221c62e06d521070a84625689",
-        "tools/package.py": "619e9ab88c47578235c727eeb6c309fdeb733f76bf7ca54907f8a577c05978fe"
+        "tools/build_scope.py": "620525b62b22d62c7d7be9b25f2821b58af6a83603f60ad6b8a6806e4eaa53c3",
+        "tools/package.py": "dbc08838935ebacdb60500e2c998ebc0782b447c104126abae68839bc1a6f1d8"
       },
       "sdkconfig_sha256": "58a82115db3b36de580c7387ee78c8ad305cfb459ae1922a998f9921375e95cf",
       "hardware_tested": false,
-      "version": "0.5.0-alpha+d08900305f0e",
+      "version": "0.5.1-alpha+098c97d8e316",
       "esp_idf": "v5.5.5",
       "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f"
     }
   },
   "project": "DashBridge prototype",
-  "version": "0.5.0-alpha",
+  "version": "0.5.1-alpha",
   "target": "esp32",
   "flash_size": "4MB",
   "esp_idf": "v5.5.5",

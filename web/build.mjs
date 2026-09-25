@@ -23,14 +23,14 @@ export async function prepareFirmware(repository, output) {
   for (const [role, label] of [['phone', 'A — iPhone'], ['car', 'B — Tesla']]) {
     const entry = manifest.images[role];
     if (!entry) throw new Error(`Missing firmware image for ${role}`);
-    if (entry.file !== `${role}-merged.bin` || entry.flash_address !== '0x0') {
+    if (entry.file !== `${role}-full.bin` || entry.flash_address !== '0x0') {
       throw new Error(`Unexpected firmware layout for ${role}`);
     }
     const data = await readFile(path.join(repository, 'dist', entry.file));
     if (digest(data) !== entry.sha256 || data.length !== entry.bytes) {
       throw new Error(`Firmware checksum or size mismatch: ${role}`);
     }
-    // Merged images must contain the original ESP32 bootloader at 0x1000.
+    // Full images must contain the original ESP32 bootloader at 0x1000.
     if (data[0x1000] !== 0xe9 || data.readUInt16LE(0x100c) !== 0) {
       throw new Error(`Unexpected ESP32 bootloader: ${role}`);
     }

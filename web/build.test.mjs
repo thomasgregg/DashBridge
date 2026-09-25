@@ -23,7 +23,7 @@ test('both installer manifests select their own verified ESP32 image at offset z
     const manifest = JSON.parse(await readFile(path.join(output, config[role]), 'utf8'));
     assert.equal(manifest.name, `DashBridge ${label}`);
     assert.equal(manifest.version, config[`${role}Version`]);
-    const binary = await readFile(path.join(directory, 'dist', `${role}-merged.bin`));
+    const binary = await readFile(path.join(directory, 'dist', `${role}-full.bin`));
     assert.equal(manifest.version, binary.subarray(0x10030, 0x10050).toString('ascii').split('\0')[0]);
     assert.match(manifest.version, /^\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?\+[0-9a-f]{12}$/);
     assert.equal(manifest.new_install_improv_wait_time, 0);
@@ -31,7 +31,7 @@ test('both installer manifests select their own verified ESP32 image at offset z
     assert.equal(manifest.builds[0].parts.length, 1);
     const part = manifest.builds[0].parts[0];
     assert.equal(part.offset, 0);
-    assert.deepEqual(await readFile(path.join(output, 'firmware', part.path)), await readFile(path.join(directory, 'dist', `${role}-merged.bin`)));
+    assert.deepEqual(await readFile(path.join(output, 'firmware', part.path)), await readFile(path.join(directory, 'dist', `${role}-full.bin`)));
   }
   assert.notEqual(config.phone, config.car);
   assert.notEqual(config.phoneVersion, config.carVersion);
@@ -39,7 +39,7 @@ test('both installer manifests select their own verified ESP32 image at offset z
 
 test('a corrupt image cannot be published', async (t) => {
   const { directory, output } = await fixture(t);
-  await writeFile(path.join(directory, 'dist/phone-merged.bin'), 'corrupted');
+  await writeFile(path.join(directory, 'dist/phone-full.bin'), 'corrupted');
   await assert.rejects(prepareFirmware(directory, output), /checksum or size mismatch/);
 });
 
@@ -78,7 +78,7 @@ test('relabelled binaries are rejected even if their checksum is updated', async
   const { directory, output } = await fixture(t);
   const filename = path.join(directory, 'dist/manifest.json');
   const manifest = JSON.parse(await readFile(filename));
-  const imagePath = path.join(directory, 'dist/car-merged.bin');
+  const imagePath = path.join(directory, 'dist/car-full.bin');
   const binary = await readFile(imagePath);
   binary.fill(0, 0x10030, 0x10050);
   binary.write('older-build', 0x10030, 'ascii');
