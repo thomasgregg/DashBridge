@@ -187,6 +187,12 @@ private struct SetupView: View {
         .onChange(of: bridge.foundName) { _, name in
             if name != nil { send(.peripheralFound) }
         }
+        .onChange(of: bridge.accessorySetupReady) { _, ready in
+            if ready { send(.accessorySetupReady) }
+        }
+        .onChange(of: bridge.accessoryPickerCancellations) { _, _ in
+            send(.accessoryPickerCancelled)
+        }
         .onChange(of: bridge.testWindowGrants) { _, _ in
             guard testNotificationPending else { return }
             Task { await scheduleTestNotification() }
@@ -982,14 +988,16 @@ private struct SetupView: View {
             switch effect {
             case .startBluetooth:
                 bridge.start()
-            case .connectFound:
-                // Render the progress screen before iOS places its pairing
-                // sheet over the app. The user has already chosen Connect.
-                Task {
-                    try? await Task.sleep(for: .milliseconds(550))
-                    guard step == .checking, !flow.state.connectionRequestPending else { return }
-                    bridge.connectFound()
+                // A session can already be active when the user returns to
+                // Welcome and starts setup again, so don't wait for another
+                // activation callback that will never arrive.
+                if bridge.accessorySetupReady {
+                    send(.accessorySetupReady)
                 }
+            case .connectFound:
+                // The instructions are visible until the user explicitly
+                // chooses Connect, so the system picker can open immediately.
+                bridge.connectFound()
             case .openPhonePairing:
                 bridge.send(.openPhonePairing)
             case .retryBluetooth:

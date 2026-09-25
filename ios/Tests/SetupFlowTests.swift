@@ -30,6 +30,18 @@ final class SetupFlowTests: XCTestCase {
         XCTAssertEqual(machine.handle(.connectionGuidancePresented), [.connectFound])
         XCTAssertFalse(machine.state.connectionRequestPending)
         XCTAssertEqual(machine.handle(.connectionGuidancePresented), [])
+        XCTAssertEqual(machine.handle(.accessoryPickerCancelled), [])
+        XCTAssertTrue(machine.state.connectionRequestPending)
+        XCTAssertEqual(machine.handle(.connectionGuidancePresented), [.connectFound])
+    }
+
+    func testAccessorySessionReadinessShowsConnectScreenWithoutPretendingBoardWasFound() {
+        var machine = SetupFlowMachine()
+        _ = machine.handle(.getStarted(connected: false, status: nil))
+
+        XCTAssertEqual(machine.handle(.accessorySetupReady), [])
+        XCTAssertEqual(machine.state.step, .checking)
+        XCTAssertTrue(machine.state.connectionRequestPending)
     }
 
     func testPhoneConnectionPreviewWaitsForExplicitAction() {

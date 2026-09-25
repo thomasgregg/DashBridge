@@ -32,6 +32,8 @@ enum SetupFlowEvent {
     case resetForTesting
     case getStarted(connected: Bool, status: BridgeStatus?)
     case peripheralFound
+    case accessorySetupReady
+    case accessoryPickerCancelled
     case connectionGuidancePresented
     case connectionChanged(connected: Bool, hasError: Bool)
     case deviceIdentified(String)
@@ -99,6 +101,15 @@ struct SetupFlowMachine {
             guard state.step == .finding else { break }
             state.connectionRequestPending = true
             state.step = .checking
+
+        case .accessorySetupReady:
+            guard state.step == .finding else { break }
+            state.connectionRequestPending = true
+            state.step = .checking
+
+        case .accessoryPickerCancelled:
+            guard state.step == .checking else { break }
+            state.connectionRequestPending = true
 
         case .connectionGuidancePresented:
             guard state.step == .checking, state.connectionRequestPending else { break }

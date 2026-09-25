@@ -7,6 +7,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     static let notFoundMessage = "The app can't find DashBridge. Make sure it's powered and not connected to another iPhone, then try again."
 
     @Published private(set) var bluetoothReady = false
+    @Published private(set) var accessorySetupReady = false
+    @Published private(set) var accessoryPickerCancellations = 0
     @Published private(set) var scanning = false
     @Published private(set) var foundName: String?
     @Published private(set) var connected = false
@@ -40,6 +42,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var pickerAccessory: ASAccessory?
     private var authorizedPeripheralID: UUID?
     private var connectAfterAuthorization = false
+    private var pickerPresentationRequested = false
+    private var pickerPresented = false
 #endif
     private struct PendingCommand {
         let command: BridgeCommand
@@ -85,6 +89,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
 #if !targetEnvironment(simulator)
     private func startAccessorySession() {
         if accessorySessionReady {
+            accessorySetupReady = true
             prepareAuthorizedAccessoryOrPicker()
             return
         }
@@ -102,16 +107,21 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         switch event.eventType {
         case .activated:
             accessorySessionReady = true
+            accessorySetupReady = true
             endTimedCheck()
             prepareAuthorizedAccessoryOrPicker()
+            presentAccessoryPickerIfReady()
         case .accessoryAdded, .accessoryChanged:
             if let accessory = event.accessory { pickerAccessory = accessory }
         case .migrationComplete:
             pickerAccessory = accessorySession?.accessories.first(where: { $0.state == .authorized })
         case .pickerDidDismiss:
-            guard let accessory = pickerAccessory ?? accessorySession?.accessories.first(where: {
-                $0.state == .authorized
-            }) else { return }
+            pickerPresented = false
+            pickerPresentationRequested = false
+            guard let accessory = pickerAccessory else {
+                accessoryPickerCancellations += 1
+                return
+            }
             pickerAccessory = nil
             guard let identifier = accessory.bluetoothIdentifier else {
                 error = "iPhone paired DashBridge but did not provide its Bluetooth connection. Try again."
@@ -122,12 +132,19 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             foundName = accessory.displayName
             beginCoreBluetooth()
         case .pickerSetupFailed:
+            pickerPresented = false
+            pickerPresentationRequested = false
             error = event.error?.localizedDescription ?? "iPhone couldn't set up DashBridge. Try again nearby."
         case .invalidated:
             accessorySessionReady = false
+            accessorySetupReady = false
             accessorySession = nil
+            pickerPresented = false
             error = event.error?.localizedDescription ?? "Accessory setup stopped. Try again."
-        case .pickerDidPresent, .pickerSetupBridging, .pickerSetupPairing,
+        case .pickerDidPresent:
+            pickerPresented = true
+            pickerPresentationRequested = false
+        case .pickerSetupBridging, .pickerSetupPairing,
              .pickerSetupRename, .accessoryRemoved, .accessoryDiscovered, .unknown:
             break
         @unknown default:
@@ -143,10 +160,6 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             authorizedPeripheralID = identifier
             foundName = accessory.displayName
             beginCoreBluetooth()
-        } else {
-            // Session activation proves the system picker is ready. Discovery
-            // itself begins only after the user taps Connect my iPhone.
-            foundName = "DashBridge"
         }
     }
 
@@ -161,9 +174,19 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         }
     }
 
-    private func showAccessoryPicker() {
-        guard let session = accessorySession, accessorySessionReady else {
-            error = "Accessory setup is still getting ready. Try again in a moment."
+    private func requestAccessoryPicker() {
+        guard !pickerPresented else { return }
+        pickerPresentationRequested = true
+        error = nil
+        if accessorySession == nil {
+            startAccessorySession()
+        }
+        presentAccessoryPickerIfReady()
+    }
+
+    private func presentAccessoryPickerIfReady() {
+        guard pickerPresentationRequested, !pickerPresented,
+              let session = accessorySession, accessorySessionReady else {
             return
         }
         let descriptor = ASDiscoveryDescriptor()
@@ -173,22 +196,28 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         descriptor.supportedOptions = [.bluetoothPairingLE, .bluetoothTransportBridging]
 
         let image = Self.pickerProductImage()
-        let item: ASPickerDisplayItem
+        let display = ASPickerDisplayItem(name: "DashBridge", productImage: image,
+                                          descriptor: descriptor)
+        display.setupOptions = [.finishInApp]
+        var items: [ASPickerDisplayItem] = [display]
         if let remembered = rememberedPeripheralStore.loadIdentifier() {
             let migration = ASMigrationDisplayItem(name: "DashBridge", productImage: image,
                                                    descriptor: descriptor)
             migration.peripheralIdentifier = remembered
             migration.setupOptions = [.finishInApp]
-            item = migration
-        } else {
-            let display = ASPickerDisplayItem(name: "DashBridge", productImage: image,
-                                              descriptor: descriptor)
-            display.setupOptions = [.finishInApp]
-            item = display
+            // Keep the ordinary discovery item too. A migration-only picker
+            // shows Apple's migration information screen and can strand a
+            // freshly-reset board behind a stale Core Bluetooth identifier.
+            items.append(migration)
         }
         pickerAccessory = nil
-        session.showPicker(for: [item]) { [weak self] error in
-            if let error { self?.error = error.localizedDescription }
+        pickerPresented = true
+        session.showPicker(for: items) { [weak self] error in
+            if let error {
+                self?.pickerPresented = false
+                self?.pickerPresentationRequested = false
+                self?.error = error.localizedDescription
+            }
         }
     }
 
@@ -343,7 +372,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     func connectFound(requiresANCS: Bool = true) {
         guard let discovered, let manager else {
 #if !targetEnvironment(simulator)
-            showAccessoryPicker()
+            requestAccessoryPicker()
 #endif
             return
         }
