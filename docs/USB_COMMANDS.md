@@ -91,5 +91,5 @@ change configuration.
 
 There is no USB command to erase all Bluetooth bonds, install firmware, place or
 answer a call, fetch arbitrary iPhone messages, or bypass an Apple/Tesla pairing
-confirmation. Firmware installation uses the installer or flash helper. A full
-merged-image installation may clear bonds; a pairing command does not.
+confirmation. Firmware installation uses the installer or flash helper. A
+full-image installation may clear bonds; a pairing command does not.

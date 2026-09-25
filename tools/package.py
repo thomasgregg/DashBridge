@@ -1,4 +1,4 @@
-"""Create merged ESP32 images from ESP-IDF's actual flash layout; no hardware writes."""
+"""Create full ESP32 images from ESP-IDF's actual flash layout; no hardware writes."""
 import hashlib
 import json
 from pathlib import Path
@@ -35,7 +35,7 @@ def package(roles):
             raise SystemExit(f"Embedded {role} version differs from source; rebuild before packaging")
         if int(layout["app"]["offset"], 0) != 0x10000:
             raise SystemExit("Unexpected application flash offset")
-        output = destination / f"{role}-merged.bin"
+        output = destination / f"{role}-full.bin"
         command = [sys.executable, "-m", "esptool", "--chip", "esp32", "merge_bin",
                    "-o", str(output)] + layout["write_flash_args"]
         for offset, filename in sorted(layout["flash_files"].items(), key=lambda x: int(x[0], 0)):

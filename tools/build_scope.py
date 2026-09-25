@@ -52,7 +52,7 @@ def current(root, role):
         entry = manifest["images"][role]
         if manifest["target"] != "esp32" or manifest["flash_size"] != "4MB":
             return False
-        if entry["file"] != f"{role}-merged.bin" or entry["flash_address"] != "0x0":
+        if entry["file"] != f"{role}-full.bin" or entry["flash_address"] != "0x0":
             return False
         data = (root / "dist" / entry["file"]).read_bytes()
         return (entry.get("version") == firmware_version(root, role)
