@@ -3,7 +3,7 @@
 This is the canonical description of the current two-board architecture. It
 explains the Bluetooth identities, functional paths, reconnection rules, source
 layout, and compatibility boundaries. It describes the implemented
-**0.4.3-alpha** design; passing software tests does not replace the outstanding
+**0.5.0-alpha** design; passing software tests does not replace the outstanding
 iPhone-and-Tesla hardware validation listed in the README.
 
 ## System overview

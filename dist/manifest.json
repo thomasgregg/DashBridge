@@ -3,7 +3,7 @@
     "phone": {
       "file": "phone-merged.bin",
       "flash_address": "0x0",
-      "sha256": "36421f7069be59c58563be3b49084b3e2fa45c4308a78f0b6b395046cf9af216",
+      "sha256": "3315bd39f98545d7439dff8e694f4df533d9f1c694ac8f12f1e0b2bbf95feee3",
       "bytes": 1295264,
       "source_sha256": {
         "firmware/CMakeLists.txt": "32b27cbf573454aa7c7f54a9b1a9002650000327649d4165597859b36846b44a",
@@ -93,14 +93,14 @@
       },
       "sdkconfig_sha256": "b35dabd62559278e755b85406a34368f7c0dd93a80777158ae446bcc597ebfce",
       "hardware_tested": false,
-      "version": "0.4.3-alpha+ee8422cd0c23",
+      "version": "0.5.0-alpha+ee8422cd0c23",
       "esp_idf": "v5.5.5",
       "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f"
     },
     "car": {
       "file": "car-merged.bin",
       "flash_address": "0x0",
-      "sha256": "d57fe493e2cfd8bcc185a7fc06b0dedbd4f7ccf53bd534cc33e2f4ca0fd6cc65",
+      "sha256": "73e0842b405724a049b33c1f754af455c5e3a45192818846da1ea25ad49c4154",
       "bytes": 1016560,
       "source_sha256": {
         "firmware/CMakeLists.txt": "32b27cbf573454aa7c7f54a9b1a9002650000327649d4165597859b36846b44a",
@@ -190,13 +190,13 @@
       },
       "sdkconfig_sha256": "58a82115db3b36de580c7387ee78c8ad305cfb459ae1922a998f9921375e95cf",
       "hardware_tested": false,
-      "version": "0.4.3-alpha+d08900305f0e",
+      "version": "0.5.0-alpha+d08900305f0e",
       "esp_idf": "v5.5.5",
       "esp_idf_commit": "b774170ff46c393eeb5e495ea37936038d3f4f4f"
     }
   },
   "project": "DashBridge prototype",
-  "version": "0.4.3-alpha",
+  "version": "0.5.0-alpha",
   "target": "esp32",
   "flash_size": "4MB",
   "esp_idf": "v5.5.5",
