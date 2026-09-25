@@ -1,22 +1,29 @@
-# Current DashBridge release: 0.5.2-alpha
+# DashBridge firmware 0.5.3-alpha
 
-This is the current two-board prerelease for original ESP32-WROOM-32 boards.
-It includes notifications, calls, encoded call audio, music and media controls,
-contacts and call lists, staged pairing, deterministic reconnect coordination,
-the browser USB setup flow, and the iOS Setup GATT v1 contract.
+This two-board prerelease is for original ESP32-WROOM-32 boards. It includes
+notifications, calls, encoded call audio, music and media controls, contacts
+and call lists, staged pairing, deterministic reconnect coordination, the
+browser USB setup flow, and Setup GATT v1 support for the iPhone app.
 
 ## Firmware images
 
 | Board | Complete image | Embedded version | SHA-256 |
 | --- | --- | --- | --- |
-| A — iPhone | `phone-full.bin` | `0.5.2-alpha+3a049933a55a` | `e99afaf151196d4a9d60e5b324f494dcfd5534859e0aacbe080e050b6cf1008f` |
-| B — Tesla | `car-full.bin` | `0.5.2-alpha+1067a548d951` | `fb5b84b3eec93530691087d893ae1d6d669f05cd27dcf3e56390cb3624cdbd44` |
+| A — iPhone | `phone-full.bin` | `0.5.3-alpha+89eb4b9f3afd` | `651cce96ee4aee5b4d01cf44a5b47b59ad2e565580d69e1cda630da7273c5e2b` |
+| B — Tesla | `car-full.bin` | `0.5.3-alpha+28a10607336f` | `3ed4c61ad7ea648eb0738da33fdce2fe5667dacf399ad3210574ad3021aa055d` |
 
 The complete images contain the bootloader, partition table, and application
 and are flashed at `0x0`. They may erase Bluetooth bonds and app choices.
-Application-only images are also included for `0x10000` updates when the
-installed partition layout is known to match. Install both board roles from
-the same release.
+Application-only images are available at `0x10000` when the installed
+partition layout is known to match. Install both board roles from this same
+firmware release.
+
+## App compatibility
+
+This firmware implements Setup GATT v1 and is compatible with iOS app 1.0.
+Firmware and app releases are independent: a firmware release does not require
+a new app release while the Setup GATT contract remains compatible. See the
+[compatibility matrix](../contracts/COMPATIBILITY.md).
 
 ## Validation status
 

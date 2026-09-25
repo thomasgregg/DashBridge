@@ -40,12 +40,12 @@ class BoardConnection {
     clearDisconnectNotice();
     this.readLoop();
     for (const delay of [500, 1800, 3500]) {
-      setTimeout(() => { if (!this.closed && !this.status) this.send('db status'); }, delay);
+      setTimeout(() => { if (!this.closed && !this.status) this.send('setup status'); }, delay);
     }
     this.poll = setInterval(() => {
       if (this.closed) return;
-      this.send('db status');
-      if (this.role === 'phone') this.send('db apps');
+      this.send('setup status');
+      if (this.role === 'phone') this.send('setup apps');
     }, 4000);
   }
   async send(command) {
@@ -110,7 +110,7 @@ class BoardConnection {
       this.status = message;
       this.statusAt = Date.now();
       if (this.role === 'phone' || this.role === 'car') usbLostAt[this.role] = 0;
-      if (message.role === 'phone') this.send('db apps');
+      if (message.role === 'phone') this.send('setup apps');
     } else if (message.type === 'apps') {
       this.apps = message;
       this.appsAt = Date.now();
@@ -156,7 +156,7 @@ function renderBoards() {
     card.append(element('p', '', connection.status ? `Firmware ${connection.status.version}` : 'Connecting…'));
     if (connection.status) {
       const pair = element('button', 'secondary', connection.role === 'car' ? 'Open Tesla pairing' : 'Open iPhone pairing');
-      pair.addEventListener('click', () => connection.send('db pair'));
+      pair.addEventListener('click', () => connection.send('setup pair'));
       card.append(pair);
     }
     const disconnect = element('button', 'secondary', 'Disconnect');
@@ -233,9 +233,9 @@ function renderApps() {
     preview.disabled = !toggle.checked;
     toggle.addEventListener('change', () => {
       preview.disabled = !toggle.checked;
-      a.send(toggle.checked ? `db allow ${id} ${preview.value}` : `db deny ${id}`);
+      a.send(toggle.checked ? `setup allow ${id} ${preview.value}` : `setup deny ${id}`);
     });
-    preview.addEventListener('change', () => a.send(`db allow ${id} ${preview.value}`));
+    preview.addEventListener('change', () => a.send(`setup allow ${id} ${preview.value}`));
     row.append(label, preview);
     container.append(row);
   }
@@ -289,9 +289,9 @@ $('#discover').addEventListener('click', () => {
   const a = board('phone');
   if (!a) return;
   pendingDiscovery = a;
-  a.send('db discover');
+  a.send('setup discover');
   renderApps();
 });
-$('#test').addEventListener('click', () => board('car')?.send('db test'));
+$('#test').addEventListener('click', () => board('car')?.send('setup test'));
 render();
 setInterval(renderLiveState, 1000);

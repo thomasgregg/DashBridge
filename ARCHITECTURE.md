@@ -3,7 +3,7 @@
 This is the canonical description of the current two-board architecture. It
 explains the Bluetooth identities, functional paths, reconnection rules, source
 layout, and compatibility boundaries. It describes the implemented
-**0.5.2-alpha** design; passing software validation does not replace the outstanding
+**0.5.3-alpha** design; passing software validation does not replace the outstanding
 iPhone-and-Tesla hardware validation listed in the README.
 
 ## System overview
@@ -93,8 +93,9 @@ sequenceDiagram
     participant A as Board A
     participant Phone as iPhone
 
-    User->>App: Open phone pairing for 120 seconds
-    App->>A: Setup GATT or pair phone command
+    User->>App: Start setup
+    App->>App: Show pairing guidance
+    App->>Phone: Request Dash Messages connection
     Phone->>A: Pair Dash Messages over BLE
     User->>Phone: Approve pairing and notification sharing
     A->>A: Wait until ANCS is secured and ready
@@ -103,13 +104,16 @@ sequenceDiagram
     A->>A: Close pairing when both sides are ready
 ```
 
-The app starts the Dash Messages connection and guides the user through setup.
-iOS still asks the user to confirm Bluetooth pairing and allow notification
-sharing. The user then pairs Dash Calls in iPhone Settings → Bluetooth. Without
-the app, `pair phone` opens the same firmware window and the user pairs Dash
-Messages first, then Dash Calls. Unknown Classic devices are
-accepted only while that window is open and ANCS is already ready. Already
-bonded devices may reconnect without reopening pairing.
+The app shows its approval guidance before it requests the Dash Messages
+connection. iOS still owns and presents the Bluetooth-pairing and
+notification-sharing prompts. A Board A with no saved BLE bond accepts its
+first Dash Messages pairing while it is powered, so first setup is not racing a
+boot-time pairing deadline. The user then pairs Dash Calls in iPhone Settings
+→ Bluetooth. Without the app, or when replacing an already bonded phone,
+`pair phone` opens a 120-second firmware window and the user pairs Dash Messages
+first, then Dash Calls. Unknown Classic devices are accepted only while that
+window is open and ANCS is already ready. Already bonded devices may reconnect
+without reopening pairing.
 
 ### Reconnection ownership
 
@@ -137,8 +141,10 @@ sustained-use tests on physical hardware remain release gates.
 
 ## Software architecture
 
-There is one active implementation and one composition root. Product versions
-live only in `version.txt`; directory names are never version identifiers.
+There is one active implementation and one composition root. Firmware owns its
+version in `firmware/VERSION`; the iOS app owns its marketing and build versions
+in `ios/Config/Version.xcconfig`. Protocol contracts have their own versions,
+so either product can be released without changing the other.
 
 | Directory | Responsibility |
 | --- | --- |
@@ -165,6 +171,11 @@ music, and contact packets. Real-time media has dedicated codecs and never
 enters the control packet variant.
 
 ## Compatibility boundaries
+
+The [compatibility matrix](contracts/COMPATIBILITY.md) maps independent product
+releases to their protocol contracts. Git tags use `firmware-v<version>` and
+`ios-v<version>-b<build>`; matching product version numbers are neither
+required nor used as a compatibility signal.
 
 - **iOS:** `contracts/setup_gatt_v1` freezes UUIDs, status bits, command
   operations, encryption requirements, and size limits. The internal firmware
@@ -197,7 +208,9 @@ enters the control packet variant.
   explicitly preempt music audio.
 - A stale profile callback cannot release another profile's active connection
   slot.
-- Pairing windows expire after 120 seconds and do not erase existing bonds.
+- Explicit pairing windows expire after 120 seconds and do not erase existing
+  bonds. A Board A with no BLE bond remains eligible for its first Dash Messages
+  pairing while powered.
 - A physical long-press reset and a full-image flash are destructive recovery
   paths; ordinary pairing and status commands are not.
 

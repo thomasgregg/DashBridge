@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { applyLatest, refreshLatest } from './latest.js';
 
 const payload = {
-  release: '0.5.2-alpha',
-  releaseNotes: 'https://github.com/thomasgregg/DashBridge/blob/main/docs/RELEASE.md',
-  phone: { manifest: './firmware/phone-aaaaaaaaaaaaaaaa.json', version: '0.5.2-alpha+aaaaaaaaaaaa' },
-  car: { manifest: './firmware/car-bbbbbbbbbbbbbbbb.json', version: '0.5.2-alpha+bbbbbbbbbbbb' },
+  release: '0.5.3-alpha',
+  releaseNotes: 'https://github.com/thomasgregg/DashBridge/blob/main/docs/FIRMWARE_RELEASE.md',
+  phone: { manifest: './firmware/phone-aaaaaaaaaaaaaaaa.json', version: '0.5.3-alpha+aaaaaaaaaaaa' },
+  car: { manifest: './firmware/car-bbbbbbbbbbbbbbbb.json', version: '0.5.3-alpha+bbbbbbbbbbbb' },
 };
 const choices = () => ['phone', 'car'].map(value => ({ value, dataset: {} }));
 

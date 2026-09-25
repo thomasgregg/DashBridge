@@ -1,0 +1,57 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - 'ios/**'
+      - 'tools/check_architecture.py'
+      - 'tools/check_release_versions.py'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - 'ios/**'
+      - 'tools/check_architecture.py'
+      - 'tools/check_release_versions.py'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build iPhone app
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Xcode 26.5
+        run: sudo xcode-select -s /Applications/Xcode_26.5.app
+      - name: Validate independent versions and compatibility
+        run: |
+          python3 tools/check_architecture.py
+          python3 tools/check_release_versions.py
+      - name: Build for the iOS simulator
+        run: >-
+          xcodebuild
+          -project ios/DashBridge.xcodeproj
+          -scheme DashBridge
+          -sdk iphonesimulator
+          -configuration Debug
+          build
+      - name: Run setup-flow tests
+        run: >-
+          xcodebuild
+          -project ios/DashBridge.xcodeproj
+          -scheme DashBridge
+          -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
+          test

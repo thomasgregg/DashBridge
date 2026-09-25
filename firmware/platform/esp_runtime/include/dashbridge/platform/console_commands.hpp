@@ -31,7 +31,7 @@ public:
         while (!line.empty() && line.front() == ' ') line.remove_prefix(1);
         while (!line.empty() && line.back() == ' ') line.remove_suffix(1);
         if (line.empty()) return Command::none;
-        if (line.substr(0, 3) == "db ") return Command::none;
+        if (line.substr(0, 6) == "setup ") return Command::none;
         if (line == "test") return Command::test;
         if (line == "pair phone") return Command::pair_phone;
         if (line == "pair car") return Command::pair_car;
@@ -58,7 +58,8 @@ public:
             return {};
         }
         std::string out;
-        if (!discard_ && length_ >= 3 && line_[0] == 'd' && line_[1] == 'b' && line_[2] == ' ')
+        if (!discard_ && length_ >= 6 && line_[0] == 's' && line_[1] == 'e' && line_[2] == 't' &&
+            line_[3] == 'u' && line_[4] == 'p' && line_[5] == ' ')
             out.assign(line_, length_);
         length_ = 0;
         discard_ = false;

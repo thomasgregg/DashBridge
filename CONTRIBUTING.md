@@ -29,6 +29,12 @@ Start with Board B alone. A negative result, such as pairing working but message
 5. Update relevant documentation if behavior or setup changes.
 6. Open a pull request explaining the problem, resulting behavior, and validation performed. State explicitly whether hardware was tested.
 
+Firmware and iOS versions are independent. Change `firmware/VERSION` only for
+a firmware release. Change `ios/Config/Version.xcconfig` only for an app
+release, incrementing the build number for every uploaded app build. Changes to
+`contracts/setup_gatt_v1` must remain compatible with both products or add a
+new explicitly versioned contract.
+
 Host validation uses `clang++` by default and requires a C++17 compiler with AddressSanitizer and UndefinedBehaviorSanitizer support. Override the compiler with `CXX` when needed. The project includes a `.clang-format` configuration. Generated build directories are ignored; do not commit them or the SDK checkout.
 
 Keep notification queues bounded, avoid logging message content, and preserve clear failure behavior. Unsupported sends must not appear successful. Prefer tests of externally observable protocol behavior over tests that repeat an implementation's internal steps.

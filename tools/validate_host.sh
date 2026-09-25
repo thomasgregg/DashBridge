@@ -2,6 +2,7 @@
 set -euo pipefail
 project_dir="$(cd "$(dirname "$0")/.." && pwd)"
 python3 "$project_dir/tools/check_architecture.py"
+python3 "$project_dir/tools/check_release_versions.py"
 mkdir -p "$project_dir/build/tests"
 "${CXX:-clang++}" -std=c++17 -Wall -Wextra -Werror -g -fsanitize=address,undefined \
   -I "$project_dir/firmware/core/dashbridge_domain_core/include" \

@@ -12,7 +12,6 @@ async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'dashbridge-web-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   for (const folder of ['dist', 'firmware', 'tools']) await cp(path.join(root, folder), path.join(directory, folder), { recursive: true });
-  await cp(path.join(root, 'version.txt'), path.join(directory, 'version.txt'));
   return { directory, output: path.join(directory, 'site') };
 }
 

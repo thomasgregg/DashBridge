@@ -8,6 +8,20 @@ Open `DashBridge.xcodeproj` in Xcode and choose an iPhone simulator. The simulat
 
 The Xcode project is generated from `project.yml` with `xcodegen generate`. After changing the project spec, regenerate it before building.
 
+## Version and release
+
+The app version is independent from the firmware version. Update
+`Config/Version.xcconfig` for an app release: increment
+`CURRENT_PROJECT_VERSION` for every uploaded build and change
+`MARKETING_VERSION` only for a new user-facing version. Tag an app release as
+`ios-v<MARKETING_VERSION>-b<CURRENT_PROJECT_VERSION>`, for example
+`ios-v1.0-b12`.
+
+Compatibility comes from `contracts/setup_gatt_v1`, not matching release
+numbers. Contract changes run both firmware and iOS checks; compatible UI or
+app changes can ship without rebuilding either board. The current mapping is
+documented in `contracts/COMPATIBILITY.md` and `docs/IOS_RELEASE.md`.
+
 Run simulator navigation checks on a dedicated test simulator, not the one used for manual preview: `xcodebuild -project DashBridge.xcodeproj -scheme DashBridge -destination 'platform=iOS Simulator,id=TEST_SIMULATOR_ID' test`. Xcode installs the test build over the app on its destination simulator. The UI tests themselves use a debug-only preview and sample app list; they do not ask for App & Website Usage permission or touch real hardware. Never install a `CODE_SIGNING_ALLOWED=NO` test build on the manual preview simulator.
 
 ## Test with a physical iPhone

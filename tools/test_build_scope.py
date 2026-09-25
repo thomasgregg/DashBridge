@@ -13,7 +13,7 @@ class BuildScopeTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.write("version.txt", "0.5.2-alpha")
+        self.write("firmware/VERSION", "0.5.3-alpha")
         for name in (
             "adapters/phone/esp_ancs_adapter/esp_ancs_adapter.cpp",
             "adapters/car/esp_tesla_adapter/esp_tesla_adapter.cpp",
@@ -96,7 +96,7 @@ class BuildScopeTest(unittest.TestCase):
         self.assertNotEqual(before["car"], firmware_version(self.root, "car"))
         self.restore("adapters/car/esp_tesla_adapter/esp_tesla_adapter.cpp")
         self.assertEqual(before["car"], firmware_version(self.root, "car"))
-        self.write("version.txt", "0.5.3-alpha")
+        self.write("firmware/VERSION", "0.5.3-alpha")
         for role in ROLES:
             self.assertTrue(firmware_version(self.root, role).startswith("0.5.3-alpha+"))
             self.assertLessEqual(len(firmware_version(self.root, role)), 31)

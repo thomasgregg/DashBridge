@@ -20,6 +20,12 @@ enum AppTestMode {
         "-dashbridge-ui-cached-status-preview")
     static let savedChoicePreview = enabled && ProcessInfo.processInfo.arguments.contains(
         "-dashbridge-ui-saved-choice-preview")
+    static let screenPreview: String? = {
+        guard enabled,
+              let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-dashbridge-ui-screen-preview"),
+              ProcessInfo.processInfo.arguments.indices.contains(index + 1) else { return nil }
+        return ProcessInfo.processInfo.arguments[index + 1]
+    }()
 }
 
 struct AppChoice: Identifiable {

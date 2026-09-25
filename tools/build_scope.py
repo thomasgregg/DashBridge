@@ -29,7 +29,7 @@ def sources(root, role):
 
 
 def release_version(root):
-    value = (root / "version.txt").read_text().strip()
+    value = (root / "firmware/VERSION").read_text().strip()
     if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?", value):
         raise ValueError("Invalid firmware release version")
     return value

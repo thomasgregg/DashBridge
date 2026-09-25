@@ -2,7 +2,7 @@ import SwiftUI
 import UserNotifications
 
 private enum Step: Equatable {
-    case welcome, finding, found, checking, pair, sharing, apps
+    case welcome, finding, checking, pair, sharing, apps
     case car, test, ready, help
 }
 
@@ -78,9 +78,11 @@ private struct SetupView: View {
     @State private var previewStatus: BridgeStatus?
     @State private var previewAllowed: Set<String> = []
     @State private var reviewingCarStep = false
+    @State private var appsReturnStep: Step = .welcome
     @State private var helpReturnStep: Step = .car
     @State private var copiedConnectionDetails = false
     @State private var checkingStartedAt: Date?
+    @State private var connectionRequestPending = false
     @State private var testNotificationPending = false
     @State private var testNotificationMessage: String?
 
@@ -89,15 +91,18 @@ private struct SetupView: View {
     private var status: BridgeStatus? { isPreview ? previewStatus : bridge.status }
     private var selected: Set<String> { isPreview ? previewAllowed : bridge.allowedIDs }
     private var connected: Bool { isPreview || bridge.connected }
+    private var showsBackButton: Bool {
+        step != .welcome && !(step == .ready && testConfirmed)
+    }
 
     var body: some View {
         NavigationStack {
             content
                 .background(Theme.background.ignoresSafeArea())
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar(step == .welcome || step == .ready ? .hidden : .visible, for: .navigationBar)
+                .toolbar(showsBackButton ? .visible : .hidden, for: .navigationBar)
                 .toolbar {
-                    if step != .welcome && step != .ready {
+                    if showsBackButton {
                         ToolbarItem(placement: .topBarLeading) {
                             Button(action: goBack) {
                                 Label("Back", systemImage: "chevron.left")
@@ -131,6 +136,10 @@ private struct SetupView: View {
                 if AppTestMode.savedChoicePreview {
                     previewAllowed = ["net.whatsapp.WhatsAppSMB"]
                 }
+                if let screen = AppTestMode.screenPreview {
+                    showPreviewScreen(screen)
+                    return
+                }
             }
             if welcomed {
                 step = .finding
@@ -138,8 +147,10 @@ private struct SetupView: View {
             }
         }
         .onChange(of: bridge.foundName) { _, name in
-            if name != nil && step == .finding { step = .found }
-            if name == nil && step == .found && !isPreview { step = .finding }
+            if name != nil && step == .finding {
+                connectionRequestPending = true
+                step = .checking
+            }
         }
         .onChange(of: bridge.testWindowGrants) { _, _ in
             guard testNotificationPending else { return }
@@ -152,7 +163,7 @@ private struct SetupView: View {
             }
         }
         .onChange(of: bridge.connected) { _, value in
-            if value && (step == .found || step == .finding) { step = .checking }
+            if value && step == .finding { step = .checking }
             if !value && !isPreview && step == .checking && bridge.error == nil { step = .finding }
         }
         .onChange(of: bridge.deviceID) { _, value in
@@ -182,6 +193,17 @@ private struct SetupView: View {
                 return
             }
             checkingStartedAt = Date()
+            if connectionRequestPending {
+                connectionRequestPending = false
+                // Let SwiftUI present the explanatory screen before asking
+                // Core Bluetooth to start an iOS-owned pairing/ANCS prompt.
+                // The prompt itself is controlled by iOS and may cover the app.
+                do {
+                    try await Task.sleep(for: .milliseconds(350))
+                } catch { return }
+                guard step == .checking else { return }
+                bridge.connectFound()
+            }
             // A status can arrive while the found screen is still visible.
             // Equatable onChange won't fire again if the next read is identical.
             if let status { route(for: status) }
@@ -221,10 +243,9 @@ private struct SetupView: View {
             .padding(24)
         case .finding:
             VStack(alignment: .leading, spacing: 20) {
-                heading(Text("Looking for \(Text("DashBridge").foregroundColor(Theme.accent))")
-                        .foregroundColor(Theme.ink),
-                        "Plug it in nearby. We’ll find it automatically.")
-                artwork("dot.radiowaves.left.and.right")
+                stageHeader("Connecting…",
+                            "Looking for DashBridge nearby.",
+                            symbol: "dot.radiowaves.left.and.right")
                 if bridge.error == nil {
                     Text("Looking nearby…").foregroundStyle(Theme.muted)
                     timeoutBar
@@ -233,42 +254,32 @@ private struct SetupView: View {
                 Spacer(minLength: 0)
             }
             .padding(24)
-        case .found:
-            brandedList {
-                headerRow("DashBridge found.", "Ready to connect.")
-                Section {
-                    Label("DashBridge nearby", systemImage: "dot.radiowaves.left.and.right")
-                }
-            }
         case .checking:
-            VStack(spacing: 16) {
-                Text("Checking your connection…").foregroundStyle(Theme.muted)
-                checkingTimeoutBar
+            VStack(alignment: .leading, spacing: 22) {
+                stageHeader("Connecting…",
+                            "Keep this app open. iPhone may ask you to pair and share notifications.",
+                            symbol: "arrow.triangle.2.circlepath")
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Checking your connection…").foregroundStyle(Theme.muted)
+                    checkingTimeoutBar
+                }
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.horizontal, 32)
+            .padding(24)
         case .pair:
             brandedList {
-                if status?.notifications == true {
-                    headerRow("Connect calls and music.", "In Settings → Bluetooth, tap Dash Calls. Dash Messages is already connected by this app.")
-                    Section {
-                        LabeledContent("Dash Messages", value: "Connected")
-                        LabeledContent("Dash Calls", value: status?.phoneCalls == true ? "Connected" : "Waiting")
-                    } footer: {
-                        Text("Only Dash Calls needs to be selected in Settings. We’ll continue automatically when it connects.")
-                    }
-                } else {
-                    headerRow("Connect notification access.", "Keep this app open and accept the iPhone pairing and notification-sharing prompts.")
-                    Section {
-                        LabeledContent("Dash Messages", value: status?.phoneBluetooth == true ? "Authorizing" : "Connecting")
-                        LabeledContent("Dash Calls", value: "Waiting")
-                    } footer: {
-                        Text("Dash Calls becomes visible only after Dash Messages is ready, preventing the two pairings from competing.")
-                    }
+                stageHeaderRow("Connect calls and music.",
+                               "In Settings → Bluetooth, tap Dash Calls.",
+                               symbol: "phone")
+                Section {
+                    LabeledContent("Dash Messages", value: "Connected")
+                    LabeledContent("Dash Calls", value: status?.phoneCalls == true ? "Connected" : "Waiting")
+                } footer: {
+                    Text("Dash Messages is ready. We’ll continue automatically when Dash Calls connects.")
                 }
                 if status?.phonePairingOpen == false {
                     Section {
-                        Button("Make DashBridge discoverable again") { bridge.send(3) }
+                        Button("Open pairing for 2 minutes") { bridge.send(3) }
                     }
                 }
                 if let commandError = bridge.commandError {
@@ -277,20 +288,27 @@ private struct SetupView: View {
             }
         case .sharing:
             brandedList {
-                headerRow("Finish notification access.", "If iPhone asks to share system notifications, tap Allow. DashBridge will continue when messages are ready.")
+                stageHeaderRow("Approve on iPhone.",
+                               "Accept the pairing and notification-sharing prompts. We’ll continue automatically.",
+                               symbol: "bell.badge")
                 Section {
-                    LabeledContent("Bluetooth pairing", value: "Connected")
-                    LabeledContent("iPhone permission", value: bridge.notificationPermission == true ? "Allowed" : bridge.notificationPermission == false ? "Not allowed" : "Waiting")
-                    LabeledContent("Notification link", value: "Waiting")
+                    LabeledContent("Dash Messages",
+                                   value: status?.phoneBluetooth == true ? "Waiting for approval" : "Connecting")
+                    LabeledContent("Notification access",
+                                   value: bridge.notificationPermission == false ? "Not allowed"
+                                   : bridge.notificationPermission == true ? "Finishing"
+                                   : "Waiting for approval")
                 } footer: {
-                    Text("A Bluetooth connection alone does not mean notifications are available yet.")
+                    Text("This is Apple’s system-notification sharing permission, not permission for the DashBridge app to send alerts.")
                 }
             }
         case .apps:
             appChoices
         case .car:
             brandedList {
-                headerRow("Connect your Tesla.", "When you’re parked, add Dash Tesla on your Tesla’s Bluetooth screen.")
+                stageHeaderRow("Connect your Tesla.",
+                               "When you’re parked, add Dash Tesla on your Tesla’s Bluetooth screen.",
+                               symbol: "car.side")
                 Section {
                     LabeledContent("Dash Tesla", value: status?.teslaMessages == true ? "Connected" : "Waiting for car")
                 } footer: {
@@ -302,11 +320,11 @@ private struct SetupView: View {
             }
         case .test:
             VStack(alignment: .leading, spacing: 28) {
-                heading(isPreview ? "Preview the final step." : "Try a notification.",
-                        isPreview
-                        ? "Send a test, then continue."
-                        : "Send a test, then check your Tesla screen.")
-                artwork("message")
+                stageHeader(isPreview ? "Preview the final step." : "Try a notification.",
+                            isPreview
+                            ? "Send a test, then continue."
+                            : "Send a test, then check your Tesla screen.",
+                            symbol: "message")
                 if let testNotificationMessage {
                     Text(testNotificationMessage).foregroundStyle(Theme.muted)
                 }
@@ -322,7 +340,7 @@ private struct SetupView: View {
             .padding(24)
         case .ready:
             brandedList {
-                completionHero
+                completionHeader
                 Section("Connections") {
                     LabeledContent("iPhone", value: status?.notifications == true ? "Connected" : "Not nearby")
                     LabeledContent("Tesla", value: status?.teslaMessages == true ? "Connected" : "Not nearby")
@@ -343,7 +361,10 @@ private struct SetupView: View {
                             }
                         }
                     }
-                    Button(selected.isEmpty ? "Choose apps" : "Change apps") { step = .apps }
+                    Button(selected.isEmpty ? "Choose apps" : "Change apps") {
+                        appsReturnStep = .ready
+                        step = .apps
+                    }
                 }
                 Section {
                     Button("Connection help") {
@@ -354,47 +375,57 @@ private struct SetupView: View {
             }
             .contentMargins(.top, 0, for: .scrollContent)
         case .help:
-            brandedList {
-                if helpReturnStep == .checking && status == nil {
-                    headerRow("Couldn't check DashBridge yet.", bridge.error ?? "The app couldn't reach DashBridge yet.")
+            if helpReturnStep == .checking && status == nil {
+                retryView
+            } else {
+                brandedList {
+                    listHeaderRow("Connection status.",
+                                  bridge.error ?? "Live status reported by DashBridge.")
+
+                    if let status {
+                        Section("iPhone") {
+                            LabeledContent("Bluetooth", value: status.phoneBluetooth ? "Connected" : "Disconnected")
+                            LabeledContent("Notification sharing", value: status.notifications ? "Ready" : "Not ready")
+                            LabeledContent("Calls", value: status.phoneCalls ? "Connected" : "Disconnected")
+                        }
+                        Section("Tesla") {
+                            LabeledContent("Messages", value: status.teslaMessages ? "Connected" : "Disconnected")
+                            LabeledContent("Message transport", value: status.teslaTransport ? "Ready" : "Not ready")
+                            LabeledContent("Message sync", value: status.teslaSync ? "Ready" : "Not ready")
+                            LabeledContent("Calls", value: status.teslaCalls ? "Connected" : "Disconnected")
+                        }
+                        Section("DashBridge") {
+                            LabeledContent("Internal board link", value: status.internalLink ? "Ready" : "Not responding")
+                        }
+                    } else {
+                        Section("Connection check") {
+                            LabeledContent("Last step", value: bridge.connectionStage)
+                            Text("DashBridge has not reported its connection status yet.")
+                                .foregroundStyle(Theme.muted)
+                        }
+                    }
+
                     Section {
-                        Label("Tap Check again below. No reset or re-pairing is needed.", systemImage: "arrow.clockwise")
-                    }
-                } else {
-                    headerRow("Connection status.", bridge.error ?? "Live status reported by DashBridge.")
-                }
-
-                if let status {
-                    Section("iPhone") {
-                        LabeledContent("Bluetooth", value: status.phoneBluetooth ? "Connected" : "Disconnected")
-                        LabeledContent("Notification sharing", value: status.notifications ? "Ready" : "Not ready")
-                        LabeledContent("Calls", value: status.phoneCalls ? "Connected" : "Disconnected")
-                    }
-                    Section("DashBridge") {
-                        LabeledContent("Internal board link", value: status.internalLink ? "Ready" : "Not responding")
-                    }
-                    Section("Tesla") {
-                        LabeledContent("Messages", value: status.teslaMessages ? "Connected" : "Disconnected")
-                        LabeledContent("Message transport", value: status.teslaTransport ? "Ready" : "Not ready")
-                        LabeledContent("Message sync", value: status.teslaSync ? "Ready" : "Not ready")
-                        LabeledContent("Calls", value: status.teslaCalls ? "Connected" : "Disconnected")
-                    }
-                } else if helpReturnStep != .checking {
-                    Section("Connection check") {
-                        LabeledContent("Last step", value: bridge.connectionStage)
-                        Text("DashBridge has not reported its connection status yet.")
-                            .foregroundStyle(Theme.muted)
-                    }
-                }
-
-                Section {
-                    Button(copiedConnectionDetails ? "Diagnostics copied" : "Copy diagnostics") {
-                        UIPasteboard.general.string = connectionDiagnostics
-                        copiedConnectionDetails = true
+                        Button(copiedConnectionDetails ? "Diagnostics copied" : "Copy diagnostics") {
+                            UIPasteboard.general.string = connectionDiagnostics
+                            copiedConnectionDetails = true
+                        }
                     }
                 }
             }
         }
+    }
+
+    private var retryView: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            stageHeader("Connection interrupted.",
+                        "Keep DashBridge powered and nearby, then try again.",
+                        symbol: "arrow.clockwise",
+                        accessibilityLabel: "Retry connection")
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
     }
 
     private func artwork(_ symbol: String) -> some View {
@@ -409,7 +440,18 @@ private struct SetupView: View {
                 .foregroundStyle(Theme.accent)
         }
         .frame(height: 166)
-        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func stageArtwork(_ symbol: String, accessibilityLabel: String?) -> some View {
+        if let accessibilityLabel {
+            artwork(symbol)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(accessibilityLabel)
+        } else {
+            artwork(symbol)
+                .accessibilityHidden(true)
+        }
     }
 
     @ViewBuilder
@@ -471,64 +513,76 @@ private struct SetupView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func heading(_ title: String, _ subtitle: String) -> some View {
-        heading(Text(title).foregroundColor(Theme.ink), subtitle)
-    }
-
     private func heading(_ title: Text, _ subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             title
                 .font(.system(size: 35, weight: .semibold, design: .rounded))
                 .tracking(-1.4)
+                .lineLimit(1)
             Text(subtitle)
                 .font(.body)
                 .foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func headerRow(_ title: String, _ subtitle: String) -> some View {
-        heading(title, subtitle)
-            .padding(.top, 10)
+    private func stageHeader(_ title: String, _ subtitle: String, symbol: String,
+                             accessibilityLabel: String? = nil) -> some View {
+        stageHeader(Text(title).foregroundColor(Theme.ink), subtitle, symbol: symbol,
+                    accessibilityLabel: accessibilityLabel)
+    }
+
+    private func stageHeader(_ title: Text, _ subtitle: String, symbol: String,
+                             accessibilityLabel: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 22) {
+            heading(title, subtitle)
+                .frame(height: 96, alignment: .topLeading)
+            stageArtwork(symbol, accessibilityLabel: accessibilityLabel)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func stageHeaderRow(_ title: String, _ subtitle: String, symbol: String) -> some View {
+        stageHeaderRow(Text(title).foregroundColor(Theme.ink), subtitle, symbol: symbol)
+    }
+
+    private func stageHeaderRow(_ title: Text, _ subtitle: String, symbol: String) -> some View {
+        listHeaderLayout(stageHeader(title, subtitle, symbol: symbol))
+    }
+
+    private func listHeaderRow(_ title: String, _ subtitle: String) -> some View {
+        listHeaderLayout(heading(Text(title).foregroundColor(Theme.ink), subtitle))
+    }
+
+    private func listHeaderLayout<Content: View>(_ content: Content) -> some View {
+        content
+            .padding(.top, 24)
             .padding(.bottom, 18)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
             .listRowSeparator(.hidden)
     }
 
-    private var completionHero: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                DashBridgeMark()
-                    .frame(width: 64, height: 64)
-                Spacer()
-                Image(systemName: testConfirmed ? "checkmark.circle.fill" : "iphone.gen3")
-                    .font(.system(size: 25, weight: .light))
-                    .foregroundStyle(Theme.accent)
-                    .accessibilityHidden(true)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                Text(testConfirmed ? "Ready to go." : "Your iPhone is set up.")
-                    .font(.system(size: 32, weight: .semibold, design: .rounded))
-                    .tracking(-1.2)
-                    .foregroundStyle(Theme.ink)
-                Text(testConfirmed
-                     ? (status?.notifications == true && status?.teslaMessages == true
-                        ? "Your iPhone and Tesla are connected."
-                        : "Your last test passed. Connect DashBridge to check it again.")
-                     : "Finish in the car when you’re parked. Your choices are saved.")
-                    .font(.body)
-                    .foregroundStyle(Theme.muted)
-            }
+    private var completionHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(testConfirmed ? "You're all set!" : "iPhone is ready!")
+                .font(.system(size: 35, weight: .semibold, design: .rounded))
+                .tracking(-1.4)
+                .foregroundStyle(Theme.ink)
+                .lineLimit(1)
+            Text(testConfirmed
+                 ? (status?.notifications == true && status?.teslaMessages == true
+                    ? "DashBridge is connected. Enjoy the drive."
+                    : "Your last test passed. Connect DashBridge to check it again.")
+                 : "Nice—your notification choices are saved. Finish in your Tesla when parked.")
+                .font(.body)
+                .foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(22)
-        .background(LinearGradient(colors: [Theme.soft, Theme.surface],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 24))
-        .overlay(RoundedRectangle(cornerRadius: 24)
-            .strokeBorder(Theme.accent.opacity(0.14), lineWidth: 1))
-        .padding(.bottom, 6)
+        .padding(.top, 24)
+        .padding(.bottom, 18)
         .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
         .listRowSeparator(.hidden)
@@ -537,13 +591,15 @@ private struct SetupView: View {
     private func brandedList<Content: View>(@ViewBuilder _ rows: () -> Content) -> some View {
         List(content: rows)
             .listSectionSpacing(.compact)
+            .contentMargins(.top, 0, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .background(Theme.background)
     }
 
     private var appChoices: some View {
         brandedList {
-            headerRow("Choose your apps.", "New notifications from selected apps can appear as messages in your Tesla.")
+            listHeaderRow("Choose your apps.",
+                          "New notifications from selected apps can appear as messages in your Tesla.")
             Section {
                 switch catalog.access {
                 case .notRequested:
@@ -616,18 +672,18 @@ private struct SetupView: View {
             lines += ["iPhone Bluetooth: \(status.phoneBluetooth)",
                       "Notification sharing: \(status.notifications)",
                       "iPhone calls: \(status.phoneCalls)",
-                      "Internal board link: \(status.internalLink)",
                       "Tesla messages: \(status.teslaMessages)",
                       "Tesla message transport: \(status.teslaTransport)",
                       "Tesla message sync: \(status.teslaSync)",
-                      "Tesla calls: \(status.teslaCalls)"]
+                      "Tesla calls: \(status.teslaCalls)",
+                      "Internal board link: \(status.internalLink)"]
         }
         return lines.joined(separator: "\n")
     }
 
     @ViewBuilder
     private var actionBar: some View {
-        if step == .welcome || step == .finding || step == .found || step == .apps ||
+        if step == .welcome || step == .finding || step == .apps ||
             step == .car || step == .test || step == .help || (step == .ready && !testConfirmed) {
             VStack(spacing: 8) {
                 switch step {
@@ -644,8 +700,7 @@ private struct SetupView: View {
                     }
 #if targetEnvironment(simulator)
                     Button("Preview without hardware") {
-                        isPreview = true
-                        step = .found
+                        startPreview()
                     }
 #endif
                 case .finding:
@@ -662,32 +717,13 @@ private struct SetupView: View {
                         }
 #if targetEnvironment(simulator)
                         Button("Preview without hardware") {
-                            isPreview = true
-                            step = .found
+                            startPreview()
                         }
 #else
                         if !bridge.bluetoothReady {
                             primary("Try again") { bridge.retry() }
                         }
 #endif
-                    }
-                case .found:
-                    primary(connected ? "Continue" : "Connect") {
-                        if isPreview && AppTestMode.checkingPreview {
-                            step = .checking
-                        } else if isPreview && AppTestMode.cachedStatusPreview {
-                            previewStatus = BridgeStatus(bits: 0b0000_0101)
-                            step = .checking
-                        } else if isPreview {
-                            previewStatus = BridgeStatus(bits: 0b0000_1111)
-                            step = .apps
-                        } else if connected {
-                            step = .checking
-                            if let status { route(for: status) }
-                        } else {
-                            step = .checking
-                            bridge.connectFound()
-                        }
                     }
                 case .apps:
                     primary("Continue") {
@@ -727,7 +763,7 @@ private struct SetupView: View {
                         step = .ready
                     }
                 case .help:
-                    primary("Check again") {
+                    primary(helpReturnStep == .checking && status == nil ? "Try again" : "Done") {
                         bridge.error = nil
                         if testConfirmed { step = .ready }
                         else if status?.teslaMessages == true { step = .test }
@@ -784,17 +820,85 @@ private struct SetupView: View {
         }
     }
 
+    private func startPreview() {
+        isPreview = true
+        if AppTestMode.checkingPreview {
+            step = .checking
+        } else if AppTestMode.cachedStatusPreview {
+            previewStatus = BridgeStatus(bits: 0b0000_0101)
+            step = .checking
+        } else {
+            previewStatus = BridgeStatus(bits: 0b0000_1111)
+            appsReturnStep = .welcome
+            step = .apps
+        }
+    }
+
+    private func showPreviewScreen(_ screen: String) {
+        isPreview = true
+        switch screen {
+        case "welcome":
+            isPreview = false
+            step = .welcome
+        case "finding":
+            isPreview = false
+            step = .finding
+        case "checking":
+            step = .checking
+        case "retry":
+            bridge.error = "Your iPhone connected to DashBridge, but the app couldn't check its setup yet."
+            helpReturnStep = .checking
+            step = .help
+        case "pair-messages":
+            previewStatus = BridgeStatus(bits: 0b0000_0001)
+            step = .sharing
+        case "pair-calls":
+            previewStatus = BridgeStatus(bits: 0b0000_0011)
+            step = .pair
+        case "sharing":
+            previewStatus = BridgeStatus(bits: 0b0000_0101)
+            step = .sharing
+        case "apps":
+            previewStatus = BridgeStatus(bits: 0b0000_1111)
+            appsReturnStep = .welcome
+            step = .apps
+        case "car":
+            previewStatus = BridgeStatus(bits: 0b0000_1111)
+            previewAllowed = ["net.whatsapp.WhatsApp"]
+            step = .car
+        case "test":
+            previewStatus = BridgeStatus(bits: 0b1111_1111)
+            previewAllowed = ["net.whatsapp.WhatsApp"]
+            step = .test
+        case "ready-iphone":
+            previewStatus = BridgeStatus(bits: 0b0000_1111)
+            previewAllowed = ["net.whatsapp.WhatsApp"]
+            teslaDeferred = true
+            step = .ready
+        case "ready":
+            previewStatus = BridgeStatus(bits: 0b1111_1111)
+            previewAllowed = ["net.whatsapp.WhatsApp"]
+            testConfirmed = true
+            step = .ready
+        case "status":
+            previewStatus = BridgeStatus(bits: 0b1111_1111)
+            helpReturnStep = .ready
+            step = .help
+        default:
+            step = .welcome
+        }
+    }
+
     private func goBack() {
         switch step {
         case .welcome:
             break
         case .finding:
             step = .welcome
-        case .found:
-            step = connected ? .welcome : .finding
-            if !connected { bridge.scan() }
-        case .checking, .pair, .sharing, .apps:
-            step = .found
+        case .checking, .pair, .sharing:
+            step = .welcome
+        case .apps:
+            step = appsReturnStep
         case .car:
             reviewingCarStep = false
             step = .apps
@@ -803,11 +907,15 @@ private struct SetupView: View {
             step = .car
         case .help:
             if helpReturnStep == .checking {
-                step = .finding
-                bridge.retry()
+                step = .welcome
             } else { step = helpReturnStep }
         case .ready:
-            step = .test
+            if testConfirmed {
+                step = .test
+            } else {
+                reviewingCarStep = true
+                step = .car
+            }
         }
     }
 
@@ -827,7 +935,7 @@ private struct SetupView: View {
         testNotificationMessage = nil
         if isPreview {
             if AppTestMode.enabled {
-                testNotificationMessage = "Preview: a real test will arrive as an iPhone notification."
+                testNotificationMessage = "Connect DashBridge to send a test notification to your Tesla."
                 return
             }
             do {
@@ -869,7 +977,7 @@ private struct SetupView: View {
         let content = UNMutableNotificationContent()
         content.title = "DashBridge test"
         content.body = previewOnly
-            ? "This iPhone test is working. Tesla delivery needs DashBridge hardware."
+            ? "Your iPhone can show the test. Connect DashBridge to send notifications to your Tesla."
             : "If this message appears on your Tesla, notifications are working."
         content.sound = .default
         let request = UNNotificationRequest(identifier: "dashbridge-test-\(UUID().uuidString)",
@@ -877,7 +985,7 @@ private struct SetupView: View {
         do {
             try await UNUserNotificationCenter.current().add(request)
             testNotificationMessage = previewOnly
-                ? "Test arriving shortly on this iPhone. Tesla delivery needs the boards."
+                ? "A test will appear on this iPhone shortly. Connect DashBridge to test your Tesla."
                 : "Test arriving shortly. Lock your iPhone and watch your Tesla screen."
         } catch {
             testNotificationMessage = "The iPhone couldn't send the test notification. Try again."
@@ -888,11 +996,16 @@ private struct SetupView: View {
     private func route(for value: BridgeStatus) {
         if step == .checking || step == .pair || step == .sharing {
             if value.phoneCalls && value.notifications {
-                step = choseApps ? (testConfirmed || teslaDeferred ? .ready
-                       : (value.teslaMessages && value.teslaCalls ? .test : .car)) : .apps
+                if choseApps {
+                    step = testConfirmed || teslaDeferred ? .ready
+                        : (value.teslaMessages && value.teslaCalls ? .test : .car)
+                } else {
+                    appsReturnStep = .welcome
+                    step = .apps
+                }
                 return
             }
-            step = value.phoneCalls && value.phoneBluetooth ? .sharing : .pair
+            step = value.notifications ? .pair : .sharing
         }
         if step == .car && !reviewingCarStep && value.teslaMessages && value.teslaCalls {
             step = testConfirmed ? .ready : .test

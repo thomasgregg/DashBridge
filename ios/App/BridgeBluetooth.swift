@@ -57,6 +57,8 @@ enum BridgeError: LocalizedError {
 }
 
 final class BridgeBluetooth: NSObject, ObservableObject {
+    static let notFoundMessage = "The app can't find DashBridge. Make sure it's powered and not connected to another iPhone, then try again."
+
     @Published private(set) var bluetoothReady = false
     @Published private(set) var scanning = false
     @Published private(set) var foundName: String?
@@ -98,7 +100,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             scanTimer?.invalidate()
             scanTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
                 self?.endTimedCheck()
-                self?.error = "The app can't find DashBridge's setup connection. Check that it's powered, then try again."
+                self?.error = Self.notFoundMessage
             }
             return
         }
@@ -175,7 +177,11 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             }
         }) {
             discovered = match
-            connectFound(requiresANCS: false)
+            if match.ancsAuthorized {
+                connectFound(requiresANCS: false)
+            } else {
+                foundName = match.name ?? "Dash Messages"
+            }
             return
         }
         if tryRemembered,
@@ -185,7 +191,11 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             // This is only a cached identifier, not evidence that the board
             // is powered or nearby. The connection must prove it is live.
             discovered = saved
-            connectFound(requiresANCS: false)
+            if saved.ancsAuthorized {
+                connectFound(requiresANCS: false)
+            } else {
+                foundName = saved.name ?? "Dash Messages"
+            }
             return
         }
         scan(clearError: false)
@@ -212,7 +222,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             self.manager?.stopScan()
             self.scanning = false
             self.endTimedCheck()
-            self.error = "The app can't find DashBridge's setup connection. Check that it's powered, then try again."
+            self.error = Self.notFoundMessage
         }
     }
 
@@ -374,8 +384,9 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
             self.discovered = nil
             self.scan(clearError: false)
         }
-        if UserDefaults.standard.string(forKey: rememberedKey) == peripheral.identifier.uuidString {
-            connectFound()
+        if UserDefaults.standard.string(forKey: rememberedKey) == peripheral.identifier.uuidString,
+           peripheral.ancsAuthorized {
+            connectFound(requiresANCS: false)
         }
     }
 
@@ -442,7 +453,6 @@ extension BridgeBluetooth: CBPeripheralDelegate {
             self.error = "DashBridge setup service is incomplete."
             return
         }
-        UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: rememberedKey)
         deviceID = peripheral.identifier
         connectionStage = "Checking DashBridge"
         refresh()
@@ -462,6 +472,10 @@ extension BridgeBluetooth: CBPeripheralDelegate {
         if characteristic.uuid == BridgeService.status {
             do {
                 status = try BridgeStatus(data)
+                if status?.notifications == true {
+                    UserDefaults.standard.set(peripheral.identifier.uuidString,
+                                              forKey: rememberedKey)
+                }
                 connectionStage = "Ready"
                 connectionTimer?.invalidate()
                 connectionTimer = nil

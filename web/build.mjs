@@ -14,11 +14,11 @@ export async function prepareFirmware(repository, output) {
     throw new Error('Installer only supports original ESP32 with 4 MB flash');
   }
   await mkdir(path.join(output, 'firmware'), { recursive: true });
-  const release = (await readFile(path.join(repository, 'version.txt'), 'utf8')).trim();
-  if (manifest.version !== release) throw new Error('Manifest release differs from version.txt');
+  const release = (await readFile(path.join(repository, 'firmware/VERSION'), 'utf8')).trim();
+  if (manifest.version !== release) throw new Error('Manifest release differs from firmware/VERSION');
   const result = {
     version: release,
-    releaseNotes: 'https://github.com/thomasgregg/DashBridge/blob/main/docs/RELEASE.md',
+    releaseNotes: 'https://github.com/thomasgregg/DashBridge/blob/main/docs/FIRMWARE_RELEASE.md',
   };
   for (const [role, label] of [['phone', 'A — iPhone'], ['car', 'B — Tesla']]) {
     const entry = manifest.images[role];
@@ -69,7 +69,7 @@ async function main() {
   await mkdir(output, { recursive: true });
   const firmware = await prepareFirmware(root, output);
   // A public release cannot be published without the canonical release page.
-  await readFile(path.join(root, 'docs/RELEASE.md'), 'utf8');
+  await readFile(path.join(root, 'docs/FIRMWARE_RELEASE.md'), 'utf8');
   const bundle = await build({
     absWorkingDir: path.join(root, 'web'),
     plugins: [installDialogPatch],

@@ -1,7 +1,7 @@
 # USB command reference
 
 This is the canonical reference for the USB console implemented by the current
-DashBridge firmware. It covers both commands typed by a person and the `db ...`
+DashBridge firmware. It covers both commands typed by a person and the `setup ...`
 commands used by the browser setup page.
 
 Connect to a board's USB serial port at **115200 baud, 8 data bits, no parity,
@@ -32,8 +32,10 @@ On Board B, enter `pair car`, pair **Dash Tesla** from the Tesla, and allow
 message and contact syncing when offered.
 
 The role-specific command opens a temporary pairing window; it does not erase
-saved bonds. The browser uses its separate `db pair` protocol command after it
-has identified the connected board's role.
+saved bonds. The browser uses its separate `setup pair` protocol command after it
+has identified the connected board's role. A Board A with no saved BLE bond also
+accepts its first Dash Messages pairing while powered; after that first bond,
+unknown phones require the explicit 120-second `pair phone` window.
 
 ## Call-audio diagnostic commands
 
@@ -64,15 +66,15 @@ Responses are single lines beginning with `@DB ` followed by JSON.
 
 | Command | Valid image | Response or effect |
 | --- | --- | --- |
-| `db status` | A, B | Emit current role, firmware version, and connection/profile readiness as a `status` object |
-| `db pair` | A, B | Open that board's pairing window for 120 seconds and emit a `result` |
-| `db apps` | A | Emit saved and recently seen application rules as an `apps` object |
-| `db discover` | A | Listen for a fresh notification's app for 60 seconds; notification sharing must already be ready |
-| `db allow <app-id> <preview>` | A | Allow or update a discovered application and persist the rule |
-| `db deny <app-id>` | A | Remove a saved application rule |
-| `db test` | B | Send one Tesla test message when its message channel is ready |
+| `setup status` | A, B | Emit current role, firmware version, and connection/profile readiness as a `status` object |
+| `setup pair` | A, B | Open that board's pairing window for 120 seconds and emit a `result` |
+| `setup apps` | A | Emit saved and recently seen application rules as an `apps` object |
+| `setup discover` | A | Listen for a fresh notification's app for 60 seconds; notification sharing must already be ready |
+| `setup allow <app-id> <preview>` | A | Allow or update a discovered application and persist the rule |
+| `setup deny <app-id>` | A | Remove a saved application rule |
+| `setup test` | B | Send one Tesla test message when its message channel is ready |
 
-For `db allow`, `<app-id>` is an iOS bundle identifier such as
+For `setup allow`, `<app-id>` is an iOS bundle identifier such as
 `net.whatsapp.WhatsApp`. The preview value is:
 
 | Value | Forwarded notification content |
@@ -84,7 +86,7 @@ For `db allow`, `<app-id>` is an iOS bundle identifier such as
 Application identifiers may contain letters, digits, `.`, `-`, and `_` and are
 at most 95 characters. Discovery is the normal way to obtain the exact ID; a
 valid ID may also be entered directly. At most 12 application rules are stored.
-Unsupported or malformed `db ...` requests return a failed `result` and do not
+Unsupported or malformed `setup ...` requests return a failed `result` and do not
 change configuration.
 
 ## Commands that deliberately do not exist

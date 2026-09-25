@@ -1,0 +1,42 @@
+name: Release firmware
+
+on:
+  push:
+    tags:
+      - 'firmware-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish verified board images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate tag, compatibility, and checked-in images
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 tools/check_release_versions.py --firmware-tag "$RELEASE_TAG"
+          python3 tools/check_architecture.py
+          python3 tools/test_build_scope.py
+          test -z "$(python3 tools/build_scope.py auto)"
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#firmware-v}"
+          prerelease=()
+          if [[ "$version" == *-* ]]; then prerelease+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" \
+            dist/phone-full.bin \
+            dist/car-full.bin \
+            dist/manifest.json \
+            --title "DashBridge firmware $version" \
+            --notes-file docs/FIRMWARE_RELEASE.md \
+            "${prerelease[@]}"

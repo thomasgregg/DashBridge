@@ -34,7 +34,7 @@ endif()
 # Source edits must regenerate PROJECT_VER even for incremental IDF builds.
 file(GLOB_RECURSE version_inputs CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/*")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${version_inputs}
-    "${CMAKE_CURRENT_LIST_DIR}/../version.txt"
+    "${CMAKE_CURRENT_LIST_DIR}/VERSION"
     "${CMAKE_CURRENT_LIST_DIR}/../tools/build_scope.py"
     "${CMAKE_CURRENT_LIST_DIR}/../tools/build.sh"
     "${CMAKE_CURRENT_LIST_DIR}/../tools/package.py")

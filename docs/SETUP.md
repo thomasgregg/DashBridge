@@ -1,6 +1,6 @@
 # DashBridge setup
 
-The current release is **0.5.2-alpha**, a two-board prototype for original
+The current release is **0.5.3-alpha**, a two-board prototype for original
 ESP32-WROOM-32 boards. Start with the [README](../README.md#get-started) for the
 five-wire layout, installation methods, pairing, and the parked-car test
 checklist. Install the matching Board A and Board B images from the same
@@ -17,8 +17,10 @@ and notification-sharing prompts; then pair **Dash Calls** in iPhone Settings
 when the app asks. Without the app, enter `pair phone` on Board A's USB console,
 pair **Dash Messages** first, allow notification sharing, and then pair
 **Dash Calls** after it becomes visible. On Board B, enter `pair car`, pair Dash Tesla with
-the car, and enable message/contact syncing where offered. Each pairing window
-lasts 120 seconds. Use `status` on both boards to check actual profile states;
+the car, and enable message/contact syncing where offered. Explicit pairing
+windows last 120 seconds. A Board A with no saved iPhone bond accepts its first
+Dash Messages pairing while powered, so the companion-app flow does not expire
+while the user is reading its instructions. Use `status` on both boards to check actual profile states;
 `Dash Messages` need not show “Connected” in iPhone Settings for ANCS to be ready.
 
 The native iPhone companion app is currently an internal TestFlight build. It
@@ -44,7 +46,7 @@ matching `build/phone/dashbridge.bin` or `build/car/dashbridge.bin` application
 can be flashed at `0x10000` to preserve pairings. Never interchange full and
 application-only images or flash an application-only image at `0x0`.
 
-The [current release page](RELEASE.md) separates software validation from
+The [firmware release page](FIRMWARE_RELEASE.md) separates software validation from
 hardware evidence. These exact images have not yet been installed or checked
 end to end. Notification delivery, phonebook synchronization, music sound and
 controls, clear call audio, and reconnection still need a parked-car test.

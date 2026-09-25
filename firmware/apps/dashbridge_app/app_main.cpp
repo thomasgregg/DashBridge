@@ -237,18 +237,18 @@ static void setup_result(bool ok, const char *message) {
                ",\"message\":" + setup_escape(message) + "}");
 }
 static void setup_command(const std::string &line) {
-    if (line == "db status") { setup_status(); return; }
-    if (line == "db pair") { open_pairing(); setup_result(true, "Pairing opened for two minutes."); return; }
+    if (line == "setup status") { setup_status(); return; }
+    if (line == "setup pair") { open_pairing(); setup_result(true, "Pairing opened for two minutes."); return; }
 #if CONFIG_BRIDGE_PHONE
-    if (line == "db apps") { phone_setup_apps(); return; }
-    if (line == "db discover") {
+    if (line == "setup apps") { phone_setup_apps(); return; }
+    if (line == "setup discover") {
         bool ok = phone_setup_discover();
         setup_result(ok, ok ? "Discovery is open for one minute. Send a new notification from that app."
                             : "Connect the iPhone and allow notification sharing first.");
         return;
     }
-    if (line.rfind("db allow ", 0) == 0) {
-        auto value = line.substr(9);
+    if (line.rfind("setup allow ", 0) == 0) {
+        auto value = line.substr(12);
         auto sep = value.rfind(' ');
         bool ok = false;
         if (sep != std::string::npos && sep + 2 == value.size() && value[sep + 1] >= '0' && value[sep + 1] <= '2')
@@ -257,15 +257,15 @@ static void setup_command(const std::string &line) {
         if (ok) phone_setup_apps();
         return;
     }
-    if (line.rfind("db deny ", 0) == 0) {
-        bool ok = phone_setup_deny(line.substr(8));
+    if (line.rfind("setup deny ", 0) == 0) {
+        bool ok = phone_setup_deny(line.substr(11));
         setup_result(ok, ok ? "App removed from allowed list." : "Could not remove this app.");
         if (ok) phone_setup_apps();
         return;
     }
 #endif
 #if CONFIG_BRIDGE_CAR
-    if (line == "db test") {
+    if (line == "setup test") {
         bool ok = car_notifications_ready();
         if (ok) ok = car_test();
         setup_result(ok, ok ? "Test message sent. Check the Tesla screen." :

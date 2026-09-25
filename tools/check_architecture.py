@@ -56,11 +56,11 @@ if usb_commands_path.is_file():
     documented_commands = set(re.findall(
         r'if \(line == "([^"]+)"\) return Command::', console_parser
     ))
-    documented_commands.update(re.findall(r'if \(line == "(db [^"]+)"\)', app_composition))
-    prefixed_setup_commands = re.findall(r'line\.rfind\("(db [^"]+ )", 0\)', app_composition)
+    documented_commands.update(re.findall(r'if \(line == "(setup [^"]+)"\)', app_composition))
+    prefixed_setup_commands = re.findall(r'line\.rfind\("(setup [^"]+ )", 0\)', app_composition)
     setup_arguments = {
-        "db allow ": "<app-id> <preview>",
-        "db deny ": "<app-id>",
+        "setup allow ": "<app-id> <preview>",
+        "setup deny ": "<app-id>",
     }
     for prefix in prefixed_setup_commands:
         require(prefix in setup_arguments,
@@ -74,12 +74,17 @@ if usb_commands_path.is_file():
 require((ROOT / "firmware/protocols/dashlink_v2").is_dir(),
         "typed DashLink v2 protocol component is missing")
 
-version_sources = [
-    path for path in ROOT.rglob("version.txt")
-    if not any(part in {".git", "build", "node_modules"} for part in path.parts)
-]
-require(version_sources == [ROOT / "version.txt"],
-        "version.txt at the repository root must be the only product-version source")
+require((ROOT / "firmware/VERSION").is_file(),
+        "firmware must own its release version in firmware/VERSION")
+require((ROOT / "ios/Config/Version.xcconfig").is_file(),
+        "iOS must own its release and build versions in ios/Config/Version.xcconfig")
+require(not (ROOT / "version.txt").exists(),
+        "the repository must not have a shared product version")
+if (ROOT / "ios/Config/Version.xcconfig").is_file():
+    ios_version_config = (ROOT / "ios/Config/Version.xcconfig").read_text()
+    require("MARKETING_VERSION =" in ios_version_config and
+            "CURRENT_PROJECT_VERSION =" in ios_version_config,
+            "iOS version config must define marketing and build versions")
 
 role_configs = sorted(path.name for path in (ROOT / "firmware").glob("sdkconfig.*"))
 require(role_configs == ["sdkconfig.car", "sdkconfig.defaults", "sdkconfig.phone"],
@@ -234,9 +239,17 @@ if contract:
             "pairing_allowed(Peer::phone) && phone_notifications_ready()" in call_relay and
             "ESP_BT_NON_DISCOVERABLE" in call_relay,
             "Dash Calls must remain hidden until BLE/ANCS pairing is ready")
-    require("tap Dash Calls. Dash Messages is already connected by this app" in all_swift and
+    require('stageHeaderRow("Connect calls and music."' in all_swift and
+            "tap Dash Calls." in all_swift and
             "tap Dash Calls and Dash Messages" not in all_swift,
             "the iOS app must own BLE pairing and request only manual Dash Calls pairing")
+    require("connectionRequestPending = true" in all_swift and
+            "Task.sleep(for: .milliseconds(350))" in all_swift and
+            "bridge.connectFound()" in all_swift,
+            "iOS must present pairing guidance before requesting the system-owned prompt")
+    require("esp_ble_get_bond_device_num() == 0" in phone_source and
+            "first_pairing_candidate_valid" in phone_source,
+            "a fresh Board A must not lose first-phone pairing eligibility to a setup timeout")
     require("class Server" in pbap_header and "x-bt/phonebook" in pbap_source and
             "X-IRMC-CALL-DATETIME" in pbap_source,
             "Tesla PBAP projection must remain in the car adapter")

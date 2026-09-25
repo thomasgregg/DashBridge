@@ -25,6 +25,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		2F8F5E25B8D0A4081CC170B0 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
 		328D4FEEEFE4C7A1841A11A5 /* DashBridge.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DashBridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CB3FCC326C5B0300BAA7C2F /* AppCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCatalog.swift; sourceTree = "<group>"; };
 		6DE5488E6EC9BFC024D2E879 /* BridgeBluetooth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeBluetooth.swift; sourceTree = "<group>"; };
@@ -37,6 +38,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		A6F80E923D6F738747F7B33D /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				2F8F5E25B8D0A4081CC170B0 /* Version.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 		CA43528F66238BD4841DC538 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
@@ -71,6 +80,7 @@
 			isa = PBXGroup;
 			children = (
 				E3F9213A069F5EED4E834799 /* App */,
+				A6F80E923D6F738747F7B33D /* Config */,
 				CA43528F66238BD4841DC538 /* UITests */,
 				D626C4629A9B71F9B2B8FA67 /* Products */,
 			);
@@ -219,6 +229,7 @@
 		};
 		54EE2BA3A87CE1AB05505BC2 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2F8F5E25B8D0A4081CC170B0 /* Version.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
@@ -324,6 +335,7 @@
 		};
 		DAC282E19C301367DE6301D1 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2F8F5E25B8D0A4081CC170B0 /* Version.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;

@@ -533,18 +533,18 @@ static void console_test() {
     assert((commands == std::vector<C>{C::invalid, C::help}));
     runtime::SetupLines setup;
     std::vector<std::string> requests;
-    for (unsigned char byte : std::string("db allow com.Example.Chat 1\r\ndb status\n")) {
+    for (unsigned char byte : std::string("setup allow com.Example.Chat 1\r\nsetup status\n")) {
         auto line = setup.feed(byte);
         if (!line.empty()) requests.push_back(line);
     }
-    assert((requests == std::vector<std::string>{"db allow com.Example.Chat 1", "db status"}));
-    for (unsigned char byte : std::string(200, 'x') + "db deny com.Example.Chat\n")
+    assert((requests == std::vector<std::string>{"setup allow com.Example.Chat 1", "setup status"}));
+    for (unsigned char byte : std::string(200, 'x') + "setup deny com.Example.Chat\n")
         assert(setup.feed(byte).empty());
-    for (unsigned char byte : std::string("db apps\n")) {
+    for (unsigned char byte : std::string("setup apps\n")) {
         auto line = setup.feed(byte);
         if (!line.empty()) requests.push_back(line);
     }
-    assert(requests.back() == "db apps");
+    assert(requests.back() == "setup apps");
     std::cout << "PASS USB commands: fragmented input, CRLF once, bounds, invalid lines and recovery\n";
 }
 static void ancs_flags_test() {

@@ -81,6 +81,8 @@ static ancs::NotificationResponse response;
 static void request_next();
 static void disconnect(const char *reason);
 static std::vector<std::array<uint8_t, 6>> recorded_bonds;
+static std::array<uint8_t, 6> first_pairing_candidate = {};
+static bool first_pairing_candidate_valid = false;
 static void apply_message_change(messages::ChangeKind kind, const messages::Message &notice = {}) {
     message_state.apply({kind, session, notice});
 }
@@ -320,31 +322,45 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
                  unsigned(p->adv_stop_cmpl.status), adv_state);
         break;
     case ESP_GAP_BLE_SEC_REQ_EVT: {
-        const bool allowed = pairing_allowed(Peer::phone) || known(p->ble_security.ble_req.bd_addr);
-        ESP_LOGI(tag, "BLE security request: accepted=%d pairing_open=%d",
-                 allowed, pairing_allowed(Peer::phone));
+        const bool fresh_device = esp_ble_get_bond_device_num() == 0 && linked &&
+                                  !memcmp(peer, p->ble_security.ble_req.bd_addr, 6);
+        const bool allowed = fresh_device || pairing_allowed(Peer::phone) ||
+                             known(p->ble_security.ble_req.bd_addr);
+        if (fresh_device) {
+            memcpy(first_pairing_candidate.data(), p->ble_security.ble_req.bd_addr, 6);
+            first_pairing_candidate_valid = true;
+        }
+        ESP_LOGI(tag, "BLE security request: accepted=%d pairing_open=%d fresh_device=%d",
+                 allowed, pairing_allowed(Peer::phone), fresh_device);
         log_request("security response", esp_ble_gap_security_rsp(p->ble_security.ble_req.bd_addr, allowed));
         break;
     }
-    case ESP_GAP_BLE_AUTH_CMPL_EVT:
+    case ESP_GAP_BLE_AUTH_CMPL_EVT: {
         ESP_LOGI(tag, "BLE authentication complete: success=%d reason=0x%02x auth_mode=0x%02x",
                  p->ble_security.auth_cmpl.success,
                  unsigned(p->ble_security.auth_cmpl.success ? 0 : p->ble_security.auth_cmpl.fail_reason),
                  unsigned(p->ble_security.auth_cmpl.auth_mode));
         if (!p->ble_security.auth_cmpl.success) {
+            first_pairing_candidate_valid = false;
             disconnect("iPhone pairing/encryption failed");
             break;
         }
-        if (!pairing_allowed(Peer::phone) && !known(p->ble_security.auth_cmpl.bd_addr)) {
+        const bool approved_first_pairing = first_pairing_candidate_valid &&
+            !memcmp(first_pairing_candidate.data(), p->ble_security.auth_cmpl.bd_addr, 6);
+        if (!pairing_allowed(Peer::phone) && !known(p->ble_security.auth_cmpl.bd_addr) &&
+            !approved_first_pairing) {
+            first_pairing_candidate_valid = false;
             esp_ble_remove_bond_device(p->ble_security.auth_cmpl.bd_addr);
             disconnect("Unrecognized phone; enter pair phone in USB console");
             break;
         }
+        first_pairing_candidate_valid = false;
         secured = true;
         paired(Peer::phone);
         ESP_LOGI(tag, "iPhone link encrypted");
         search();
         break;
+    }
     default:
         break;
     }
@@ -385,6 +401,7 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         }
         adv_state = "connected";
         linked = true;
+        first_pairing_candidate_valid = false;
         connection = p->connect.conn_id;
         snapshot_bonds();
         memcpy(peer, p->connect.remote_bda, 6);
@@ -578,6 +595,7 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
         }
         phone_status();
         linked = secured = mtu_ready = searching = ready = active = false;
+        first_pairing_candidate_valid = false;
         start_handle = end_handle = source_handle = data_handle = control_handle = subscribing = 0;
         response.clear();
         identity_response.clear(); name_response.clear(); active = false; fetch = Fetch::none;

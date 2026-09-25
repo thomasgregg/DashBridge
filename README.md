@@ -26,7 +26,7 @@
 Two wired ESP32 boards expose WhatsApp notifications, calls, music, and a phonebook interface to the Tesla. Notifications come from iOS, not a WhatsApp login or a real SMS. The Tesla selects **Dash Tesla as its active phone**; the iPhone connects separately to Board A. The existing Tesla phone-key pairing stays directly on the iPhone.
 
 > [!IMPORTANT]
-> **v0.5.2-alpha is a prototype, not a verified daily-use adapter.** Both matching images build and pass software validation, but these exact release images have not been tested end to end with an iPhone and Tesla. Notification delivery, phonebook synchronization, music playback and controls, conference controls, sustained reconnect behavior, and clear bidirectional call audio still require parked-car validation. See [what is validated](#project-status) and [how to test](#parked-car-test-checklist).
+> **v0.5.3-alpha is a prototype, not a verified daily-use adapter.** Both matching images build and pass software validation, but these exact release images have not been tested end to end with an iPhone and Tesla. Notification delivery, phonebook synchronization, music playback and controls, conference controls, sustained reconnect behavior, and clear bidirectional call audio still require parked-car validation. See [what is validated](#project-status) and [how to test](#parked-car-test-checklist).
 
 ## Why DashBridge?
 
@@ -71,7 +71,7 @@ and the parked-car checks.
 
 ## Project status
 
-The **0.5.2-alpha images** in the [manifest](dist/manifest.json) contain the staged pairing and serialized reconnect architecture. They are freshly built and software-validated but have **not** been installed on the boards or checked with the car. The manifest's `hardware_tested: false` records that distinction.
+The **0.5.3-alpha images** in the [manifest](dist/manifest.json) contain the staged pairing and serialized reconnect architecture. They are freshly built and software-validated but have **not** been installed on the boards or checked with the car. The manifest's `hardware_tested: false` records that distinction.
 
 | Feature | Implemented in firmware | Evidence and remaining gap |
 | :--- | :--- | :--- |
@@ -152,7 +152,7 @@ The local [`dist/`](dist/) directory contains the matching A/B images for this r
 | **A — iPhone** | [`phone-full.bin`](dist/phone-full.bin) | `Dash Calls` and `Dash Messages` |
 | **B — Tesla** | [`car-full.bin`](dist/car-full.bin) | `Dash Tesla` |
 
-The [manifest](dist/manifest.json) records versions, image hashes, and source hashes. `phone-full.bin` and `car-full.bin` contain the bootloader, partition table, and application and are flashed at `0x0`; they can erase Bluetooth pairings and app choices. For an update that preserves pairings, use the matching application-only build image at `0x10000` only after confirming the existing partition layout matches. Always install A and B from the same manifest. These **0.5.2-alpha images have not yet had a hardware or end-to-end iPhone/Tesla test**.
+The [manifest](dist/manifest.json) records versions, image hashes, and source hashes. `phone-full.bin` and `car-full.bin` contain the bootloader, partition table, and application and are flashed at `0x0`; they can erase Bluetooth pairings and app choices. For an update that preserves pairings, use the matching application-only build image at `0x10000` only after confirming the existing partition layout matches. Always install A and B from the same manifest. These **0.5.3-alpha images have not yet had a hardware or end-to-end iPhone/Tesla test**.
 
 To install these **exact local images**, use the repository's checksum-checking flash helper with `esptool==4.12.0` in a Python environment. Identify each board's serial port first, then flash them one at a time (replace `YOUR_A_PORT` and `YOUR_B_PORT` with the ports you found):
 
@@ -231,6 +231,22 @@ Disconnects clear the adapter's message inbox; a board restart also loses any im
 
 Hardware test results will determine the next changes.
 
+## Releases
+
+Firmware and the iPhone app are released independently from this repository.
+The two board images remain one firmware release because their internal
+DashLink protocol and physical connection must match.
+
+- Firmware version: `firmware/VERSION`; tag: `firmware-v<version>`
+- iOS version and build: `ios/Config/Version.xcconfig`; tag:
+  `ios-v<version>-b<build>`
+- Shared app/firmware compatibility: `contracts/setup_gatt_v1`
+
+A compatible firmware or app change does not require releasing the other
+product. A shared-contract change is checked against both products before it
+can merge. The [compatibility matrix](contracts/COMPATIBILITY.md) records the
+supported combinations.
+
 ## Contributing
 
 The most valuable contribution right now is a reproducible **hardware test report**. If you have the matching boards and are comfortable with firmware experiments, follow the parked-car test sequence and [report your result](https://github.com/thomasgregg/DashBridge/issues/new?template=hardware-report.yml).
@@ -241,7 +257,9 @@ Protocol fixes, parser tests, and documentation improvements are welcome too. Re
 
 | Guide | What you will find |
 | :--- | :--- |
-| [Current release](docs/RELEASE.md) | Matching firmware versions, hashes, software validation, and remaining hardware checks |
+| [Firmware release](docs/FIRMWARE_RELEASE.md) | Matching board images, hashes, software validation, and remaining hardware checks |
+| [iOS release](docs/IOS_RELEASE.md) | App version, firmware compatibility, and physical-device validation status |
+| [Compatibility](contracts/COMPATIBILITY.md) | Which independent firmware and app releases work together |
 | [Architecture](ARCHITECTURE.md) | Boards, Bluetooth identities, feature routes, pairing/reconnect rules, code layers, and compatibility boundaries |
 | [Setup](docs/SETUP.md) | Current pairing, installation layout, and links to the parked-car checklist |
 | [USB commands](docs/USB_COMMANDS.md) | Complete interactive console and browser setup command reference |

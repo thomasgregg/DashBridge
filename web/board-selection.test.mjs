@@ -11,7 +11,7 @@ test('board selection shows the release and preserves the exact installer identi
   });
   const choices = ['phone', 'car'].map((value, i) => ({
     value, checked: !i,
-    dataset: { manifest: `./${value}.json`, release: '0.5.2-alpha', version: `0.5.2-alpha+${i ? 'bbbbbbbbbbbb' : 'aaaaaaaaaaaa'}` },
+    dataset: { manifest: `./${value}.json`, release: '0.5.3-alpha', version: `0.5.3-alpha+${i ? 'bbbbbbbbbbbb' : 'aaaaaaaaaaaa'}` },
     addEventListener(event, callback) { this.change = callback; },
   }));
   const nodes = Object.fromEntries(['#browser-status', '#install-control', '#board-description',
