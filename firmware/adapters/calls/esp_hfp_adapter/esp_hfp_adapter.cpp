@@ -38,7 +38,7 @@ static bool connecting = false;
 static esp_err_t last_connect_result = ESP_OK;
 #endif
 static esp_bd_addr_t peer = {};
-static std::string previous_snapshot, previous_number;
+static std::string last_call_snapshot, last_call_number;
 static std::string peer_audio_counters;
 static int64_t peer_audio_at = 0, last_audio_report = 0;
 static uint16_t sync_handle = 0xffff;
@@ -325,8 +325,8 @@ static void apply_phone_state() {
     if (!self.linked) return;
     auto s = effective();
     auto body = calls::encode_state(s);
-    if (body == previous_snapshot && s.number == previous_number) return;
-    previous_snapshot = body; previous_number = s.number;
+    if (body == last_call_snapshot && s.number == last_call_number) return;
+    last_call_snapshot = body; last_call_number = s.number;
     // IDF's answer_call API is its generic phone-state update entry point. It
     // generates ringing, call indicators and SCO transitions from real iPhone state.
     // The indicator update drives ringing/SCO. Detailed call identities are
@@ -362,7 +362,7 @@ static void car_hfp(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
                  p->conn_stat.state, !memcmp(peer, p->conn_stat.remote_bda, 6));
         if (p->conn_stat.state == ESP_HF_CONNECTION_STATE_SLC_CONNECTED) {
             set_connected(true, p->conn_stat.remote_bda);
-            previous_snapshot.clear(); previous_number.clear();
+            last_call_snapshot.clear(); last_call_number.clear();
             esp_hf_ag_bsir(peer, esp_hf_in_band_ring_state_t(0));
             apply_phone_state();
         } else if (p->conn_stat.state == ESP_HF_CONNECTION_STATE_DISCONNECTED) {
@@ -382,7 +382,7 @@ static void car_hfp(esp_hf_cb_event_t e, esp_hf_cb_param_t *p) {
                                esp_hf_network_state_t(s.service), s.signal, esp_hf_roaming_status_t(s.roam),
                                s.battery, esp_hf_call_held_status_t(s.held));
         break;
-    case ESP_HF_IND_UPDATE_EVT: previous_snapshot.clear(); apply_phone_state(); break;
+    case ESP_HF_IND_UPDATE_EVT: last_call_snapshot.clear(); apply_phone_state(); break;
     case ESP_HF_COPS_RESPONSE_EVT:
         esp_hf_ag_cops_response(p->cops_rep.remote_addr, const_cast<char *>(s.linked ? "iPhone" : "No phone")); break;
     case ESP_HF_CLCC_RESPONSE_EVT:
@@ -478,7 +478,7 @@ void relay_receive(const dashlink::Call &m) {
             if (pending) result(false);
 #endif
             // On A leave a command pending until its own AT result/timeout arrives;
-            // do not let a rebooted B steal a late response from an earlier command.
+            // do not let a rebooted B accept a late response from a stale command.
 #if CONFIG_BRIDGE_CAR
             pending = 0;
 #endif

@@ -49,7 +49,7 @@ enum BridgeError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedStatus: "This DashBridge needs newer firmware."
+        case .unsupportedStatus: "This DashBridge firmware is not supported."
         case .commandUnavailable: "DashBridge is still connecting. Try again in a moment."
         case .commandTooLong: "This app name is too long for DashBridge."
         }
@@ -485,7 +485,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
             commandError = operation == 1 || operation == 2
                 ? "Couldn't save this app choice. Please try again."
                 : operation == 4
-                ? "DashBridge couldn't start the test. It may need newer firmware, or the Tesla connection isn't ready."
+                ? "DashBridge couldn't start the test. Its firmware may be unsupported, or the Tesla connection isn't ready."
                 : "DashBridge couldn't complete that action. Please try again."
         } else {
             commandError = nil

@@ -43,7 +43,7 @@ extern "C" esp_err_t esp_sdp_create_record(esp_bluetooth_sdp_record_t *r) {
         assert(r->hdr.profile_version == 0x0102);
         assert(r->pse.supported_repositories == 0x09);
     }
-    // The original crash: excluding the NUL must fail the real SDK validator.
+    // Excluding the NUL must fail the real SDK validator.
     r->hdr.service_name_length--;
     assert(!esp_sdp_record_integrity_check(r));
     records_created++;
@@ -64,4 +64,4 @@ with tempfile.TemporaryDirectory(prefix="dashbridge-sdp-") as temp:
         str(source), "-o", str(binary),
     ], check=True)
     subprocess.run([str(binary)], check=True)
-print("PASS production SDP record accepted; original name-length error rejected")
+print("PASS production SDP record accepted; invalid name length rejected")

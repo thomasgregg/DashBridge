@@ -3,7 +3,7 @@
 This is the canonical description of the current two-board architecture. It
 explains the Bluetooth identities, functional paths, reconnection rules, source
 layout, and compatibility boundaries. It describes the implemented
-**0.5.1-alpha** design; passing software tests does not replace the outstanding
+**0.5.2-alpha** design; passing software validation does not replace the outstanding
 iPhone-and-Tesla hardware validation listed in the README.
 
 ## System overview
@@ -54,9 +54,9 @@ implementations.
 
 Dash Messages and Dash Calls must remain distinct because ANCS and app setup
 use BLE/GATT, while calls, music, and phonebook access use Bluetooth Classic
-profiles. Combining their state machines previously allowed simultaneous
-security and profile negotiations to interfere with each other. The staged
-flow makes that ordering explicit while preserving every feature.
+profiles. Their state machines remain separate so simultaneous security and
+profile negotiations cannot interfere with each other. The staged flow makes
+that ordering explicit while preserving every feature.
 
 Dash Messages may not show as continuously “Connected” in iPhone Settings even
 when ANCS is operational. Board A's `status` output and the companion app's
@@ -108,7 +108,7 @@ iOS still asks the user to confirm Bluetooth pairing and allow notification
 sharing. The user then pairs Dash Calls in iPhone Settings → Bluetooth. Without
 the app, `pair phone` opens the same firmware window and the user pairs Dash
 Messages first, then Dash Calls. Unknown Classic devices are
-accepted only while that window is open and ANCS is already ready. Previously
+accepted only while that window is open and ANCS is already ready. Already
 bonded devices may reconnect without reopening pairing.
 
 ### Reconnection ownership
@@ -117,7 +117,7 @@ Each side has one clear connection owner:
 
 1. Board A actively retries its saved iPhone HFP peer with bounded backoff.
 2. Board B remains a listening HFP gateway because the Tesla owns car-side
-   reconnection; competing outgoing attempts previously made reconnect random.
+   reconnection. This prevents competing outgoing connection attempts.
 3. HFP establishes the shared Classic base link first.
 4. A portable connection coordinator admits only one supplemental Classic
    connection attempt at a time: either A2DP music or PBAP contacts.
@@ -129,7 +129,7 @@ Each side has one clear connection owner:
 BLE/ANCS reconnects through its own state machine and does not compete for the
 Classic profile-attempt slot. Heartbeats detect a lost board-to-board link;
 session identifiers and replay gates prevent stale call, music, message, or
-contact traffic from a previous connection from being applied to a new one.
+contact traffic from one connection session from being applied to another.
 
 The coordinator removes a known source of races, but it cannot prove radio,
 iOS, or Tesla behavior. Power-cycle, wake-from-sleep, phone-takeover, and
@@ -217,8 +217,8 @@ The automated architecture check protects the decisions most likely to regress:
 - Board A and Board B communicate only through typed DashLink packets or the
   dedicated media codecs;
 - Setup GATT v1 stays compatible with the iOS app;
-- obsolete duplicate runtimes, wrappers, and generic message containers cannot
-  return; and
+- one application composition root and one product-version source are
+  enforced; and
 - every implemented USB command remains present in the canonical command page.
 
 When a feature changes, update its portable rule and tests first, then the

@@ -1,6 +1,6 @@
 {
-  "description": "Application-level events from the 2026-09-20 22:47:33–22:48:46 capture. Addresses removed. The log starts during attempt 1; its start time is unknown.",
-  "scope": "Replays host handling of recorded outcomes; does not emulate Tesla, RF, HCI or the controller's reason for disconnecting.",
+  "description": "Deterministic disconnect events for validating passive Tesla-side reconnection ownership.",
+  "scope": "Validates host handling of controller outcomes; it does not emulate Tesla, RF, HCI, or controller internals.",
   "initial": {"attempt": 1, "connecting": true, "retry_delay_ms": 5000},
   "events": [
     {"ms": 11655, "event": "disconnected", "next_delay_ms": 5000},

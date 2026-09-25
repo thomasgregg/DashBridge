@@ -238,7 +238,7 @@ static void resampler_tests() {
     auto speech = tone(16000, 3000);
     down.clear(); down.convert(speech.data(), speech.size(), restored.data());
     assert(rms(restored) / rms(speech) > .95);
-    // Disconnect/codec-change reset must remove previous speech from filter history.
+    // Disconnect/codec-change reset must remove stale speech from filter state.
     std::vector<uint8_t> silence(input.size());
     up.clear(); up.convert(silence.data(), silence.size(), wide.data());
     assert(rms(wide) == 0);
@@ -337,11 +337,11 @@ int main() {
     for (auto c : corrupt) decoder.feed(c, accept);
     assert(received == 1);
     assert(decoder.crc_failures() == 1);
-    std::array<uint8_t, 136> obsolete_frame{};
-    obsolete_frame[0] = 'D'; obsolete_frame[1] = 'A'; obsolete_frame[2] = 1; obsolete_frame[3] = 120;
-    auto obsolete_crc = crc16(obsolete_frame.data(), obsolete_frame.size() - 2);
-    obsolete_frame[134] = obsolete_crc; obsolete_frame[135] = obsolete_crc >> 8;
-    for (auto c : obsolete_frame) decoder.feed(c, accept);
+    std::array<uint8_t, 136> unsupported_version_frame{};
+    unsupported_version_frame[0] = 'D'; unsupported_version_frame[1] = 'A'; unsupported_version_frame[2] = 1; unsupported_version_frame[3] = 120;
+    auto unsupported_crc = crc16(unsupported_version_frame.data(), unsupported_version_frame.size() - 2);
+    unsupported_version_frame[134] = unsupported_crc; unsupported_version_frame[135] = unsupported_crc >> 8;
+    for (auto c : unsupported_version_frame) decoder.feed(c, accept);
     assert(received == 1); // Never play v1 8 kHz data at 16 kHz.
     for (int i = 0; i < 55; ++i) decoder.feed(frame[i], accept); // Truncated frame followed by fresh frame.
     for (auto c : frame) decoder.feed(c, accept);
@@ -368,7 +368,7 @@ int main() {
     assert(order.accept(65535, 1000) == 2);
     assert(order.accept(0, 8500) == 1); // Normal 16-bit sequence wrap.
     assert(order.accept(0, 16000) == 0); // Duplicate.
-    assert(order.accept(65535, 16000) == 0); // Older packet.
+    assert(order.accept(65535, 16000) == 0); // Stale packet.
     assert(order.accept(2, 23500) == 2); // Missing packet clears queued PCM.
     assert(order.accept(3, 100000) == 2); // Re-prime after a long audio pause.
     assert(order.accept(40000, 300000000) == 2); // Recover after a minutes-long wire interruption.
@@ -384,7 +384,7 @@ int main() {
     assert(memcmp(output.data(), pcm.data(), pcm_size) == 0);
     buffer.clear(); assert(buffer.pop(output.data(), pcm_size) == 0);
     for (int i = 0; i < 8; ++i) assert(buffer.push(pcm.data(), pcm_size));
-    assert(!buffer.push(pcm.data(), pcm_size)); // Overflow discards old backlog.
+    assert(!buffer.push(pcm.data(), pcm_size)); // Overflow discards stale backlog.
     assert(buffer.pop(output.data(), pcm_size) == 0);
     assert(!buffer.push(pcm.data(), 1));
     // The typed control channel must preserve the call domain and state payload.

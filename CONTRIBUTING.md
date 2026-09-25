@@ -24,12 +24,12 @@ Start with Board B alone. A negative result, such as pairing working but message
 
 1. Fork the repository and create a branch for one focused change.
 2. Activate ESP-IDF v5.5.5. Use the original `esp32` target.
-3. Run `bash tools/test.sh` for protocol/core changes.
+3. Run `bash tools/validate_host.sh` for protocol/core changes.
 4. Run `bash tools/build.sh` for firmware changes. By default this rebuilds only stale roles and refreshes their packaged images and manifest; use `bash tools/build.sh both` to force both.
 5. Update relevant documentation if behavior or setup changes.
 6. Open a pull request explaining the problem, resulting behavior, and validation performed. State explicitly whether hardware was tested.
 
-Host tests require Clang with AddressSanitizer and UndefinedBehaviorSanitizer. The project includes a `.clang-format` configuration. Generated build directories are ignored; do not commit them or the SDK checkout.
+Host validation uses `clang++` by default and requires a C++17 compiler with AddressSanitizer and UndefinedBehaviorSanitizer support. Override the compiler with `CXX` when needed. The project includes a `.clang-format` configuration. Generated build directories are ignored; do not commit them or the SDK checkout.
 
 Keep notification queues bounded, avoid logging message content, and preserve clear failure behavior. Unsupported sends must not appear successful. Prefer tests of externally observable protocol behavior over tests that repeat an implementation's internal steps.
 
@@ -42,4 +42,4 @@ contact sync, and reconnection. Other chips and phone platforms remain out of
 scope unless they receive a separately defined design and hardware validation.
 See the current status in the README.
 
-Contributions to the original DashBridge project are provided under its [MIT License](LICENSE). Preserve the licenses and attribution of any third-party code you introduce.
+Contributions to DashBridge are provided under its [MIT License](LICENSE). Preserve the licenses and attribution of any third-party code you introduce.

@@ -1,4 +1,4 @@
-"""Run real peer-storage and reconnect code with recorded outcomes and a virtual clock."""
+"""Run real peer-storage and reconnect code with deterministic events and a virtual clock."""
 import json
 import os
 from pathlib import Path
@@ -11,7 +11,7 @@ def function(signature):
     start = source.index(signature)
     return source[start:source.index('\n}', start) + 2]
 poll = source[source.index('    // Reconnect policy:'):source.index('    // Audio connection follows')]
-fixture = json.loads((root / 'tests/fixtures/tesla-reconnect-failure.json').read_text())
+fixture = json.loads((root / 'tests/fixtures/passive-reconnect-events.json').read_text())
 harness = r'''
 #include <algorithm>
 #include <cassert>
@@ -66,7 +66,7 @@ int main(){
  set_connected(true,bonded_address);assert(stored&&peer_saved&&self.linked&&classic_base);
  restart();assert(peer_saved&&!self.linked&&!memcmp(peer,bonded_address,6));
  tick=5000;poll();tick=25000;poll();assert(opens==0&&closes==0&&!connecting);
- // Replaying the old rejection callbacks must not schedule another outgoing
+ // Stale rejection callbacks must not schedule another outgoing
  // gateway connection; Tesla owns the successful reconnect direction.
  restart();
 '''

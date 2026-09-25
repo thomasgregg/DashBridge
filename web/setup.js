@@ -273,7 +273,7 @@ $('#connect').addEventListener('click', async () => {
     render();
     setTimeout(() => {
       if (!connection.closed && !connection.status)
-        feedback('This board did not respond to setup checks. It may need the newer firmware from the installer.', false);
+        feedback('This board did not respond to setup checks. Install the current firmware and try again.', false);
     }, 7000);
   } catch (error) {
     if (connection && !connection.status) {

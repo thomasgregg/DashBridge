@@ -19,7 +19,6 @@ an invalid command prints the role-appropriate help text and does nothing else.
 | --- | --- | --- |
 | `help` | List available interactive commands | List available interactive commands |
 | `status` | Print firmware, iPhone, notification, call, music, contact, board-link, audio-test, and memory state | Print firmware, Tesla, message, call, music, contact, board-link, audio-test, and memory state |
-| `pair` | Open iPhone pairing for 120 seconds | Open Tesla pairing for 120 seconds |
 | `pair phone` | Open iPhone pairing for 120 seconds | Not available; prints help and changes nothing |
 | `pair car` | Not available; prints help and changes nothing | Open Tesla pairing for 120 seconds |
 | `test` | Not available; the test must be sent by Board B | Send one test message if the Tesla message channel is ready |
@@ -32,8 +31,9 @@ notification connection is ready; pair it next in iPhone Settings → Bluetooth.
 On Board B, enter `pair car`, pair **Dash Tesla** from the Tesla, and allow
 message and contact syncing when offered.
 
-`pair` and the more explicit role command have the same effect on a two-board
-image. They open a temporary pairing window; they do not erase saved bonds.
+The role-specific command opens a temporary pairing window; it does not erase
+saved bonds. The browser uses its separate `db pair` protocol command after it
+has identified the connected board's role.
 
 ## Call-audio diagnostic commands
 

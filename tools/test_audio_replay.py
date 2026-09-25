@@ -157,7 +157,7 @@ int main() {
             if (sample >= 0 && calls::pcm_read(tone.data() + i - 2) < 0) ++crossings;
         }
         assert(crossings >= 598 && crossings <= 600); // 1 kHz for 600 ms.
-        // A stalled worker emits at most one frame, never a burst of old tones.
+        // A stalled worker emits at most one frame, never a burst of stale tones.
         clock_us += 100000; assert(audio_test.tick(clock_us));
         unsigned delivered = 0;
         while (auto n = call_audio_out(data.data(), request)) { delivered += n; assert(delivered <= bytes); }

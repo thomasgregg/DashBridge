@@ -167,14 +167,14 @@ bool Controller::find_application_rule(const std::string &id, ApplicationRule &r
 
 bool Controller::allow_application(const std::string &id, Preview preview) {
     Guard guard(actions_);
-    const auto prior = policy_;
+    const auto rollback_policy = policy_;
     auto name = actions_.recent_application_name(id);
     if (name.empty()) {
         if (const auto *existing = policy_.find(id)) name = existing->name;
         else name = application_name_fallback(id);
     }
     if (!policy_.allow(id, name, preview) || !actions_.persist_policy(policy_.serialize())) {
-        policy_ = prior;
+        policy_ = rollback_policy;
         return false;
     }
     return true;
@@ -182,9 +182,9 @@ bool Controller::allow_application(const std::string &id, Preview preview) {
 
 bool Controller::deny_application(const std::string &id) {
     Guard guard(actions_);
-    const auto prior = policy_;
+    const auto rollback_policy = policy_;
     if (!policy_.deny(id) || !actions_.persist_policy(policy_.serialize())) {
-        policy_ = prior;
+        policy_ = rollback_policy;
         return false;
     }
     return true;

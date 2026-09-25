@@ -213,7 +213,7 @@ public:
     bool push(const uint8_t *p, size_t n) {
         if (n > data_.size() || n % 2) return false;
         bool overflow = size_ + n > data_.size();
-        if (overflow) clear(); // Bound latency; never replay an old speech backlog.
+        if (overflow) clear(); // Bound latency; never replay a stale speech backlog.
         for (size_t i = 0; i < n; ++i) data_[(read_ + size_ + i) % data_.size()] = p[i];
         size_ += n;
         return !overflow;
@@ -235,7 +235,7 @@ enum class EncodedPlayout : uint8_t { wait, audio, conceal, codec_mismatch };
 // Codec-transparent audio is consumed on the destination link's receive clock.
 // Six frames (45 ms) are collected once at startup. Thereafter a low watermark
 // requests one silence frame without draining queued speech; a high watermark
-// trims old speech so independent SCO clocks cannot grow latency indefinitely.
+// trims stale speech so independent SCO clocks cannot grow latency indefinitely.
 class EncodedJitterBuffer {
     static constexpr size_t capacity_ = 32, prefill_ = 6, low_water_ = 4, high_water_ = 12;
     std::array<EncodedAudio, capacity_> data_{};

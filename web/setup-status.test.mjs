@@ -41,7 +41,7 @@ test('white checks explain their missing prerequisite', () => {
     'Connect a board to check.');
 });
 
-test('unplugging B immediately hides old green proxy checks', () => {
+test('unplugging B immediately hides stale green proxy checks', () => {
   const checks = evaluateChecks([phone()], { car: at - 1000 }, at);
   assert.equal(checks.boardLink, null);
   assert.equal(checks.phoneBluetooth, true);
