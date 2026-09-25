@@ -682,12 +682,18 @@ private struct SetupView: View {
                 if !savedChoicesMissingFromAppList.isEmpty {
                     Section {
                         ForEach(savedChoicesMissingFromAppList) { choice in
-                            appToggle(choice)
+                            HStack(spacing: 12) {
+                                Text(choice.name)
+                                Spacer()
+                                Button("Remove") { toggle(choice, false) }
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel("Remove \(choice.name)")
+                            }
                         }
                     } header: {
                         Text("Saved on DashBridge")
                     } footer: {
-                        Text("These saved choices are not in the iPhone app list. Turn one off to remove it from DashBridge.")
+                        Text("These saved choices are not in the iPhone app list. Remove any you no longer want on DashBridge.")
                     }
                 }
             }

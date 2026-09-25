@@ -1,4 +1,4 @@
-# DashBridge iOS app 1.0 (build 17)
+# DashBridge iOS app 1.0 (build 19)
 
 The companion app finds Board A, guides iPhone pairing, reads live setup
 status, saves notification app choices, and can send a local test notification.
@@ -22,21 +22,19 @@ A signed physical-device build also requires the Apple entitlements described
 in the [iOS guide](../ios/README.md). First pairing, reconnection, notification
 delivery, and the complete parked-car flow remain physical release checks.
 
-The `ios-v1.0-b17` tag creates the independent GitHub release record after a
+The `ios-v1.0-b19` tag creates the independent GitHub release record after a
 clean build. TestFlight or App Store distribution remains a signed Xcode/App
 Store Connect step because signing credentials are not stored in this
 repository.
 
-## Build 17 changes
+## Build 19 changes
 
-- Opens Apple's accessory picker from **Connect my iPhone** and requests both
-  the Dash Messages BLE connection and the bridged Calls/Music Bluetooth
-  transport in the same system-led setup.
-- Restores secure first-time BLE bonding without requiring a passkey or numeric
-  comparison that the accessory cannot display.
-- Opens the board's pairing window only when the connection step is ready, so
-  the system picker no longer races the setup screen.
-- Returns from the initial app-selection page to the completed iPhone
-  connection step instead of an earlier setup screen.
-- Keeps manual Bluetooth Settings pairing as a fallback when the companion app
-  is not used.
+- Opens Apple's accessory picker immediately and only after **Connect my
+  iPhone** is tapped; an early request waits for session activation instead of
+  being dropped and appearing later.
+- Always offers normal DashBridge discovery. A saved Core Bluetooth identifier
+  is now an additional migration fallback rather than a migration-only flow.
+- Returns to the connection guidance when the accessory picker is canceled, so
+  setup can be retried without reopening the app.
+- Keeps the secure BLE, notification-sharing, and bridged Calls/Music ordering
+  introduced in build 17.

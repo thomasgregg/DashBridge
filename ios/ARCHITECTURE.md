@@ -97,11 +97,11 @@ points must not move during refactors.
 | System behavior | Application trigger | Required ordering |
 | --- | --- | --- |
 | Bluetooth application permission | First creation of `CBCentralManager` | Every fresh app session first shows Welcome. Setup and Bluetooth begin only after the user confirms **It's plugged in**. |
-| Dash Messages pairing and notification sharing | `connect(_:options:)` with `CBConnectPeripheralOptionRequiresANCS` | The app first shows the connection guidance without requesting a connection. After the user taps **Connect my iPhone**, the **Connecting your iPhone** progress screen renders, followed by a short delay and then the connection request. |
+| Dash Messages pairing and notification sharing | AccessorySetupKit selection followed by `connect(_:options:)` with `CBConnectPeripheralOptionRequiresANCS` | The app first shows connection guidance without requesting a connection. After the user taps **Connect my iPhone**, it transitions to **Connecting your iPhone** and immediately asks iOS to present the picker. If the accessory session is still activating, the request is retained and presented as soon as activation completes. |
 | Encrypted policy access | Read the policy characteristic | Only after status reports notification sharing ready, avoiding a competing security exchange. |
 | App & Website Usage | Load the installed-app catalog | When entering app selection or the ready screen, never during launch. |
 | Local notification permission | Request authorization from `UNUserNotificationCenter` | Only after the user taps **Send test notification**. |
-| Dash Calls pairing | AccessorySetupKit picker with Classic transport bridging | The picker appears only after **Connect my iPhone**. The app refreshes the firmware pairing window when notification access becomes ready; reconnection then remains board-owned. |
+| Dash Calls pairing | AccessorySetupKit picker with Classic transport bridging | The picker appears only after **Connect my iPhone**. Normal discovery is always offered; a saved Core Bluetooth identifier is only an additional migration fallback. Canceling returns to the guidance screen. The app refreshes the firmware pairing window when notification access becomes ready; reconnection then remains board-owned. |
 
 Simulator tests verify the app's trigger ordering. They cannot prove whether an
 iOS dialog appears. First-pair, denied-permission, previously-paired, and

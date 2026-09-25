@@ -95,25 +95,25 @@ sequenceDiagram
 
     User->>App: Start setup
     App->>App: Show pairing guidance
-    App->>Phone: Request Dash Messages connection
-    Phone->>A: Pair Dash Messages over BLE
-    User->>Phone: Approve pairing and notification sharing
+    App->>Phone: Present accessory picker after explicit Connect tap
+    User->>Phone: Select DashBridge
+    Phone->>A: Pair Dash Messages over BLE and bridge Dash Calls
+    User->>Phone: Approve notification sharing
     A->>A: Wait until ANCS is secured and ready
-    A->>Phone: Make Dash Calls discoverable
-    User->>Phone: Pair Dash Calls in Bluetooth settings
+    A->>Phone: Finish Dash Calls profile connection
     A->>A: Close pairing when both sides are ready
 ```
 
-The app shows its approval guidance before it requests the Dash Messages
-connection. iOS still owns and presents the Bluetooth-pairing and
-notification-sharing prompts. A Board A with no saved BLE bond accepts its
+The app shows its approval guidance before it opens Apple's accessory picker.
+The picker owns Dash Messages pairing and Dash Calls transport bridging; iOS
+still owns and presents the pairing and notification-sharing prompts. A Board
+A with no saved BLE bond accepts its
 first Dash Messages pairing while it is powered, so first setup is not racing a
-boot-time pairing deadline. The user then pairs Dash Calls in iPhone Settings
-→ Bluetooth. Without the app, or when replacing an already bonded phone,
-`pair phone` opens a 120-second firmware window and the user pairs Dash Messages
-first, then Dash Calls. Unknown Classic devices are accepted only while that
-window is open and ANCS is already ready. Already bonded devices may reconnect
-without reopening pairing.
+boot-time pairing deadline. Without the app, or when replacing an already
+bonded phone, `pair phone` opens a 120-second firmware window and the user pairs
+Dash Messages first, then Dash Calls manually in Bluetooth Settings. Unknown
+Classic devices are accepted only while that window is open and ANCS is already
+ready. Already bonded devices may reconnect without reopening pairing.
 
 ### Reconnection ownership
 

@@ -34,11 +34,15 @@ final class SetupFlowUITests: XCTestCase {
 
         app.buttons["Preview without hardware"].tap()
         XCTAssertTrue(app.staticTexts["Saved on DashBridge"].waitForExistence(timeout: 5))
-        let choice = app.switches["WhatsApp Business"]
-        XCTAssertEqual(choice.value as? String, "1")
-        choice.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: choice)
-        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 3), .completed)
+        XCTAssertTrue(app.staticTexts["WhatsApp Business"].exists)
+        let remove = app.buttons["Remove WhatsApp Business"]
+        XCTAssertTrue(remove.exists)
+        remove.tap()
+        let removed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.staticTexts["WhatsApp Business"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed)
     }
 
     func testTestScreenOffersNotificationButton() {

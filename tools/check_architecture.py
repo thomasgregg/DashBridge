@@ -263,11 +263,15 @@ if contract:
             "0xf0, 0xa6, 0x58, 0xc2" in phone_source,
             "AccessorySetupKit metadata and the Board A setup-service scan response must match the released contract")
     require("connectionRequestPending = true" in all_swift and
+            "connectionRequestPending = false" in all_swift and
             'primary("Connect my iPhone")' in all_swift and
             "send(.connectionGuidancePresented)" in all_swift and
-            "Task.sleep(for: .milliseconds(550))" in all_swift and
-            "bridge.connectFound()" in all_swift,
-            "iOS must present pairing guidance before requesting the system-owned prompt")
+            "effects.append(.connectFound)" in all_swift and
+            "bridge.connectFound()" in all_swift and
+            "pickerPresentationRequested = true" in all_swift and
+            "presentAccessoryPickerIfReady()" in all_swift and
+            "Task.sleep(for: .milliseconds(550))" not in all_swift,
+            "iOS must request the system picker immediately after explicit guidance approval and preserve early requests until the accessory session is ready")
     require("esp_ble_get_bond_device_num() == 0" in phone_source and
             "first_pairing_candidate_valid" in phone_source,
             "a fresh Board A must not lose first-phone pairing eligibility to a setup timeout")

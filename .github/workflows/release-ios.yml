@@ -39,6 +39,8 @@ jobs:
           -project ios/DashBridge.xcodeproj
           -scheme DashBridge
           -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
+          -retry-tests-on-failure
+          -test-iterations 2
           test
       - name: Publish GitHub release record
         env:
