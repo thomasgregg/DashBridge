@@ -5,15 +5,15 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parent.parent
-source = (root / "firmware/main/call_audio.cpp").read_text()
+source = (root / "firmware/adapters/calls/esp_hfp_adapter/call_audio.cpp").read_text()
 # Keep the actual state management and input/output callbacks; replace only RTOS services.
 callbacks = source[source.index("namespace runtime {"):source.index("static void worker(")]
 start = source.index("std::string call_audio_diagnostics()")
 callbacks += source[start:source.index("\n}", start) + 2] + "\n}\n"
 harness = r'''
-#include "call_protocol.hpp"
-#include "call_resampler.hpp"
-#include "call_audio_test.hpp"
+#include "dashbridge/protocols/calls_v3.hpp"
+#include "dashbridge/adapters/call_resampler.hpp"
+#include "dashbridge/adapters/call_audio_test.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -205,7 +205,9 @@ with tempfile.TemporaryDirectory() as temporary:
     path = Path(temporary)
     (path / "test.cpp").write_text(harness)
     subprocess.run([os.environ.get("CXX", "clang++"), "-std=c++17", "-Wall", "-Wextra", "-Werror",
-                    "-fsanitize=address,undefined", "-I", str(root / "firmware/main"),
-                    "-I", str(root / "firmware/components/bridge_core/include"),
+                    "-fsanitize=address,undefined", "-I", str(root / "firmware/adapters/dashbridge_adapter_api/include"),
+                    "-I", str(root / "firmware/adapters/calls/esp_hfp_adapter/include"),
+                    "-I", str(root / "firmware/core/dashbridge_domain_core/include"),
+                    "-I", str(root / "firmware/protocols/calls_v3/include"),
                     str(path / "test.cpp"), "-o", str(path / "test")], check=True)
     subprocess.run([str(path / "test")], check=True)

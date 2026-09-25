@@ -6,19 +6,18 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ROLES = ("phone", "car", "single")
+ROLES = ("phone", "car")
 BUILD_INPUTS = ("tools/build_scope.py", "tools/build.sh", "tools/package.py")
 
 
 def sources(root, role):
     excluded = {f"firmware/sdkconfig.{other}" for other in ROLES if other != role}
-    if role != "single":
-        other = "car" if role == "phone" else "phone"
-        excluded.add(f"firmware/main/{other}.cpp")
+    other = "car" if role == "phone" else "phone"
+    excluded.add(f"firmware/adapters/{'car/esp_tesla_adapter/esp_tesla_adapter' if other == 'car' else 'phone/esp_ancs_adapter/esp_ancs_adapter'}.cpp")
     result = {}
     for p in sorted((root / "firmware").rglob("*")):
         name = p.relative_to(root).as_posix()
-        if name in excluded or (role == "phone" and name.startswith("firmware/sdp_diagnostics/")):
+        if name in excluded:
             continue
         if p.is_file() and (p.suffix in (".c", ".cpp", ".h", ".hpp", ".txt", ".py", ".cmake", ".csv", ".yml", ".yaml")
                             or p.name.startswith("sdkconfig.") or p.name.startswith("Kconfig")):
@@ -30,7 +29,7 @@ def sources(root, role):
 
 
 def release_version(root):
-    value = (root / "firmware/version.txt").read_text().strip()
+    value = (root / "version.txt").read_text().strip()
     if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)?", value):
         raise ValueError("Invalid firmware release version")
     return value
@@ -69,9 +68,7 @@ def select(root, requested="auto"):
         return ["phone", "car"]
     if requested in ROLES:
         return [requested]
-    relay = (root / "firmware/sdkconfig.phone").exists() and "CONFIG_BRIDGE_CALL_RELAY=y" in (root / "firmware/sdkconfig.phone").read_text()
-    candidates = ("single",) if not relay and (root / "firmware/sdkconfig.single").exists() else ("phone", "car")
-    return [role for role in candidates if not current(root, role)]
+    return [role for role in ROLES if not current(root, role)]
 
 
 if __name__ == "__main__":

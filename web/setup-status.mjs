@@ -1,7 +1,7 @@
 export const statusMaxAgeMs = 10000;
 export const discoveryNoticeMaxAgeMs = 60000;
 const heartbeatExpiryMs = { phone: 5000, car: 3000 };
-const boardNames = { phone: 'Board A', car: 'Board B', single: 'DashBridge' };
+const boardNames = { phone: 'Board A', car: 'Board B' };
 
 export function disconnectMessage(disconnectedRole, activeRoles) {
   const connected = [...new Set(activeRoles)].filter(role => boardNames[role]);
@@ -26,7 +26,7 @@ export function currentStatus(connection, at = Date.now()) {
 }
 
 export function evaluateChecks(connections, usbLostAt = {}, at = Date.now()) {
-  const aConnection = connections.find(item => item.role === 'phone' || item.role === 'single');
+  const aConnection = connections.find(item => item.role === 'phone');
   const bConnection = connections.find(item => item.role === 'car');
   const a = currentStatus(aConnection, at);
   const b = currentStatus(bConnection, at);

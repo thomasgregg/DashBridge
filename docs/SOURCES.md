@@ -9,7 +9,6 @@ Checked during development, 20 September 2026.
 - **Espressif's ANCS example:** [ble_ancs](https://github.com/espressif/esp-idf/tree/v5.5.1/examples/bluetooth/bluedroid/ble/ble_ancs). Consulted for the ESP-IDF connection/discovery API sequence. Our bounded queue and parser are separate code; this is not NotifyDrive source.
 - **Bluetooth MAP:** [Bluetooth SIG Message Access Profile](https://www.bluetooth.com/specifications/specs/message-access-profile-1-4-3/). The prototype advertises an older MAP 1.0 subset; it is not certified or fully conformant.
 - **Tesla Bluetooth and phone key:** [Model 3 Bluetooth manual](https://www.tesla.com/ownersmanual/model3/en_us/GUID-3D90EA76-8DE3-4808-B7E4-1979EF299F3A.html). The phone key and the ordinary phone/media Bluetooth connection are separate. Verify the controls against the software installed in your own car.
-- **Historical BLE setup utility (not required by the current observed setup):** [Nordic nRF Connect for Mobile](https://www.nordicsemi.com/Products/Development-tools/nRF-Connect-for-mobile).
 - **Flashing tool:** [Espressif esptool-js](https://github.com/espressif/esptool-js).
 
 The SDK has its own licenses, principally Apache-2.0 with component-specific terms. The source checkout used to build these images retains the upstream licenses; copies of the SDK and controller root licenses are included under `third_party/`. This project is an independent local experiment and is not affiliated with Tesla, Apple, WhatsApp or NotifyDrive.

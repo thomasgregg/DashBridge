@@ -1,0 +1,24 @@
+menu "DashBridge"
+choice BRIDGE_ROLE
+    prompt "Board role"
+    default BRIDGE_CAR
+config BRIDGE_CAR
+    bool "Board B: Tesla test receiver"
+config BRIDGE_PHONE
+    bool "Board A: iPhone notifications"
+endchoice
+config BRIDGE_CALL_RELAY
+    bool "Two-board call relay"
+    default y
+config BRIDGE_MUSIC_RELAY
+    bool "Codec-transparent two-board music relay"
+    depends on BRIDGE_CALL_RELAY && BT_HFP_USE_EXTERNAL_CODEC
+    select BT_A2DP_ENABLE
+    select BT_A2DP_USE_EXTERNAL_CODEC
+    default y
+config BRIDGE_CONTACT_SYNC
+    bool "Name/number PBAP relay for Tesla caller names"
+    depends on BRIDGE_CALL_RELAY
+    select BT_PBAC_ENABLED if BRIDGE_PHONE
+    default y
+endmenu

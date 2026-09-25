@@ -12,6 +12,7 @@ async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'dashbridge-web-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   for (const folder of ['dist', 'firmware', 'tools']) await cp(path.join(root, folder), path.join(directory, folder), { recursive: true });
+  await cp(path.join(root, 'version.txt'), path.join(directory, 'version.txt'));
   return { directory, output: path.join(directory, 'site') };
 }
 
@@ -44,7 +45,7 @@ test('a corrupt image cannot be published', async (t) => {
 
 test('stale firmware cannot be published with changed source', async (t) => {
   const { directory, output } = await fixture(t);
-  await writeFile(path.join(directory, 'firmware/main/main.cpp'), '// changed source');
+  await writeFile(path.join(directory, 'firmware/apps/dashbridge_app/app_main.cpp'), '// changed source');
   await assert.rejects(prepareFirmware(directory, output), /Rebuild firmware before publishing/);
 });
 

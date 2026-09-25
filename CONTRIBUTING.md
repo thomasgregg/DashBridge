@@ -5,8 +5,8 @@ DashBridge is an early hardware prototype. Useful evidence matters more than a b
 ## Start here
 
 - Read the [README](README.md) for the scope and current limits.
-- Follow the [setup guide](docs/CALL_RELAY.md) for hardware work.
-- Read the [implementation notes](docs/DEVELOPMENT.md) before changing Bluetooth or message handling.
+- Follow the [setup guide](docs/SETUP.md) for hardware work.
+- Read the [architecture guide](ARCHITECTURE.md) before changing Bluetooth or message handling.
 
 ## Hardware reports
 
@@ -35,6 +35,11 @@ Keep notification queues bounded, avoid logging message content, and preserve cl
 
 ## Scope
 
-The current work covers notification delivery and diagnosing the two-board call relay. Call audio is not yet acceptable in hardware tests. Music forwarding, other chips and other phone platforms need a separately defined design and hardware validation. See the current status in the README.
+The current firmware includes messages, calls, music, contacts, app policy, and
+the two-board transport described in the architecture guide. Several paths still
+need physical iPhone/Tesla validation, especially call audio, music controls,
+contact sync, and reconnection. Other chips and phone platforms remain out of
+scope unless they receive a separately defined design and hardware validation.
+See the current status in the README.
 
 Contributions to the original DashBridge project are provided under its [MIT License](LICENSE). Preserve the licenses and attribution of any third-party code you introduce.

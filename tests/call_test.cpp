@@ -1,13 +1,16 @@
-#include "call_protocol.hpp"
-#include "call_resampler.hpp"
-#include "music_protocol.hpp"
-#include "music_control_protocol.hpp"
-#include "contacts_protocol.hpp"
+#include "dashbridge/protocols/calls_v3.hpp"
+#include "dashbridge/adapters/call_resampler.hpp"
+#include "dashbridge/protocols/music_v1.hpp"
+#include "dashbridge/protocols/dashlink_v2.hpp"
+#include "dashbridge/protocols/contacts_v1.hpp"
 #include <cassert>
 #include <cmath>
 #include <iostream>
 #include <random>
 using namespace calls;
+namespace contacts = dashbridge::protocols::contacts_v1;
+namespace dashlink = dashbridge::protocols::dashlink_v2;
+namespace music_core = dashbridge::core::music;
 static std::vector<uint8_t> tone(unsigned rate, double frequency) {
     std::vector<uint8_t> result(rate / 5 * 2); // 200 ms; several callback boundaries.
     for (size_t i = 0; i < result.size() / 2; ++i)
@@ -105,7 +108,7 @@ static void music_transport_tests() {
     assert(music::encode(invalid, frame) == 0);
 }
 static void music_control_tests() {
-    music::State state;
+    music_core::State state;
     state.session = 0x10203040;
     state.revision = 17;
     state.playback = 1;
@@ -117,32 +120,28 @@ static void music_control_tests() {
     state.track = "3";
     state.track_count = "12";
     state.genre = "Electronic";
-    const auto message = music::state_message(state);
-    music::State decoded;
-    assert(music::parse_state(message, decoded));
+    const dashlink::Packet message = dashlink::MusicState{state};
+    const auto &decoded = std::get<dashlink::MusicState>(message).state;
     assert(decoded.session == state.session && decoded.revision == state.revision);
     assert(decoded.playback == state.playback && decoded.length_ms == state.length_ms);
     assert(decoded.position_ms == state.position_ms && decoded.title == state.title);
     assert(decoded.artist == state.artist && decoded.album == state.album);
     assert(decoded.track == state.track && decoded.track_count == state.track_count && decoded.genre == state.genre);
 
-    auto wire = bridge::encode(message);
-    bridge::WireDecoder decoder;
+    auto wire = dashlink::encode(message);
+    dashlink::Decoder decoder;
     bool delivered = false;
-    decoder.feed(wire.data(), wire.size(), [&](const bridge::WireMessage &out) {
-        music::State roundtrip;
-        assert(music::parse_state(out, roundtrip));
+    decoder.feed(wire.data(), wire.size(), [&](dashlink::Packet out) {
+        const auto &roundtrip = std::get<dashlink::MusicState>(out).state;
         assert(roundtrip.title == state.title && roundtrip.position_ms == state.position_ms);
         delivered = true;
     });
     assert(delivered);
 
-    uint8_t key = 0, key_state = 0;
-    const auto command = music::command_message(99, 5, 0x4b, 1);
-    assert(music::parse_command(command, key, key_state) && key == 0x4b && key_state == 1);
-    auto invalid = command;
-    invalid.notice.body = "75,2";
-    assert(!music::parse_command(invalid, key, key_state));
+    const dashlink::Packet command = dashlink::MusicCommand{99, 5, 0x4b, 1};
+    const auto control = std::get<dashlink::MusicCommand>(command);
+    assert(control.key == 0x4b && control.state == 1);
+    assert(dashlink::encode(dashlink::MusicCommand{99, 5, 0x4b, 2}).empty());
 }
 static void encoded_playout_tests() {
     const auto silence = msbc_silence_audio();
@@ -310,6 +309,21 @@ int main() {
     assert(!gate.accept(9, 1)); assert(!gate.accept(10, 0)); assert(gate.accept(10, 5));
     assert(!gate.accept(10, 5)); assert(!gate.accept(10, 4)); assert(gate.accept(10, 6));
     gate.reset(11); assert(!gate.accept(10, 7)); assert(gate.accept(11, 1));
+    Controller controller;
+    State remote; remote.linked = 1; remote.setup = 1; remote.number = "+491234";
+    assert(controller.apply_remote_snapshot(0, 1, remote) == SnapshotResult::rejected);
+    assert(controller.apply_remote_snapshot(10, 1, remote) == SnapshotResult::new_session);
+    assert(controller.remote_boot() == 10 && controller.remote().number == "+491234");
+    assert(controller.commands().accept(10, 1));
+    remote.setup = 0; remote.call = 1;
+    assert(controller.apply_remote_snapshot(10, 1, remote) == SnapshotResult::rejected);
+    assert(controller.remote().setup == 1); // Duplicate snapshots cannot roll state forward.
+    assert(controller.apply_remote_snapshot(10, 2, remote) == SnapshotResult::accepted);
+    assert(controller.remote().call == 1);
+    assert(controller.apply_remote_snapshot(11, 1, {}) == SnapshotResult::new_session);
+    assert(!controller.commands().accept(10, 2) && controller.commands().accept(11, 1));
+    controller.clear_remote_state();
+    assert(!controller.remote().linked && controller.remote_boot() == 11);
     std::array<uint8_t, pcm_size> pcm{};
     for (size_t i = 0; i < pcm.size(); ++i) pcm[i] = uint8_t(i);
     auto frame = audio_frame(0x1234, 0xabcd, 65535, pcm.data());
@@ -323,11 +337,11 @@ int main() {
     for (auto c : corrupt) decoder.feed(c, accept);
     assert(received == 1);
     assert(decoder.crc_failures() == 1);
-    std::array<uint8_t, 136> legacy{};
-    legacy[0] = 'D'; legacy[1] = 'A'; legacy[2] = 1; legacy[3] = 120;
-    auto legacy_crc = crc16(legacy.data(), legacy.size() - 2);
-    legacy[134] = legacy_crc; legacy[135] = legacy_crc >> 8;
-    for (auto c : legacy) decoder.feed(c, accept);
+    std::array<uint8_t, 136> obsolete_frame{};
+    obsolete_frame[0] = 'D'; obsolete_frame[1] = 'A'; obsolete_frame[2] = 1; obsolete_frame[3] = 120;
+    auto obsolete_crc = crc16(obsolete_frame.data(), obsolete_frame.size() - 2);
+    obsolete_frame[134] = obsolete_crc; obsolete_frame[135] = obsolete_crc >> 8;
+    for (auto c : obsolete_frame) decoder.feed(c, accept);
     assert(received == 1); // Never play v1 8 kHz data at 16 kHz.
     for (int i = 0; i < 55; ++i) decoder.feed(frame[i], accept); // Truncated frame followed by fresh frame.
     for (auto c : frame) decoder.feed(c, accept);
@@ -373,13 +387,13 @@ int main() {
     assert(!buffer.push(pcm.data(), pcm_size)); // Overflow discards old backlog.
     assert(buffer.pop(output.data(), pcm_size) == 0);
     assert(!buffer.push(pcm.data(), 1));
-    // The control channel must preserve the new operation and all state fields.
-    bridge::WireMessage m{bridge::Op::call, 33, {}};
-    m.notice.app = protocol; m.notice.title = "state"; m.notice.body = encode_state(a);
-    auto wire = bridge::encode(m); bridge::WireDecoder d;
+    // The typed control channel must preserve the call domain and state payload.
+    dashlink::Call m{33, 7, "state", encode_state(a), {}, {}};
+    auto wire = dashlink::encode(m); dashlink::Decoder d;
     bool delivered = false;
-    for (auto c : wire) d.feed(&c, 1, [&](const bridge::WireMessage &out) {
-        assert(out.op == bridge::Op::call && out.session == 33 && out.notice.body == m.notice.body); delivered = true;
+    for (auto c : wire) d.feed(&c, 1, [&](dashlink::Packet packet) {
+        const auto &out = std::get<dashlink::Call>(packet);
+        assert(out.session == 33 && out.sequence == 7 && out.payload == m.payload); delivered = true;
     });
     assert(delivered);
     std::cout << "Call control, codec-transparent transport, jitter buffer, PCM fallback and rate conversion tests passed\n";

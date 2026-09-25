@@ -1,0 +1,48 @@
+{
+  "name": "DashBridge setup GATT",
+  "version": 1,
+  "discovery_local_names": [
+    "DashBridge A",
+    "Dash Messages",
+    "DashBridge"
+  ],
+  "service_uuid": "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F0",
+  "characteristics": {
+    "status": {
+      "uuid": "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F1",
+      "access": "read",
+      "maximum_length": 3
+    },
+    "policy": {
+      "uuid": "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F2",
+      "access": "encrypted-read",
+      "encoding": "UTF-8 application identifiers separated by LF; an empty policy is zero bytes"
+    },
+    "command": {
+      "uuid": "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F3",
+      "access": "encrypted-write-with-response",
+      "maximum_length": 96
+    }
+  },
+  "status": {
+    "length": 3,
+    "version_byte": 1,
+    "bits": {
+      "phoneBluetooth": 0,
+      "notifications": 1,
+      "phoneCalls": 2,
+      "internalLink": 3,
+      "teslaMessages": 4,
+      "teslaTransport": 5,
+      "teslaSync": 6,
+      "teslaCalls": 7,
+      "phonePairingOpen": 8
+    }
+  },
+  "commands": {
+    "1": "allow application identifier carried as UTF-8 bytes 1..n",
+    "2": "deny application identifier carried as UTF-8 bytes 1..n",
+    "3": "reopen iPhone pairing; packet length must be one",
+    "4": "start local test notification; packet length must be one"
+  }
+}

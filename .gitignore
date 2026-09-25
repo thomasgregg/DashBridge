@@ -8,4 +8,4 @@ web/node_modules
 _site/
 output/
 .playwright-cli/
-ios-app/**/xcuserdata/
+ios/**/xcuserdata/

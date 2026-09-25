@@ -28,9 +28,6 @@ cd "$project_dir"
 if [[ "$action" == check ]]; then
   bash tools/test.sh
   python3 tools/test_build_scope.py
-  python3 tools/test_sdp_attributes.py
-  python3 tools/test_acl_recovery.py
-  if [[ -f tools/test_pairing_confirmation.py ]]; then python3 tools/test_pairing_confirmation.py; fi
 else
   # Reuse the same build directory, SDK and compiler cache on every invocation.
   # Build only Board B; tools/build.sh enforces the SDK version and packages it.

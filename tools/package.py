@@ -17,14 +17,12 @@ def package(roles):
     destination = ROOT / "dist"
     destination.mkdir(exist_ok=True)
     manifest_path = destination / "manifest.json"
-    manifest = (json.loads(manifest_path.read_text())
-                if manifest_path.exists() and roles != ["single"] else {"images": {}})
-    if set(roles) <= {"phone", "car"}:
-        manifest["images"] = {key: value for key, value in manifest["images"].items()
-                              if key in ("phone", "car")}
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {"images": {}}
+    manifest["images"] = {key: value for key, value in manifest["images"].items()
+                          if key in ROLES}
     for role in roles:
         if role not in ROLES:
-            raise SystemExit("Roles must be phone, car or single")
+            raise SystemExit("Roles must be phone or car")
         build = ROOT / "build" / role
         layout = json.loads((build / "flasher_args.json").read_text())
         if layout["extra_esptool_args"]["chip"] != "esp32":

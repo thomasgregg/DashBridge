@@ -5,17 +5,16 @@ Public installer: https://thomasgregg.github.io/DashBridge/
 The [USB setup page](https://thomasgregg.github.io/DashBridge/setup.html) lets
 Chrome or Edge connect directly to each board for pairing, app choices,
 connection checks and a Tesla test message. It does not upload settings or
-logs. Board A needs a fresh iPhone notification to discover another app;
-WhatsApp and WhatsApp Business are allowed by default. Close any other serial
-log window before connecting that board in the setup page.
+logs. Board A needs a fresh iPhone notification to discover an app. No apps
+are allowed by default on a new board; existing saved choices are kept. Close
+any other serial log window before connecting that board in the setup page.
 
 The static site uses ESP Web Tools 10.4.0 and the repository’s prebuilt images. No backend, accounts or analytics. JavaScript, styles, manifests and firmware are served together by GitHub Pages. Chrome or Edge on a desktop computer is the recommended USB installation route.
 
 The completion instructions use Dash Calls, Dash Messages and Dash Tesla.
-The 0.4.3-alpha release pairs this USB installer with the internal-test iPhone
-companion setup flow. The [release notes](../docs/releases/0.4.3-alpha.md)
-distinguish implementation from hardware validation; the older
-[call validation](../docs/CALL_RELAY_VALIDATION.md) is historical.
+The 0.5.0-alpha release pairs this USB installer with the internal-test iPhone
+companion setup flow. The [release notes](../docs/releases/0.5.0-alpha.md)
+distinguish implementation from hardware validation.
 
 ## Build and preview
 
@@ -46,7 +45,7 @@ The `Web installer` workflow builds and tests on relevant pull requests. On `mai
 
 ## Validation boundary
 
-Browser checks can validate the page, manifest-to-image mapping, help, fallback states and USB-picker cancellation. They cannot establish that a physical flash completes or that the Tesla and iPhone accept the prototype. Validate those on the actual original ESP32-WROOM-32 boards using `docs/CALL_RELAY.md`.
+Browser checks can validate the page, manifest-to-image mapping, help, fallback states and USB-picker cancellation. They cannot establish that a physical flash completes or that the Tesla and iPhone accept the prototype. Validate those on ESP32-WROOM-32 boards using `docs/SETUP.md`.
 
 The main page is a stable A/B installer shell. On each visit it resolves the
 current manifests, public release number and matching release-notes URL from

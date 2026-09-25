@@ -28,13 +28,11 @@ for key, value in expected.items():
     line = f"CONFIG_{key}={value}" if value else f"# CONFIG_{key} is not set"
     assert line in text.splitlines(), f"Wrong {role} setting: expected {line}"
 if role == "car":
-    main = (root / "firmware" / "main" / "main.cpp").read_text()
-    assert "esp_bt_controller_mem_release(ESP_BT_MODE_BLE)" in main
-    assert "esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT)" in main
-    assert "Board B controller mode: Classic only (HFP + MAP)" in main
+    platform = (root / "firmware" / "platform" / "esp_runtime" / "esp_runtime.cpp").read_text()
+    assert "esp_bt_controller_mem_release(ESP_BT_MODE_BLE)" in platform
+    assert "esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT)" in platform
+    assert "Board B controller mode: Classic only (HFP + MAP)" in platform
     commands = json.loads((root / "build" / role / "compile_commands.json").read_text())
-    assert not any("/dashbridge_sdp/" in item["file"] for item in commands), \
-        "Production car build compiled diagnostic replacement Bluetooth sources"
     source = next(item for item in commands if item["file"].endswith("/btc_hf_ag.c"))
     assert not any(item.startswith("-DBTC_HF_FEATURES=") for item in shlex.split(source["command"])), \
         "Car build must retain the stock ESP-IDF HFP gateway feature advertisement"

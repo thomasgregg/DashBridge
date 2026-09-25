@@ -1,0 +1,49 @@
+name: DashBridge
+options:
+  bundleIdPrefix: dev.dashbridge
+targets:
+  DashBridge:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.4"
+    sources:
+      - path: App
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: DashBridge
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "11"
+        NSBluetoothAlwaysUsageDescription: DashBridge uses Bluetooth to find and set up your bridge.
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    entitlements:
+      path: App/App.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+        com.apple.developer.family-controls.app-and-website-usage: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.dashbridge.companion
+        DEVELOPMENT_TEAM: BB4MFJBDC7
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+  DashBridgeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.4"
+    sources:
+      - path: UITests
+    dependencies:
+      - target: DashBridge
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.dashbridge.companion.uitests
+        DEVELOPMENT_TEAM: BB4MFJBDC7
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES

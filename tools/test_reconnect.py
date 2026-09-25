@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parent.parent
-source = (root / 'firmware/main/call_relay.cpp').read_text()
+source = (root / 'firmware/adapters/calls/esp_hfp_adapter/esp_hfp_adapter.cpp').read_text()
 start = source.index('    // Reconnect policy:')
 end = source.index('    // Audio connection follows', start)
 poll = source[start:end]
