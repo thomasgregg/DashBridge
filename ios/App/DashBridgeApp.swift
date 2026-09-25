@@ -196,6 +196,20 @@ private struct SetupView: View {
                     .padding(.top, 18)
                 welcomeArtwork
                     .padding(.top, 44)
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "powerplug")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                        .accessibilityHidden(true)
+                    Text("Plug DashBridge into power and keep it near your iPhone.")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(Theme.soft, in: RoundedRectangle(cornerRadius: 16))
+                .padding(.top, 18)
                 Spacer(minLength: 0)
             }
             .padding(24)

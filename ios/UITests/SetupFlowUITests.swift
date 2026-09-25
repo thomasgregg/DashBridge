@@ -1,6 +1,20 @@
 import XCTest
 
 final class SetupFlowUITests: XCTestCase {
+    func testWelcomeExplainsPowerBeforeScanning() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing"]
+        app.launch()
+
+        let instruction = app.staticTexts[
+            "Plug DashBridge into power and keep it near your iPhone."
+        ]
+        let getStarted = app.buttons["Get started"]
+        XCTAssertTrue(instruction.waitForExistence(timeout: 5))
+        XCTAssertTrue(getStarted.exists)
+        XCTAssertLessThan(instruction.frame.minY, getStarted.frame.minY)
+    }
+
     func testSavedChoiceMissingFromAppListCanBeRemoved() {
         let app = XCUIApplication()
         app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-saved-choice-preview"]
