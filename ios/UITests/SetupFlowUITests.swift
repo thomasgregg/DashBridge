@@ -1,12 +1,26 @@
 import XCTest
 
 final class SetupFlowUITests: XCTestCase {
+    func testPhoneGuidanceWaitsForExplicitConnectAction() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-screen-preview", "connect-iphone"]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Connect your iPhone."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["When you’re ready, tap Connect and follow the prompts on your iPhone."].exists)
+        XCTAssertFalse(app.staticTexts["Connecting your iPhone."].exists)
+
+        app.buttons["Connect my iPhone"].tap()
+
+        XCTAssertTrue(app.staticTexts["Connecting your iPhone."].waitForExistence(timeout: 5))
+    }
+
     func testWelcomeExplainsPowerBeforeScanning() {
         let app = XCUIApplication()
         app.launchArguments = ["-dashbridge-ui-testing"]
         app.launch()
 
-        let instruction = app.staticTexts["Connect it to power and keep it near your iPhone."]
+        let instruction = app.staticTexts["Plug in DashBridge and keep it near your iPhone."]
         let getStarted = app.buttons["It's plugged in"]
         XCTAssertTrue(instruction.waitForExistence(timeout: 5))
         XCTAssertTrue(getStarted.exists)
@@ -43,20 +57,37 @@ final class SetupFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Connect DashBridge to send a test notification to your Tesla."].exists)
     }
 
+    func testCompletionCelebrationKeepsReadyActionsInteractive() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing"]
+        app.launch()
+
+        app.buttons["Preview without hardware"].tap()
+        app.buttons["Continue"].tap()
+        app.buttons["Preview connected car"].tap()
+        app.buttons["Preview ready screen"].tap()
+
+        let help = app.buttons["Connection help"]
+        XCTAssertTrue(help.waitForExistence(timeout: 5))
+        help.tap()
+        XCTAssertTrue(app.staticTexts["Connection status."].waitForExistence(timeout: 5))
+    }
+
     func testCheckingKeepsProgressUntilItOffersRetry() {
         let app = XCUIApplication()
         app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-checking-preview"]
         app.launch()
 
         app.buttons["Preview without hardware"].tap()
-        XCTAssertTrue(app.staticTexts["Connecting…"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Checking your connection…"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.progressIndicators["Connection check progress"].exists)
+        XCTAssertTrue(app.staticTexts["Connecting your iPhone."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Bluetooth pairing"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Board found"].exists)
+        XCTAssertFalse(app.staticTexts["Checking your connection…"].exists)
         XCTAssertTrue(app.staticTexts["Connection interrupted."].waitForExistence(timeout: 8))
         XCTAssertTrue(app.otherElements["Retry connection"].exists)
         XCTAssertTrue(app.buttons["Try again"].exists)
         XCTAssertFalse(app.buttons["Copy diagnostics"].exists)
-        XCTAssertFalse(app.staticTexts["Checking your connection…"].exists)
+        XCTAssertFalse(app.staticTexts["Bluetooth pairing"].exists)
     }
 
     func testCheckingUsesStatusAlreadyReceived() {
@@ -65,7 +96,7 @@ final class SetupFlowUITests: XCTestCase {
         app.launch()
 
         app.buttons["Preview without hardware"].tap()
-        XCTAssertTrue(app.staticTexts["Approve on iPhone."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Connecting your iPhone."].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Checking your connection…"].exists)
     }
 

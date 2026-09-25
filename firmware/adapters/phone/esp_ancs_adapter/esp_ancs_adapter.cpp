@@ -335,6 +335,14 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
         log_request("security response", esp_ble_gap_security_rsp(p->ble_security.ble_req.bd_addr, allowed));
         break;
     }
+    case ESP_GAP_BLE_NC_REQ_EVT:
+        // Match ESP-IDF's ANCS client: explicitly accept Secure Connections
+        // numeric comparison if the peer selects that association model.
+        ESP_LOGI(tag, "BLE numeric comparison request: passkey=%06lu",
+                 static_cast<unsigned long>(p->ble_security.key_notif.passkey));
+        log_request("numeric comparison response",
+                    esp_ble_confirm_reply(p->ble_security.ble_req.bd_addr, true));
+        break;
     case ESP_GAP_BLE_AUTH_CMPL_EVT: {
         ESP_LOGI(tag, "BLE authentication complete: success=%d reason=0x%02x auth_mode=0x%02x",
                  p->ble_security.auth_cmpl.success,
@@ -428,7 +436,7 @@ static void gatt(esp_gattc_cb_event_t event, esp_gatt_if_t id, esp_ble_gattc_cb_
             break;
         }
         connection = p->open.conn_id;
-        if (log_request("encryption", esp_ble_set_encryption(peer, ESP_BLE_SEC_ENCRYPT)) != ESP_OK) {
+        if (log_request("encryption", esp_ble_set_encryption(peer, ESP_BLE_SEC_ENCRYPT_MITM)) != ESP_OK) {
             disconnect("Could not encrypt iPhone link");
             break;
         }
@@ -699,12 +707,23 @@ void phone_start() {
     advertising.own_addr_type = BLE_ADDR_TYPE_RPA_PUBLIC;
     advertising.channel_map = ADV_CHNL_ALL;
     advertising.adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY;
-    esp_ble_auth_req_t auth = ESP_LE_AUTH_REQ_SC_BOND;
+    // ANCS characteristics require authorization. Keep these parameters in
+    // lockstep with ESP-IDF v5.5.5's production ANCS example so iOS and the
+    // controller agree on the security level before key distribution.
+    esp_ble_auth_req_t auth = ESP_LE_AUTH_REQ_SC_MITM_BOND;
     esp_ble_io_cap_t cap = ESP_IO_CAP_NONE;
     uint8_t key_size = 16, keys = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
+    uint32_t passkey = 123456;
+    uint8_t auth_option = ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_DISABLE;
+    uint8_t oob_support = ESP_BLE_OOB_DISABLE;
+    ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof passkey));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth, sizeof auth));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP_MODE, &cap, sizeof cap));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &key_size, sizeof key_size));
+    ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH,
+                                                   &auth_option, sizeof auth_option));
+    ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_OOB_SUPPORT,
+                                                   &oob_support, sizeof oob_support));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &keys, sizeof keys));
     ESP_ERROR_CHECK(esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &keys, sizeof keys));
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap));

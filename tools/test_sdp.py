@@ -3,6 +3,7 @@
 Run after a firmware build, with ESP-IDF's environment active. This is a host
 contract test; it neither opens a serial port nor exercises a Bluetooth radio.
 """
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -10,6 +11,18 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
 SDK = Path(os.environ["IDF_PATH"])
+BUILD = ROOT / "build" / os.environ.get("DASHBRIDGE_BUILD_ROLE", "car")
+
+
+def verify_server_capacity():
+    """Confirm the production Bluetooth stack was compiled with PBAP headroom."""
+    commands = json.loads((BUILD / "compile_commands.json").read_text())
+    sdp_commands = [entry["command"] for entry in commands
+                    if entry["file"].replace("\\", "/").endswith("/stack/sdp/sdp_db.c")]
+    if len(sdp_commands) != 1:
+        raise RuntimeError("Expected one production SDP database compile command")
+    if "-DSDP_MAX_RECORDS=8" not in sdp_commands[0].split():
+        raise RuntimeError("Board B Bluetooth stack lacks capacity for MAP and PBAP records")
 
 
 def section(path, start, end):
@@ -64,4 +77,5 @@ with tempfile.TemporaryDirectory(prefix="dashbridge-sdp-") as temp:
         str(source), "-o", str(binary),
     ], check=True)
     subprocess.run([str(binary)], check=True)
-print("PASS production SDP record accepted; invalid name length rejected")
+verify_server_capacity()
+print("PASS production SDP capacity; records accepted; invalid name length rejected")

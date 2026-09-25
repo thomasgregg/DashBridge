@@ -47,6 +47,9 @@ can be flashed at `0x10000` to preserve pairings. Never interchange full and
 application-only images or flash an application-only image at `0x0`.
 
 The [firmware release page](FIRMWARE_RELEASE.md) separates software validation from
-hardware evidence. These exact images have not yet been installed or checked
-end to end. Notification delivery, phonebook synchronization, music sound and
-controls, clear call audio, and reconnection still need a parked-car test.
+hardware evidence. These exact images have been installed on the target boards
+and passed boot, Bluetooth service-registration, inter-board-link, controlled
+outage/recovery, and short stability checks. They have not been checked end to
+end. Notification delivery, phonebook synchronization, music sound and controls,
+clear call audio, and reconnection with the real iPhone and Tesla still need a
+parked-car test.

@@ -40,6 +40,13 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${version_inputs}
     "${CMAKE_CURRENT_LIST_DIR}/../tools/package.py")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(dashbridge)
+# ESP-IDF v5.5.5 hard-codes six server-side SDP records. Board B already
+# consumes those with its HFP/A2DP/AVRCP and MAP services, so reserve room for
+# the custom PBAP record (plus one spare) in the Bluetooth component itself.
+if(CONFIG_BRIDGE_CAR)
+    idf_component_get_property(bt_lib bt COMPONENT_LIB)
+    target_compile_definitions(${bt_lib} PRIVATE SDP_MAX_RECORDS=8)
+endif()
 if(CONFIG_BRIDGE_CALL_RELAY)
     include("${CMAKE_CURRENT_LIST_DIR}/audio_codec/CMakeLists.txt")
     include("${CMAKE_CURRENT_LIST_DIR}/conference/CMakeLists.txt")

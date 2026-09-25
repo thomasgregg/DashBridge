@@ -89,6 +89,22 @@ valid ID may also be entered directly. At most 12 application rules are stored.
 Unsupported or malformed `setup ...` requests return a failed `result` and do not
 change configuration.
 
+## Physical buttons
+
+The two development-board buttons have different jobs. **EN/RST** is wired
+directly to the ESP32 reset input, so pressing it immediately restarts the
+board; firmware cannot turn that button into a setup control. **BOOT/GPIO0** is
+the DashBridge setup button after the firmware has started:
+
+| BOOT/GPIO0 action | Board A | Board B |
+| --- | --- | --- |
+| Short press (50 ms to 2 seconds) | No action | Send a test notification when the Tesla message channel is ready |
+| Hold 2 to 8 seconds, then release | Open iPhone pairing for 120 seconds | Open Tesla pairing for 120 seconds |
+| Hold at least 8 seconds, then release | Erase Board A's saved pairing and restart | Erase Board B's saved pairing and restart |
+
+Holding BOOT while the board itself is reset selects the ESP32 programming
+mode instead. Release it and press EN/RST once to return to normal startup.
+
 ## Commands that deliberately do not exist
 
 There is no USB command to erase all Bluetooth bonds, install firmware, place or

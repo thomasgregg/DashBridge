@@ -83,6 +83,11 @@ This diagram describes the primary path. The reducer tests also cover returning
 users, an already-connected peripheral, saved deferral, review navigation,
 device replacement, retries, and cached status arriving before a screen change.
 
+The internal `Checking`, `Sharing`, and `PairCalls` states render as one
+continuous **Connecting your iPhone** progress screen. Keeping the states
+separate preserves the required connection ordering and effects without making
+the user move through three nearly identical screens.
+
 ## System-dialog contract
 
 iOS owns the visual presentation and final scheduling of its system dialogs.
@@ -92,7 +97,7 @@ points must not move during refactors.
 | System behavior | Application trigger | Required ordering |
 | --- | --- | --- |
 | Bluetooth application permission | First creation of `CBCentralManager` | Every fresh app session first shows Welcome. Setup and Bluetooth begin only after the user confirms **It's plugged in**. |
-| Dash Messages pairing and notification sharing | `connect(_:options:)` with `CBConnectPeripheralOptionRequiresANCS` | The **Connecting…** guidance is rendered first, followed by the existing short delay, then the connection request. |
+| Dash Messages pairing and notification sharing | `connect(_:options:)` with `CBConnectPeripheralOptionRequiresANCS` | The app first shows the connection guidance without requesting a connection. After the user taps **Connect my iPhone**, the **Connecting your iPhone** progress screen renders, followed by a short delay and then the connection request. |
 | Encrypted policy access | Read the policy characteristic | Only after status reports notification sharing ready, avoiding a competing security exchange. |
 | App & Website Usage | Load the installed-app catalog | When entering app selection or the ready screen, never during launch. |
 | Local notification permission | Request authorization from `UNUserNotificationCenter` | Only after the user taps **Send test notification**. |

@@ -242,12 +242,14 @@ if contract:
             "pairing_allowed(Peer::phone) && phone_notifications_ready()" in call_relay and
             "ESP_BT_NON_DISCOVERABLE" in call_relay,
             "Dash Calls must remain hidden until BLE/ANCS pairing is ready")
-    require('stageHeaderRow("Connect calls and music."' in all_swift and
-            "tap Dash Calls." in all_swift and
+    require('connectionStatusRow("Calls and music"' in all_swift and
+            "In Settings → Bluetooth, tap Dash Calls." in all_swift and
             "tap Dash Calls and Dash Messages" not in all_swift,
             "the iOS app must own BLE pairing and request only manual Dash Calls pairing")
     require("connectionRequestPending = true" in all_swift and
-            "Task.sleep(for: .milliseconds(350))" in all_swift and
+            'primary("Connect my iPhone")' in all_swift and
+            "send(.connectionGuidancePresented)" in all_swift and
+            "Task.sleep(for: .milliseconds(550))" in all_swift and
             "bridge.connectFound()" in all_swift,
             "iOS must present pairing guidance before requesting the system-owned prompt")
     require("esp_ble_get_bond_device_num() == 0" in phone_source and

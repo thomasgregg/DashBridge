@@ -32,6 +32,17 @@ final class SetupFlowTests: XCTestCase {
         XCTAssertEqual(machine.handle(.connectionGuidancePresented), [])
     }
 
+    func testPhoneConnectionPreviewWaitsForExplicitAction() {
+        var machine = SetupFlowMachine()
+
+        _ = machine.handle(.previewScreen(.connectIPhone))
+
+        XCTAssertEqual(machine.state.step, .checking)
+        XCTAssertTrue(machine.state.connectionRequestPending)
+        XCTAssertEqual(machine.handle(.connectionGuidancePresented), [.connectFound])
+        XCTAssertFalse(machine.state.connectionRequestPending)
+    }
+
     func testPhoneSetupRoutesThroughSharingPairingAndApps() {
         var machine = SetupFlowMachine()
         _ = machine.handle(.getStarted(connected: true, status: nil))

@@ -8,6 +8,7 @@ enum SetupStep: Equatable {
 
 enum SetupPreviewScreen: String {
     case welcome, finding, checking, retry
+    case connectIPhone = "connect-iphone"
     case pairMessages = "pair-messages"
     case pairCalls = "pair-calls"
     case sharing, apps, car, test
@@ -259,6 +260,9 @@ struct SetupFlowMachine {
         switch screen {
         case .welcome: state.step = .welcome
         case .finding: state.step = .finding
+        case .connectIPhone:
+            state.step = .checking
+            state.connectionRequestPending = true
         case .checking: state.step = .checking
         case .retry:
             state.helpReturnStep = .checking

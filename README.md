@@ -71,7 +71,7 @@ and the parked-car checks.
 
 ## Project status
 
-The **0.5.3-alpha images** in the [manifest](dist/manifest.json) contain the staged pairing and serialized reconnect architecture. They are freshly built and software-validated but have **not** been installed on the boards or checked with the car. The manifest's `hardware_tested: false` records that distinction.
+The **0.5.3-alpha images** in the [manifest](dist/manifest.json) contain the staged pairing and serialized reconnect architecture. They are freshly built, software-validated, and have passed an on-board boot and inter-board-link smoke test. They have **not** been checked with an iPhone and Tesla. The manifest's `hardware_tested: false` records that end-to-end distinction.
 
 | Feature | Implemented in firmware | Evidence and remaining gap |
 | :--- | :--- | :--- |
@@ -118,7 +118,7 @@ Shown from above, USB sockets at the bottom. This layout matches the **AZDeliver
 
 ![ESP32 Dev Kit C V2 wiring: five connections between A and B](docs/assets/devkit-c-v2-wiring.svg)
 
-For the **AZDelivery ESP32 Dev Kit C V2 (38 pins, ASIN B074RGW2VQ)**, use this second illustration. It follows the [manufacturer's pinout](https://cdn.shopify.com/s/files/1/1509/1638/files/ESP-32_NodeMCU_Developmentboard_Pinout.pdf?v=1609851295). The two buttons are **EN/RST** (restart) and **BOOT** (programming). Both illustrations use the same wire numbers and GPIO connections, so a D1 Mini and a Dev Kit C V2 can also be paired: use the A view for the board running A firmware and the B view for the board running B firmware. Follow the printed GPIO labels, not the physical positions from the other board's illustration.
+For the **AZDelivery ESP32 Dev Kit C V2 (38 pins, ASIN B074RGW2VQ)**, use this second illustration. It follows the [manufacturer's pinout](https://cdn.shopify.com/s/files/1/1509/1638/files/ESP-32_NodeMCU_Developmentboard_Pinout.pdf?v=1609851295). **EN/RST** always restarts the board. **BOOT/GPIO0** selects programming mode during startup and, while DashBridge is already running, acts as the setup button: hold it for 2 seconds to open pairing or 8 seconds to erase that board's pairing and restart it; a short press on Board B sends the Tesla test notification when the message channel is ready. Both illustrations use the same wire numbers and GPIO connections, so a D1 Mini and a Dev Kit C V2 can also be paired: use the A view for the board running A firmware and the B view for the board running B firmware. Follow the printed GPIO labels, not the physical positions from the other board's illustration.
 
 | Board A — iPhone | Board B — Tesla |
 | :--- | :--- |
@@ -152,7 +152,7 @@ The local [`dist/`](dist/) directory contains the matching A/B images for this r
 | **A — iPhone** | [`phone-full.bin`](dist/phone-full.bin) | `Dash Calls` and `Dash Messages` |
 | **B — Tesla** | [`car-full.bin`](dist/car-full.bin) | `Dash Tesla` |
 
-The [manifest](dist/manifest.json) records versions, image hashes, and source hashes. `phone-full.bin` and `car-full.bin` contain the bootloader, partition table, and application and are flashed at `0x0`; they can erase Bluetooth pairings and app choices. For an update that preserves pairings, use the matching application-only build image at `0x10000` only after confirming the existing partition layout matches. Always install A and B from the same manifest. These **0.5.3-alpha images have not yet had a hardware or end-to-end iPhone/Tesla test**.
+The [manifest](dist/manifest.json) records versions, image hashes, and source hashes. `phone-full.bin` and `car-full.bin` contain the bootloader, partition table, and application and are flashed at `0x0`; they can erase Bluetooth pairings and app choices. For an update that preserves pairings, use the matching application-only build image at `0x10000` only after confirming the existing partition layout matches. Always install A and B from the same manifest. These **0.5.3-alpha images have passed an on-board boot and inter-board-link smoke test, but not an end-to-end iPhone/Tesla test**.
 
 To install these **exact local images**, use the repository's checksum-checking flash helper with `esptool==4.12.0` in a Python environment. Identify each board's serial port first, then flash them one at a time (replace `YOUR_A_PORT` and `YOUR_B_PORT` with the ports you found):
 
