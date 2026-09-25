@@ -33,12 +33,24 @@ jobs:
           -sdk iphonesimulator
           -configuration Release
           build
-      - name: Run setup-flow tests
+      - name: Run setup-flow unit tests
         run: >-
           xcodebuild
           -project ios/DashBridge.xcodeproj
           -scheme DashBridge
           -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
+          -only-testing:DashBridgeTests
+          test
+      - name: Run critical setup-flow UI tests
+        run: >-
+          xcodebuild
+          -project ios/DashBridge.xcodeproj
+          -scheme DashBridge
+          -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
+          -only-testing:DashBridgeUITests/SetupFlowUITests/testPhoneGuidanceWaitsForExplicitConnectAction
+          -only-testing:DashBridgeUITests/SetupFlowUITests/testCheckingKeepsProgressUntilItOffersRetry
+          -only-testing:DashBridgeUITests/SetupFlowUITests/testSavedChoiceMissingFromAppListCanBeRemoved
+          -only-testing:DashBridgeUITests/SetupFlowUITests/testCompletionCelebrationKeepsReadyActionsInteractive
           -retry-tests-on-failure
           -test-iterations 2
           test
