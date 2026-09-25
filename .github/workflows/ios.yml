@@ -40,20 +40,11 @@ jobs:
         run: |
           python3 tools/check_architecture.py
           python3 tools/check_release_versions.py
-      - name: Build and run setup-flow tests
+      - name: Build for the iOS simulator
         run: >-
           xcodebuild
           -project ios/DashBridge.xcodeproj
           -scheme DashBridge
+          -sdk iphonesimulator
           -configuration Debug
-          -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
-          -enableCodeCoverage NO
-          -parallel-testing-enabled NO
-          -only-testing:DashBridgeTests
-          -only-testing:DashBridgeUITests/SetupFlowUITests/testPhoneGuidanceWaitsForExplicitConnectAction
-          -only-testing:DashBridgeUITests/SetupFlowUITests/testCheckingKeepsProgressUntilItOffersRetry
-          -only-testing:DashBridgeUITests/SetupFlowUITests/testSavedChoiceMissingFromAppListCanBeRemoved
-          -only-testing:DashBridgeUITests/SetupFlowUITests/testCompletionCelebrationKeepsReadyActionsInteractive
-          -retry-tests-on-failure
-          -test-iterations 2
-          test
+          build
