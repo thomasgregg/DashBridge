@@ -54,6 +54,7 @@ jobs:
           -project ios/DashBridge.xcodeproj
           -scheme DashBridge
           -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
+          -enableCodeCoverage NO
           -only-testing:DashBridgeTests
           test
       - name: Run critical setup-flow UI tests
@@ -62,6 +63,7 @@ jobs:
           -project ios/DashBridge.xcodeproj
           -scheme DashBridge
           -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
+          -enableCodeCoverage NO
           -only-testing:DashBridgeUITests/SetupFlowUITests/testPhoneGuidanceWaitsForExplicitConnectAction
           -only-testing:DashBridgeUITests/SetupFlowUITests/testCheckingKeepsProgressUntilItOffersRetry
           -only-testing:DashBridgeUITests/SetupFlowUITests/testSavedChoiceMissingFromAppListCanBeRemoved
