@@ -1,61 +1,6 @@
 import CoreBluetooth
 import Foundation
 
-// Frozen by contracts/setup_gatt_v1/contract.json and checked against
-// firmware/apps/dashbridge_app/setup_composition.cpp. This is a setup/control channel;
-// notification text and call audio never pass through the app.
-enum BridgeService {
-    static let service = CBUUID(string: "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F0")
-    static let status = CBUUID(string: "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F1")
-    static let policy = CBUUID(string: "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F2")
-    static let command = CBUUID(string: "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F3")
-}
-
-struct BridgeStatus: Equatable {
-    let phoneBluetooth: Bool
-    let notifications: Bool
-    let phoneCalls: Bool
-    let internalLink: Bool
-    let teslaMessages: Bool
-    let teslaTransport: Bool
-    let teslaSync: Bool
-    let teslaCalls: Bool
-    let phonePairingOpen: Bool
-
-    init(_ data: Data) throws {
-        guard data.count >= 3, data[0] == 1 else { throw BridgeError.unsupportedStatus }
-        let bits = UInt16(data[1]) | (UInt16(data[2]) << 8)
-        self.init(bits: bits)
-    }
-
-    init(bits: UInt16) {
-        func has(_ bit: Int) -> Bool { (bits & (1 << bit)) != 0 }
-        phoneBluetooth = has(0)
-        notifications = has(1)
-        phoneCalls = has(2)
-        internalLink = has(3)
-        teslaMessages = has(4)
-        teslaTransport = has(5)
-        teslaSync = has(6)
-        teslaCalls = has(7)
-        phonePairingOpen = has(8)
-    }
-}
-
-enum BridgeError: LocalizedError {
-    case unsupportedStatus
-    case commandUnavailable
-    case commandTooLong
-
-    var errorDescription: String? {
-        switch self {
-        case .unsupportedStatus: "This DashBridge firmware is not supported."
-        case .commandUnavailable: "DashBridge is still connecting. Try again in a moment."
-        case .commandTooLong: "This app name is too long for DashBridge."
-        }
-    }
-}
-
 final class BridgeBluetooth: NSObject, ObservableObject {
     static let notFoundMessage = "The app can't find DashBridge. Make sure it's powered and not connected to another iPhone, then try again."
 
@@ -87,11 +32,21 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var presenceTimer: Timer?
     private var availabilityTimer: Timer?
     private var timedOut = false
-    private var pendingCommands: [Data] = []
+    private struct PendingCommand {
+        let command: BridgeCommand
+        let payload: Data
+    }
+
+    private var pendingCommands: [PendingCommand] = []
     private var writing = false
     private var lastPolicyRead = Date.distantPast
-    private let rememberedKey = "dashbridge.peripheral"
+    private let rememberedPeripheralStore: RememberedPeripheralPersisting
     private var incompatibleIdentifiers: Set<UUID> = []
+
+    init(rememberedPeripheralStore: RememberedPeripheralPersisting = UserDefaultsRememberedPeripheralStore()) {
+        self.rememberedPeripheralStore = rememberedPeripheralStore
+        super.init()
+    }
 
     func start() {
         if AppTestMode.progressPreview {
@@ -172,7 +127,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             withServices: [BridgeService.service, CBUUID(string: "1800")])
         if let match = connectedPeripherals.first(where: { candidate in
             guard let name = candidate.name else { return false }
-            return ["DashBridge A", "Dash Messages", "DashBridge"].contains {
+            return BridgeService.discoveryNames.contains {
                 name.caseInsensitiveCompare($0) == .orderedSame
             }
         }) {
@@ -185,8 +140,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             return
         }
         if tryRemembered,
-           let rawID = UserDefaults.standard.string(forKey: rememberedKey),
-           let id = UUID(uuidString: rawID),
+           let id = rememberedPeripheralStore.loadIdentifier(),
            let saved = manager.retrievePeripherals(withIdentifiers: [id]).first {
             // This is only a cached identifier, not evidence that the board
             // is powered or nearby. The connection must prove it is live.
@@ -252,8 +206,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
                 ? "Your iPhone connected to DashBridge, but the app couldn't check it yet."
                 : "DashBridge may be connected in iPhone Bluetooth settings, but the app couldn't reach it yet."
             if self.status == nil, let id = self.peripheral?.identifier,
-               UserDefaults.standard.string(forKey: self.rememberedKey) == id.uuidString {
-                UserDefaults.standard.removeObject(forKey: self.rememberedKey)
+               self.rememberedPeripheralStore.loadIdentifier() == id {
+                self.rememberedPeripheralStore.removeIdentifier(ifMatching: id)
             }
             if let peripheral = self.peripheral {
                 self.manager?.cancelPeripheralConnection(peripheral)
@@ -276,9 +230,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         findExistingOrScan(tryRemembered: false)
     }
 
-    func send(_ operation: UInt8, appID: String? = nil) {
-        var payload = Data([operation])
-        if let appID { payload.append(contentsOf: appID.utf8) }
+    func send(_ command: BridgeCommand) {
+        let payload = command.payload
         guard let peripheral, commandCharacteristic != nil else {
             commandError = BridgeError.commandUnavailable.localizedDescription
             return
@@ -287,7 +240,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             commandError = BridgeError.commandTooLong.localizedDescription
             return
         }
-        pendingCommands.append(payload)
+        pendingCommands.append(PendingCommand(command: command, payload: payload))
         sendNext()
     }
 
@@ -298,14 +251,14 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             return
         }
         if allowed { allowedIDs.insert(id) } else { allowedIDs.remove(id) }
-        send(allowed ? 1 : 2, appID: id)
+        send(allowed ? .allowApplication(id) : .denyApplication(id))
     }
 
     private func sendNext() {
         guard !writing, !pendingCommands.isEmpty,
               let peripheral, let commandCharacteristic else { return }
         writing = true
-        peripheral.writeValue(pendingCommands[0], for: commandCharacteristic, type: .withResponse)
+        peripheral.writeValue(pendingCommands[0].payload, for: commandCharacteristic, type: .withResponse)
     }
 
     private func refresh() {
@@ -322,7 +275,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     }
 
     private func clearConnection() {
-        let testWasPending = pendingCommands.contains { $0.first == 4 }
+        let testWasPending = pendingCommands.contains { $0.command == .beginNotificationTest }
         connectionTimer?.invalidate()
         connectionTimer = nil
         refreshTimer?.invalidate()
@@ -366,7 +319,7 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any], rssi: NSNumber) {
         let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name ?? ""
-        guard ["DashBridge A", "Dash Messages", "DashBridge"].contains(where: {
+        guard BridgeService.discoveryNames.contains(where: {
             name.caseInsensitiveCompare($0) == .orderedSame
         }), !incompatibleIdentifiers.contains(peripheral.identifier) else { return }
         guard discovered == nil || discovered?.identifier == peripheral.identifier else { return }
@@ -384,7 +337,7 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
             self.discovered = nil
             self.scan(clearError: false)
         }
-        if UserDefaults.standard.string(forKey: rememberedKey) == peripheral.identifier.uuidString,
+        if rememberedPeripheralStore.loadIdentifier() == peripheral.identifier,
            peripheral.ancsAuthorized {
             connectFound(requiresANCS: false)
         }
@@ -473,8 +426,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
             do {
                 status = try BridgeStatus(data)
                 if status?.notifications == true {
-                    UserDefaults.standard.set(peripheral.identifier.uuidString,
-                                              forKey: rememberedKey)
+                    rememberedPeripheralStore.saveIdentifier(peripheral.identifier)
                 }
                 connectionStage = "Ready"
                 connectionTimer?.invalidate()
@@ -493,17 +445,17 @@ extension BridgeBluetooth: CBPeripheralDelegate {
                     error: Error?) {
         guard self.peripheral === peripheral else { return }
         writing = false
-        let operation = pendingCommands.first?.first
+        let command = pendingCommands.first?.command
         if !pendingCommands.isEmpty { pendingCommands.removeFirst() }
         if error != nil {
-            commandError = operation == 1 || operation == 2
+            commandError = command?.operation == 1 || command?.operation == 2
                 ? "Couldn't save this app choice. Please try again."
-                : operation == 4
+                : command == .beginNotificationTest
                 ? "DashBridge couldn't start the test. Its firmware may be unsupported, or the Tesla connection isn't ready."
                 : "DashBridge couldn't complete that action. Please try again."
         } else {
             commandError = nil
-            if operation == 4 { testWindowGrants += 1 }
+            if command == .beginNotificationTest { testWindowGrants += 1 }
         }
         if let policyCharacteristic { peripheral.readValue(for: policyCharacteristic) }
         sendNext()

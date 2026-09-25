@@ -237,3 +237,7 @@ The automated architecture check protects the decisions most likely to regress:
 When a feature changes, update its portable rule and tests first, then the
 relevant protocol/adapter and this document. New behavior must not be introduced
 as a second state owner or a second versioned source tree.
+
+The companion app applies the same ownership rule internally. Its reducer,
+Bluetooth boundary, persistence boundaries, system-dialog contract, and visual
+flow are documented in [`ios/ARCHITECTURE.md`](ios/ARCHITECTURE.md).

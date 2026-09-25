@@ -2,6 +2,13 @@
 
 This is the native companion for the simplified setup flow. It finds Board A over Bluetooth, reads live setup status, saves the selected app IDs on Board A, and can reopen iPhone pairing. Tesla setup can be deferred. The test button schedules a local iPhone notification; Board A temporarily permits only that test through the normal ANCS path, without saving the companion app in the allowlist. Ordinary notification text and call audio continue to travel between the phone, boards, and Tesla; the app is not in that path.
 
+The internal design and the compatibility rules that keep the existing screens,
+navigation, and system-dialog triggers stable are documented in
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+Every fresh app session opens on **Welcome**. Bluetooth discovery and any
+iOS-owned Bluetooth prompt begin only after the user taps **Get started**.
+
 ## Run the preview
 
 Open `DashBridge.xcodeproj` in Xcode and choose an iPhone simulator. The simulator cannot pair with the ESP32 boards, so tap **Preview without hardware** on the welcome screen to walk through the screens. On the app-choice page, iOS may ask once for App & Website Usage permission to show the installed-app list. Granting it in the simulator affects the simulator only. Keep Xcode's normal simulator code-signing step enabled. Xcode embeds the Family Controls permissions as *simulated entitlements* in the app binary; `codesign -d --entitlements` can show an empty signature even when these simulated entitlements are present. A build made with `CODE_SIGNING_ALLOWED=NO` omits them and cannot load installed apps. Check the `__entitlements` section of the built simulator executable or the generated `DashBridge.app-Simulated.xcent` file when diagnosing this.

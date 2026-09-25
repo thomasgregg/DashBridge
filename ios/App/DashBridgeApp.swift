@@ -1,10 +1,4 @@
 import SwiftUI
-import UserNotifications
-
-private enum Step: Equatable {
-    case welcome, finding, checking, pair, sharing, apps
-    case car, test, ready, help
-}
 
 private enum Theme {
     static let accent = Color(uiColor: UIColor { traits in traits.userInterfaceStyle == .dark
@@ -65,24 +59,15 @@ struct DashBridgeApp: App {
 private struct SetupView: View {
     @StateObject private var bridge = BridgeBluetooth()
     @StateObject private var catalog = AppCatalog()
-    @AppStorage("dashbridge.welcomed") private var welcomed = false
-    @AppStorage("dashbridge.choseApps") private var choseApps = false
-    @AppStorage("dashbridge.testConfirmed") private var testConfirmed = false
-    @AppStorage("dashbridge.teslaDeferred") private var teslaDeferred = false
-    @AppStorage("dashbridge.completedDeviceID") private var completedDeviceID = ""
+    @StateObject private var flow = SetupFlowStore()
+    private let testNotifications: TestNotificationScheduling = SystemTestNotificationService()
 
-    @State private var step: Step = .welcome
-    @State private var initialized = false
     @State private var showingApps = false
     @State private var isPreview = false
     @State private var previewStatus: BridgeStatus?
     @State private var previewAllowed: Set<String> = []
-    @State private var reviewingCarStep = false
-    @State private var appsReturnStep: Step = .welcome
-    @State private var helpReturnStep: Step = .car
     @State private var copiedConnectionDetails = false
     @State private var checkingStartedAt: Date?
-    @State private var connectionRequestPending = false
     @State private var testNotificationPending = false
     @State private var testNotificationMessage: String?
 
@@ -91,8 +76,10 @@ private struct SetupView: View {
     private var status: BridgeStatus? { isPreview ? previewStatus : bridge.status }
     private var selected: Set<String> { isPreview ? previewAllowed : bridge.allowedIDs }
     private var connected: Bool { isPreview || bridge.connected }
+    private var step: SetupStep { flow.state.step }
+    private var progress: SetupProgress { flow.state.progress }
     private var showsBackButton: Bool {
-        step != .welcome && !(step == .ready && testConfirmed)
+        step != .welcome && !(step == .ready && progress.testConfirmed)
     }
 
     var body: some View {
@@ -112,8 +99,7 @@ private struct SetupView: View {
                     if step == .test {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button("Later") {
-                                teslaDeferred = true
-                                step = .ready
+                                send(.deferTesla)
                             }
                         }
                     }
@@ -125,14 +111,8 @@ private struct SetupView: View {
         }
         .tint(Theme.accent)
         .onAppear {
-            guard !initialized else { return }
-            initialized = true
             if AppTestMode.enabled {
-                welcomed = false
-                choseApps = false
-                testConfirmed = false
-                teslaDeferred = false
-                completedDeviceID = ""
+                send(.resetForTesting)
                 if AppTestMode.savedChoicePreview {
                     previewAllowed = ["net.whatsapp.WhatsAppSMB"]
                 }
@@ -141,16 +121,10 @@ private struct SetupView: View {
                     return
                 }
             }
-            if welcomed {
-                step = .finding
-                bridge.start()
-            }
+            send(.launch)
         }
         .onChange(of: bridge.foundName) { _, name in
-            if name != nil && step == .finding {
-                connectionRequestPending = true
-                step = .checking
-            }
+            if name != nil { send(.peripheralFound) }
         }
         .onChange(of: bridge.testWindowGrants) { _, _ in
             guard testNotificationPending else { return }
@@ -163,29 +137,18 @@ private struct SetupView: View {
             }
         }
         .onChange(of: bridge.connected) { _, value in
-            if value && step == .finding { step = .checking }
-            if !value && !isPreview && step == .checking && bridge.error == nil { step = .finding }
+            guard !isPreview else { return }
+            send(.connectionChanged(connected: value, hasError: bridge.error != nil))
         }
         .onChange(of: bridge.deviceID) { _, value in
             guard let id = value?.uuidString else { return }
-            if !completedDeviceID.isEmpty && completedDeviceID != id {
-                choseApps = false
-                testConfirmed = false
-                teslaDeferred = false
-            }
-            completedDeviceID = id
+            send(.deviceIdentified(id))
         }
         .onChange(of: bridge.status) { _, value in
-            if let value { route(for: value) }
+            if let value { send(.statusReceived(value)) }
         }
         .onChange(of: bridge.error) { _, value in
-            if value != nil && step == .checking {
-                helpReturnStep = .checking
-                step = .help
-            }
-        }
-        .onChange(of: step) { _, value in
-            if value == .apps || value == .ready { catalog.loadIfNeeded() }
+            if value != nil { send(.connectionFailedDuringCheck) }
         }
         .task(id: step) {
             guard step == .checking else {
@@ -193,8 +156,7 @@ private struct SetupView: View {
                 return
             }
             checkingStartedAt = Date()
-            if connectionRequestPending {
-                connectionRequestPending = false
+            if flow.state.connectionRequestPending {
                 // Let SwiftUI present the explanatory screen before asking
                 // Core Bluetooth to start an iOS-owned pairing/ANCS prompt.
                 // The prompt itself is controlled by iOS and may cover the app.
@@ -202,21 +164,17 @@ private struct SetupView: View {
                     try await Task.sleep(for: .milliseconds(350))
                 } catch { return }
                 guard step == .checking else { return }
-                bridge.connectFound()
+                send(.connectionGuidancePresented)
             }
             // A status can arrive while the found screen is still visible.
             // Equatable onChange won't fire again if the next read is identical.
-            if let status { route(for: status) }
+            if let status { send(.statusReceived(status)) }
             guard step == .checking else { return }
             do {
                 try await Task.sleep(for: .seconds(checkingDuration))
             } catch { return }
             guard step == .checking else { return }
-            bridge.error = connected
-                ? "Your iPhone connected to DashBridge, but the app couldn't check its setup yet."
-                : "The app couldn't reach DashBridge's setup connection yet."
-            helpReturnStep = .checking
-            step = .help
+            send(.checkingTimedOut(connected: connected))
         }
     }
 
@@ -279,7 +237,7 @@ private struct SetupView: View {
                 }
                 if status?.phonePairingOpen == false {
                     Section {
-                        Button("Open pairing for 2 minutes") { bridge.send(3) }
+                        Button("Open pairing for 2 minutes") { bridge.send(.openPhonePairing) }
                     }
                 }
                 if let commandError = bridge.commandError {
@@ -330,8 +288,7 @@ private struct SetupView: View {
                 }
                 if !isPreview {
                     Button("Didn’t see it on Tesla?") {
-                        helpReturnStep = .test
-                        step = .help
+                        send(.openHelp(returnTo: .test))
                     }
                     .font(.subheadline)
                 }
@@ -362,20 +319,18 @@ private struct SetupView: View {
                         }
                     }
                     Button(selected.isEmpty ? "Choose apps" : "Change apps") {
-                        appsReturnStep = .ready
-                        step = .apps
+                        send(.openAppsFromReady)
                     }
                 }
                 Section {
                     Button("Connection help") {
-                        helpReturnStep = .ready
-                        step = .help
+                        send(.openHelp(returnTo: .ready))
                     }
                 }
             }
             .contentMargins(.top, 0, for: .scrollContent)
         case .help:
-            if helpReturnStep == .checking && status == nil {
+            if flow.state.helpReturnStep == .checking && status == nil {
                 retryView
             } else {
                 brandedList {
@@ -566,12 +521,12 @@ private struct SetupView: View {
 
     private var completionHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(testConfirmed ? "You're all set!" : "iPhone is ready!")
+            Text(progress.testConfirmed ? "You're all set!" : "iPhone is ready!")
                 .font(.system(size: 35, weight: .semibold, design: .rounded))
                 .tracking(-1.4)
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
-            Text(testConfirmed
+            Text(progress.testConfirmed
                  ? (status?.notifications == true && status?.teslaMessages == true
                     ? "DashBridge is connected. Enjoy the drive."
                     : "Your last test passed. Connect DashBridge to check it again.")
@@ -684,19 +639,12 @@ private struct SetupView: View {
     @ViewBuilder
     private var actionBar: some View {
         if step == .welcome || step == .finding || step == .apps ||
-            step == .car || step == .test || step == .help || (step == .ready && !testConfirmed) {
+            step == .car || step == .test || step == .help || (step == .ready && !progress.testConfirmed) {
             VStack(spacing: 8) {
                 switch step {
                 case .welcome:
                     primary("Get started") {
-                        welcomed = true
-                        if connected {
-                            step = .checking
-                            if let status { route(for: status) }
-                        } else {
-                            step = .finding
-                            bridge.start()
-                        }
+                        send(.getStarted(connected: connected, status: status))
                     }
 #if targetEnvironment(simulator)
                     Button("Preview without hardware") {
@@ -708,8 +656,7 @@ private struct SetupView: View {
                         if bridge.bluetoothReady {
                             primary("Try again") {
                                 if connected, let status {
-                                    step = .checking
-                                    route(for: status)
+                                    send(.getStarted(connected: true, status: status))
                                 } else {
                                     bridge.retry()
                                 }
@@ -727,30 +674,23 @@ private struct SetupView: View {
                     }
                 case .apps:
                     primary("Continue") {
-                        choseApps = true
-                        if testConfirmed || teslaDeferred { step = .ready }
-                        else if status?.teslaMessages == true && status?.teslaCalls == true { step = .test }
-                        else {
-                            step = .car
-                        }
+                        send(.appsContinued(status: status))
                     }
                     .disabled(catalog.access != .available || (!isPreview && !bridge.policyLoaded))
                 case .car:
                     if isPreview {
                         primary("Preview connected car") {
-                            previewStatus = BridgeStatus(bits: 0b1111_1111)
-                            step = .test
+                            let connectedStatus = BridgeStatus(bits: 0b1111_1111)
+                            previewStatus = connectedStatus
+                            send(.statusReceived(connectedStatus))
                         }
-                    } else if reviewingCarStep && status?.teslaMessages == true && status?.teslaCalls == true {
+                    } else if flow.state.reviewingCarStep && status?.teslaMessages == true && status?.teslaCalls == true {
                         primary("Continue") {
-                            reviewingCarStep = false
-                            step = .test
+                            send(.carReviewContinued)
                         }
                     }
                     Button("Do this later") {
-                        teslaDeferred = true
-                        reviewingCarStep = false
-                        step = .ready
+                        send(.deferTesla)
                     }
                 case .test:
                     primary("Send test notification") {
@@ -758,27 +698,16 @@ private struct SetupView: View {
                     }
                     .disabled(testNotificationPending)
                     Button(isPreview ? "Preview ready screen" : "Message appeared on Tesla") {
-                        testConfirmed = true
-                        teslaDeferred = false
-                        step = .ready
+                        send(.confirmTest)
                     }
                 case .help:
-                    primary(helpReturnStep == .checking && status == nil ? "Try again" : "Done") {
-                        bridge.error = nil
-                        if testConfirmed { step = .ready }
-                        else if status?.teslaMessages == true { step = .test }
-                        else if status != nil { step = .car }
-                        else { step = .finding; bridge.retry() }
+                    primary(flow.state.helpReturnStep == .checking && status == nil ? "Try again" : "Done") {
+                        send(.helpDone(status: status))
                     }
                 case .ready:
                     primary(status?.teslaMessages == true && status?.teslaCalls == true
                             ? "Try a notification" : "Finish in the car") {
-                        if status?.teslaMessages == true && status?.teslaCalls == true {
-                            step = .test
-                        } else {
-                            reviewingCarStep = false
-                            step = .car
-                        }
+                        send(.readyAction(status: status))
                     }
                 default:
                     EmptyView()
@@ -823,100 +752,59 @@ private struct SetupView: View {
     private func startPreview() {
         isPreview = true
         if AppTestMode.checkingPreview {
-            step = .checking
+            send(.previewStarted(checking: true, cachedStatus: nil))
         } else if AppTestMode.cachedStatusPreview {
             previewStatus = BridgeStatus(bits: 0b0000_0101)
-            step = .checking
+            send(.previewStarted(checking: false, cachedStatus: previewStatus))
         } else {
             previewStatus = BridgeStatus(bits: 0b0000_1111)
-            appsReturnStep = .welcome
-            step = .apps
+            send(.previewStarted(checking: false, cachedStatus: nil))
         }
     }
 
     private func showPreviewScreen(_ screen: String) {
-        isPreview = true
-        switch screen {
-        case "welcome":
-            isPreview = false
-            step = .welcome
-        case "finding":
-            isPreview = false
-            step = .finding
-        case "checking":
-            step = .checking
-        case "retry":
-            bridge.error = "Your iPhone connected to DashBridge, but the app couldn't check its setup yet."
-            helpReturnStep = .checking
-            step = .help
-        case "pair-messages":
-            previewStatus = BridgeStatus(bits: 0b0000_0001)
-            step = .sharing
-        case "pair-calls":
-            previewStatus = BridgeStatus(bits: 0b0000_0011)
-            step = .pair
-        case "sharing":
-            previewStatus = BridgeStatus(bits: 0b0000_0101)
-            step = .sharing
-        case "apps":
-            previewStatus = BridgeStatus(bits: 0b0000_1111)
-            appsReturnStep = .welcome
-            step = .apps
-        case "car":
-            previewStatus = BridgeStatus(bits: 0b0000_1111)
-            previewAllowed = ["net.whatsapp.WhatsApp"]
-            step = .car
-        case "test":
-            previewStatus = BridgeStatus(bits: 0b1111_1111)
-            previewAllowed = ["net.whatsapp.WhatsApp"]
-            step = .test
-        case "ready-iphone":
-            previewStatus = BridgeStatus(bits: 0b0000_1111)
-            previewAllowed = ["net.whatsapp.WhatsApp"]
-            teslaDeferred = true
-            step = .ready
-        case "ready":
-            previewStatus = BridgeStatus(bits: 0b1111_1111)
-            previewAllowed = ["net.whatsapp.WhatsApp"]
-            testConfirmed = true
-            step = .ready
-        case "status":
-            previewStatus = BridgeStatus(bits: 0b1111_1111)
-            helpReturnStep = .ready
-            step = .help
-        default:
-            step = .welcome
+        guard let preview = SetupPreviewScreen(rawValue: screen) else {
+            send(.previewScreen(.welcome))
+            return
         }
+        isPreview = true
+        switch preview {
+        case .welcome:
+            isPreview = false
+        case .finding:
+            isPreview = false
+        case .checking:
+            break
+        case .retry:
+            bridge.error = "Your iPhone connected to DashBridge, but the app couldn't check its setup yet."
+        case .pairMessages:
+            previewStatus = BridgeStatus(bits: 0b0000_0001)
+        case .pairCalls:
+            previewStatus = BridgeStatus(bits: 0b0000_0011)
+        case .sharing:
+            previewStatus = BridgeStatus(bits: 0b0000_0101)
+        case .apps:
+            previewStatus = BridgeStatus(bits: 0b0000_1111)
+        case .car:
+            previewStatus = BridgeStatus(bits: 0b0000_1111)
+            previewAllowed = ["net.whatsapp.WhatsApp"]
+        case .test:
+            previewStatus = BridgeStatus(bits: 0b1111_1111)
+            previewAllowed = ["net.whatsapp.WhatsApp"]
+        case .readyIPhone:
+            previewStatus = BridgeStatus(bits: 0b0000_1111)
+            previewAllowed = ["net.whatsapp.WhatsApp"]
+        case .ready:
+            previewStatus = BridgeStatus(bits: 0b1111_1111)
+            previewAllowed = ["net.whatsapp.WhatsApp"]
+        case .status:
+            previewStatus = BridgeStatus(bits: 0b1111_1111)
+        }
+        send(.previewScreen(preview))
     }
 
     private func goBack() {
-        switch step {
-        case .welcome:
-            break
-        case .finding:
-            step = .welcome
-        case .checking, .pair, .sharing:
-            step = .welcome
-        case .apps:
-            step = appsReturnStep
-        case .car:
-            reviewingCarStep = false
-            step = .apps
-        case .test:
-            reviewingCarStep = true
-            step = .car
-        case .help:
-            if helpReturnStep == .checking {
-                step = .welcome
-            } else { step = helpReturnStep }
-        case .ready:
-            if testConfirmed {
-                step = .test
-            } else {
-                reviewingCarStep = true
-                step = .car
-            }
-        }
+        send(.back)
     }
 
     private var selectedChoices: [AppChoice] {
@@ -939,8 +827,7 @@ private struct SetupView: View {
                 return
             }
             do {
-                let allowed = try await UNUserNotificationCenter.current()
-                    .requestAuthorization(options: [.alert, .sound])
+                let allowed = try await testNotifications.requestAuthorization()
                 guard allowed else {
                     testNotificationMessage = "Allow DashBridge notifications in iPhone Settings to send a test."
                     return
@@ -958,8 +845,7 @@ private struct SetupView: View {
             return
         }
         do {
-            let allowed = try await UNUserNotificationCenter.current()
-                .requestAuthorization(options: [.alert, .sound])
+            let allowed = try await testNotifications.requestAuthorization()
             guard allowed else {
                 testNotificationMessage = "Allow DashBridge notifications in iPhone Settings to send a test."
                 return
@@ -967,23 +853,15 @@ private struct SetupView: View {
             guard step == .test else { return }
             testNotificationPending = true
             testNotificationMessage = "Preparing your test…"
-            bridge.send(4)
+            bridge.send(.beginNotificationTest)
         } catch {
             testNotificationMessage = "The iPhone couldn't prepare a test notification. Try again."
         }
     }
 
     private func scheduleTestNotification(previewOnly: Bool = false) async {
-        let content = UNMutableNotificationContent()
-        content.title = "DashBridge test"
-        content.body = previewOnly
-            ? "Your iPhone can show the test. Connect DashBridge to send notifications to your Tesla."
-            : "If this message appears on your Tesla, notifications are working."
-        content.sound = .default
-        let request = UNNotificationRequest(identifier: "dashbridge-test-\(UUID().uuidString)",
-            content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 12, repeats: false))
         do {
-            try await UNUserNotificationCenter.current().add(request)
+            try await testNotifications.schedule(previewOnly: previewOnly)
             testNotificationMessage = previewOnly
                 ? "A test will appear on this iPhone shortly. Connect DashBridge to test your Tesla."
                 : "Test arriving shortly. Lock your iPhone and watch your Tesla screen."
@@ -993,22 +871,22 @@ private struct SetupView: View {
         testNotificationPending = false
     }
 
-    private func route(for value: BridgeStatus) {
-        if step == .checking || step == .pair || step == .sharing {
-            if value.phoneCalls && value.notifications {
-                if choseApps {
-                    step = testConfirmed || teslaDeferred ? .ready
-                        : (value.teslaMessages && value.teslaCalls ? .test : .car)
-                } else {
-                    appsReturnStep = .welcome
-                    step = .apps
-                }
-                return
+    private func send(_ event: SetupFlowEvent) {
+        for effect in flow.send(event) {
+            switch effect {
+            case .startBluetooth:
+                bridge.start()
+            case .connectFound:
+                bridge.connectFound()
+            case .retryBluetooth:
+                bridge.retry()
+            case .loadCatalog:
+                catalog.loadIfNeeded()
+            case .clearBluetoothError:
+                bridge.error = nil
+            case let .setBluetoothError(message):
+                bridge.error = message
             }
-            step = value.notifications ? .pair : .sharing
-        }
-        if step == .car && !reviewingCarStep && value.teslaMessages && value.teslaCalls {
-            step = testConfirmed ? .ready : .test
         }
     }
 }

@@ -7,11 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0DBB7FD734D59377569AF75D /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 028C04C094C548FA10DFA59C /* SetupFlow.swift */; };
 		1C3A6B674F6294662AF76AE1 /* SetupFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A214C22EED959D481885FD1A /* SetupFlowUITests.swift */; };
 		3E4CA7B7C4BFA6C476D4686A /* DashBridgeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC68C6D1E9D48F1400D14D1E /* DashBridgeApp.swift */; };
+		8CAF0645BF50A0629725C99B /* SetupProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2874D767F82258B4F6D223E6 /* SetupProgressStore.swift */; };
+		9E761C0C738546B53911EFBB /* TestNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0801337362DD4901E2BF55D /* TestNotificationService.swift */; };
+		A05EFC578A1A24EEFDF16BD8 /* SetupFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D51F10544B789DA21B8C71F /* SetupFlowTests.swift */; };
 		B5FC10D6589C47741715BBC2 /* AppCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB3FCC326C5B0300BAA7C2F /* AppCatalog.swift */; };
 		C437D9F8D6EDEE38B3C0A8E5 /* BridgeBluetooth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DE5488E6EC9BFC024D2E879 /* BridgeBluetooth.swift */; };
+		CAAC015D6244DBA297416CD1 /* BridgeContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F4E5469D7BDB5A6EC2EC974 /* BridgeContractTests.swift */; };
 		DD33347808B73FEF9D3D1E5A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EC83399481237AB54F56FA53 /* Assets.xcassets */; };
+		DF84CF6F12802D04186BC3CD /* BridgeContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15113EF8F2CA88A719E67E02 /* BridgeContract.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -22,17 +28,31 @@
 			remoteGlobalIDString = 4617C61FFDD34337FFE998CF;
 			remoteInfo = DashBridge;
 		};
+		59300F1C42773BF8BFC9F835 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BBD8989DB5F40A9D1C4CE9BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4617C61FFDD34337FFE998CF;
+			remoteInfo = DashBridge;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		028C04C094C548FA10DFA59C /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlow.swift; sourceTree = "<group>"; };
+		0F4E5469D7BDB5A6EC2EC974 /* BridgeContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeContractTests.swift; sourceTree = "<group>"; };
+		15113EF8F2CA88A719E67E02 /* BridgeContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeContract.swift; sourceTree = "<group>"; };
+		2874D767F82258B4F6D223E6 /* SetupProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupProgressStore.swift; sourceTree = "<group>"; };
 		2F8F5E25B8D0A4081CC170B0 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
 		328D4FEEEFE4C7A1841A11A5 /* DashBridge.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DashBridge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CB3FCC326C5B0300BAA7C2F /* AppCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCatalog.swift; sourceTree = "<group>"; };
 		6DE5488E6EC9BFC024D2E879 /* BridgeBluetooth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeBluetooth.swift; sourceTree = "<group>"; };
+		7D51F10544B789DA21B8C71F /* SetupFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlowTests.swift; sourceTree = "<group>"; };
 		8FDDD1DCE65002B66F3EFF63 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A214C22EED959D481885FD1A /* SetupFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlowUITests.swift; sourceTree = "<group>"; };
 		A2C498BD933BFF51571D3B2C /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		A31BA0CA15F512D8F56585E7 /* DashBridgeUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DashBridgeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA3E80137F2B78ACA1DC3E52 /* DashBridgeTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DashBridgeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0801337362DD4901E2BF55D /* TestNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestNotificationService.swift; sourceTree = "<group>"; };
 		EC83399481237AB54F56FA53 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FC68C6D1E9D48F1400D14D1E /* DashBridgeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashBridgeApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -54,10 +74,20 @@
 			path = UITests;
 			sourceTree = "<group>";
 		};
+		CA9129A4182DB6B5CE8CC187 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				0F4E5469D7BDB5A6EC2EC974 /* BridgeContractTests.swift */,
+				7D51F10544B789DA21B8C71F /* SetupFlowTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
 		D626C4629A9B71F9B2B8FA67 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				328D4FEEEFE4C7A1841A11A5 /* DashBridge.app */,
+				AA3E80137F2B78ACA1DC3E52 /* DashBridgeTests.xctest */,
 				A31BA0CA15F512D8F56585E7 /* DashBridgeUITests.xctest */,
 			);
 			name = Products;
@@ -70,8 +100,12 @@
 				5CB3FCC326C5B0300BAA7C2F /* AppCatalog.swift */,
 				EC83399481237AB54F56FA53 /* Assets.xcassets */,
 				6DE5488E6EC9BFC024D2E879 /* BridgeBluetooth.swift */,
+				15113EF8F2CA88A719E67E02 /* BridgeContract.swift */,
 				FC68C6D1E9D48F1400D14D1E /* DashBridgeApp.swift */,
 				8FDDD1DCE65002B66F3EFF63 /* Info.plist */,
+				028C04C094C548FA10DFA59C /* SetupFlow.swift */,
+				2874D767F82258B4F6D223E6 /* SetupProgressStore.swift */,
+				B0801337362DD4901E2BF55D /* TestNotificationService.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -81,6 +115,7 @@
 			children = (
 				E3F9213A069F5EED4E834799 /* App */,
 				A6F80E923D6F738747F7B33D /* Config */,
+				CA9129A4182DB6B5CE8CC187 /* Tests */,
 				CA43528F66238BD4841DC538 /* UITests */,
 				D626C4629A9B71F9B2B8FA67 /* Products */,
 			);
@@ -106,6 +141,24 @@
 			productName = DashBridge;
 			productReference = 328D4FEEEFE4C7A1841A11A5 /* DashBridge.app */;
 			productType = "com.apple.product-type.application";
+		};
+		8FC44A4DABF93AFA58064D42 /* DashBridgeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6D889A233D6B45577C48CA31 /* Build configuration list for PBXNativeTarget "DashBridgeTests" */;
+			buildPhases = (
+				5D252AF553D75145EF4A51B3 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7AC771D86F702C9F54178704 /* PBXTargetDependency */,
+			);
+			name = DashBridgeTests;
+			packageProductDependencies = (
+			);
+			productName = DashBridgeTests;
+			productReference = AA3E80137F2B78ACA1DC3E52 /* DashBridgeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		EA3B76694ED12AF52CEF854C /* DashBridgeUITests */ = {
 			isa = PBXNativeTarget;
@@ -138,6 +191,10 @@
 						DevelopmentTeam = BB4MFJBDC7;
 						ProvisioningStyle = Automatic;
 					};
+					8FC44A4DABF93AFA58064D42 = {
+						DevelopmentTeam = BB4MFJBDC7;
+						ProvisioningStyle = Automatic;
+					};
 					EA3B76694ED12AF52CEF854C = {
 						DevelopmentTeam = BB4MFJBDC7;
 						ProvisioningStyle = Automatic;
@@ -160,6 +217,7 @@
 			projectRoot = "";
 			targets = (
 				4617C61FFDD34337FFE998CF /* DashBridge */,
+				8FC44A4DABF93AFA58064D42 /* DashBridgeTests */,
 				EA3B76694ED12AF52CEF854C /* DashBridgeUITests */,
 			);
 		};
@@ -185,13 +243,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5D252AF553D75145EF4A51B3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CAAC015D6244DBA297416CD1 /* BridgeContractTests.swift in Sources */,
+				A05EFC578A1A24EEFDF16BD8 /* SetupFlowTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A852058BF873CC3942E6B8CB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				B5FC10D6589C47741715BBC2 /* AppCatalog.swift in Sources */,
 				C437D9F8D6EDEE38B3C0A8E5 /* BridgeBluetooth.swift in Sources */,
+				DF84CF6F12802D04186BC3CD /* BridgeContract.swift in Sources */,
 				3E4CA7B7C4BFA6C476D4686A /* DashBridgeApp.swift in Sources */,
+				0DBB7FD734D59377569AF75D /* SetupFlow.swift in Sources */,
+				8CAF0645BF50A0629725C99B /* SetupProgressStore.swift in Sources */,
+				9E761C0C738546B53911EFBB /* TestNotificationService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -202,6 +273,11 @@
 			isa = PBXTargetDependency;
 			target = 4617C61FFDD34337FFE998CF /* DashBridge */;
 			targetProxy = 37EFB6ABC580076D5AE33A35 /* PBXContainerItemProxy */;
+		};
+		7AC771D86F702C9F54178704 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4617C61FFDD34337FFE998CF /* DashBridge */;
+			targetProxy = 59300F1C42773BF8BFC9F835 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -227,6 +303,27 @@
 			};
 			name = Release;
 		};
+		2CDD0B3F8F7248E3DEF09758 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BB4MFJBDC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.dashbridge.companion.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DashBridge.app/DashBridge";
+			};
+			name = Debug;
+		};
 		54EE2BA3A87CE1AB05505BC2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2F8F5E25B8D0A4081CC170B0 /* Version.xcconfig */;
@@ -247,6 +344,27 @@
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		69F6AC27C0CF2E7472F6A9BD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BB4MFJBDC7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.dashbridge.companion.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DashBridge.app/DashBridge";
 			};
 			name = Release;
 		};
@@ -428,6 +546,15 @@
 			buildConfigurations = (
 				DAC282E19C301367DE6301D1 /* Debug */,
 				54EE2BA3A87CE1AB05505BC2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6D889A233D6B45577C48CA31 /* Build configuration list for PBXNativeTarget "DashBridgeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2CDD0B3F8F7248E3DEF09758 /* Debug */,
+				69F6AC27C0CF2E7472F6A9BD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

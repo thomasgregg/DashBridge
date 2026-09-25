@@ -50,3 +50,18 @@ targets:
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: YES
+  DashBridgeTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.4"
+    sources:
+      - path: Tests
+    dependencies:
+      - target: DashBridge
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.dashbridge.companion.tests
+        DEVELOPMENT_TEAM: BB4MFJBDC7
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES

@@ -21,8 +21,11 @@ def require(condition: bool, message: str) -> None:
 
 readme = (ROOT / "README.md").read_text()
 architecture_document = (ROOT / "ARCHITECTURE.md").read_text()
+ios_architecture_path = ROOT / "ios/ARCHITECTURE.md"
 require("[Architecture](ARCHITECTURE.md)" in readme,
         "README must link the canonical architecture guide")
+require(ios_architecture_path.is_file(),
+        "iOS must document its flow, system-dialog, and persistence boundaries")
 for section in (
     "## Bluetooth identities",
     "## Functional paths",
@@ -126,7 +129,7 @@ except (OSError, json.JSONDecodeError) as error:
     contract = None
 
 if contract:
-    swift_path = ROOT / "ios/App/BridgeBluetooth.swift"
+    swift_path = ROOT / "ios/App/BridgeContract.swift"
     setup_composition_path = ROOT / "firmware/apps/dashbridge_app/setup_composition.cpp"
     protocol_header_path = ROOT / "firmware/protocols/setup_gatt_v1/include/dashbridge/protocols/setup_gatt_v1.hpp"
     protocol_source_path = ROOT / "firmware/protocols/setup_gatt_v1/setup_gatt_v1.cpp"
@@ -318,7 +321,7 @@ if contract:
         require(f'"{name}"' in swift, f'iOS no longer recognizes released local name "{name}"')
 
     status = contract["status"]
-    require(f"data.count >= {status['length']}" in swift,
+    require(f"data.count == {status['length']}" in swift,
             "iOS setup status length differs from setup GATT v1 contract")
     require(f"data[0] == {status['version_byte']}" in swift,
             "iOS setup status version differs from setup GATT v1 contract")
@@ -353,11 +356,13 @@ if contract:
             "setup GATT adapter command size or security differs from its contract")
     require("ESP_GATT_PERM_READ_ENCRYPTED" in adapter,
             "setup GATT adapter policy read is no longer encrypted")
-    require("send(allowed ? 1 : 2" in swift,
+    require("case .allowApplication: 1" in swift and
+            "case .denyApplication: 2" in swift,
             "iOS allow/deny command operations differ from setup GATT v1 contract")
-    for operation in (3, 4):
-        require(f"send({operation})" in all_swift,
-                f"iOS command {operation} is no longer represented")
+    typed_operations = {3: "openPhonePairing", 4: "beginNotificationTest"}
+    for operation, command in typed_operations.items():
+        require(f"case .{command}: {operation}" in swift,
+                f"iOS command {operation} is no longer represented by a typed command")
         require(f"operation == {operation}" in protocol_source,
                 f"setup GATT v1 command {operation} is no longer represented")
 
