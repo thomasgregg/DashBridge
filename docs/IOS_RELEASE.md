@@ -1,4 +1,4 @@
-# DashBridge iOS app 1.0 (build 19)
+# DashBridge iOS app 1.0 (build 20)
 
 The companion app finds Board A, guides iPhone pairing, reads live setup
 status, saves notification app choices, and can send a local test notification.
@@ -22,12 +22,15 @@ A signed physical-device build also requires the Apple entitlements described
 in the [iOS guide](../ios/README.md). First pairing, reconnection, notification
 delivery, and the complete parked-car flow remain physical release checks.
 
-The `ios-v1.0-b19` tag creates the independent GitHub release record after a
+The `ios-v1.0-b20` tag creates the independent GitHub release record after a
 clean build. TestFlight or App Store distribution remains a signed Xcode/App
 Store Connect step because signing credentials are not stored in this
 repository.
 
-## Build 19 changes
+## Build 20 changes
+
+- Supersedes build 19, which remained in Apple processing. The app code and
+  pairing behavior are unchanged from that verified build.
 
 - Opens Apple's accessory picker immediately and only after **Connect my
   iPhone** is tapped; an early request waits for session activation instead of
