@@ -6,8 +6,9 @@ The internal design and the compatibility rules that keep the existing screens,
 navigation, and system-dialog triggers stable are documented in
 [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-Every fresh app session opens on **Welcome**. Bluetooth discovery and any
-iOS-owned Bluetooth prompt begin only after the user taps **Get started**.
+Every fresh app session opens on **Welcome**. It asks the user to connect
+DashBridge to power before Bluetooth discovery begins. Discovery and any
+iOS-owned Bluetooth prompt begin only after the user confirms **It's plugged in**.
 
 ## Run the preview
 

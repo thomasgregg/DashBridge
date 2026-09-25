@@ -196,20 +196,6 @@ private struct SetupView: View {
                     .padding(.top, 18)
                 welcomeArtwork
                     .padding(.top, 44)
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "powerplug")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .accessibilityHidden(true)
-                    Text("Plug DashBridge into power and keep it near your iPhone.")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Theme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background(Theme.soft, in: RoundedRectangle(cornerRadius: 16))
-                .padding(.top, 18)
                 Spacer(minLength: 0)
             }
             .padding(24)
@@ -657,7 +643,17 @@ private struct SetupView: View {
             VStack(spacing: 8) {
                 switch step {
                 case .welcome:
-                    primary("Get started") {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Plug in your DashBridge")
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(Theme.ink)
+                        Text("Connect it to power and keep it near your iPhone.")
+                            .font(.system(size: 16))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 8)
+                    primary("It's plugged in") {
                         send(.getStarted(connected: connected, status: status))
                     }
 #if targetEnvironment(simulator)

@@ -6,10 +6,8 @@ final class SetupFlowUITests: XCTestCase {
         app.launchArguments = ["-dashbridge-ui-testing"]
         app.launch()
 
-        let instruction = app.staticTexts[
-            "Plug DashBridge into power and keep it near your iPhone."
-        ]
-        let getStarted = app.buttons["Get started"]
+        let instruction = app.staticTexts["Connect it to power and keep it near your iPhone."]
+        let getStarted = app.buttons["It's plugged in"]
         XCTAssertTrue(instruction.waitForExistence(timeout: 5))
         XCTAssertTrue(getStarted.exists)
         XCTAssertLessThan(instruction.frame.minY, getStarted.frame.minY)
@@ -89,7 +87,7 @@ final class SetupFlowUITests: XCTestCase {
         app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-progress-preview"]
         app.launch()
 
-        app.buttons["Get started"].tap()
+        app.buttons["It's plugged in"].tap()
         let progress = app.progressIndicators["Connection check progress"]
         XCTAssertTrue(progress.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Connecting…"].exists)
@@ -104,7 +102,7 @@ final class SetupFlowUITests: XCTestCase {
         app.launchArguments = ["-dashbridge-ui-testing"]
         app.launch()
 
-        app.buttons["Get started"].tap()
+        app.buttons["It's plugged in"].tap()
         XCTAssertTrue(app.buttons["Preview without hardware"].waitForExistence(timeout: 20))
         XCTAssertFalse(app.staticTexts["Looking nearby…"].exists)
     }
@@ -120,7 +118,7 @@ final class SetupFlowUITests: XCTestCase {
         app.buttons["Back"].tap()
         XCTAssertTrue(app.staticTexts["Welcome to"].waitForExistence(timeout: 5))
 
-        app.buttons["Get started"].tap()
+        app.buttons["It's plugged in"].tap()
         XCTAssertTrue(app.staticTexts["Choose your apps."].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Connecting…"].exists)
     }

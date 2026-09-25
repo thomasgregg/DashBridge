@@ -63,7 +63,7 @@ mutating navigation directly.
 ```mermaid
 stateDiagram-v2
     [*] --> Welcome
-    Welcome --> Finding: Get started
+    Welcome --> Finding: Confirm DashBridge is powered
     Finding --> Checking: Dash Messages discovered
     Checking --> Sharing: notification sharing not ready
     Sharing --> PairCalls: notification sharing ready
@@ -91,7 +91,7 @@ points must not move during refactors.
 
 | System behavior | Application trigger | Required ordering |
 | --- | --- | --- |
-| Bluetooth application permission | First creation of `CBCentralManager` | Every fresh app session first shows Welcome. Setup and Bluetooth begin only after **Get started**. |
+| Bluetooth application permission | First creation of `CBCentralManager` | Every fresh app session first shows Welcome. Setup and Bluetooth begin only after the user confirms **It's plugged in**. |
 | Dash Messages pairing and notification sharing | `connect(_:options:)` with `CBConnectPeripheralOptionRequiresANCS` | The **Connecting…** guidance is rendered first, followed by the existing short delay, then the connection request. |
 | Encrypted policy access | Read the policy characteristic | Only after status reports notification sharing ready, avoiding a competing security exchange. |
 | App & Website Usage | Load the installed-app catalog | When entering app selection or the ready screen, never during launch. |
