@@ -36,12 +36,12 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var presenceTimer: Timer?
     private var availabilityTimer: Timer?
     private var timedOut = false
+    private var appActive = true
 #if !targetEnvironment(simulator)
     private var accessorySession: ASAccessorySession?
     private var accessorySessionReady = false
     private var pickerAccessory: ASAccessory?
     private var authorizedPeripheralID: UUID?
-    private var connectAfterAuthorization = false
     private var pickerPresentationRequested = false
     private var pickerPresented = false
 #endif
@@ -64,6 +64,10 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             options[CBConnectPeripheralOptionRequiresANCS] = true
         }
         return options
+    }
+
+    static func reconnectRequiresANCS(ancsAuthorized: Bool) -> Bool {
+        !ancsAuthorized
     }
 
     init(rememberedPeripheralStore: RememberedPeripheralPersisting = UserDefaultsRememberedPeripheralStore()) {
@@ -138,7 +142,6 @@ final class BridgeBluetooth: NSObject, ObservableObject {
                 return
             }
             authorizedPeripheralID = identifier
-            connectAfterAuthorization = true
             foundName = accessory.displayName
             beginCoreBluetooth()
         case .pickerSetupFailed:
@@ -208,13 +211,11 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         let image = Self.pickerProductImage()
         let display = ASPickerDisplayItem(name: "DashBridge", productImage: image,
                                           descriptor: descriptor)
-        display.setupOptions = [.finishInApp]
         var items: [ASPickerDisplayItem] = [display]
         if let remembered = rememberedPeripheralStore.loadIdentifier() {
             let migration = ASMigrationDisplayItem(name: "DashBridge", productImage: image,
                                                    descriptor: descriptor)
             migration.peripheralIdentifier = remembered
-            migration.setupOptions = [.finishInApp]
             // Keep the ordinary discovery item too. A migration-only picker
             // shows Apple's migration information screen and can strand a
             // freshly-reset board behind a stale Core Bluetooth identifier.
@@ -299,17 +300,19 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     }
 
     private func findExistingOrScan(clearError: Bool = true, tryRemembered: Bool = true) {
-        guard let manager, manager.state == .poweredOn, !connected else { return }
+        guard appActive, let manager, manager.state == .poweredOn, !connected,
+              peripheral == nil else { return }
         if clearError { error = nil }
 #if !targetEnvironment(simulator)
         if let identifier = authorizedPeripheralID,
            let selected = manager.retrievePeripherals(withIdentifiers: [identifier]).first {
             discovered = selected
             foundName = selected.name ?? "DashBridge"
-            if connectAfterAuthorization {
-                connectAfterAuthorization = false
-                connectFound(requiresANCS: true)
-            }
+            // Authorization survives a temporary app interruption. Always
+            // reconnect the selected accessory; requiring ANCS again is only
+            // necessary until iOS reports that notification sharing is ready.
+            connectFound(requiresANCS: Self.reconnectRequiresANCS(
+                ancsAuthorized: selected.ancsAuthorized))
             return
         }
         // AccessorySetupKit owns first-time discovery. Core Bluetooth is used
@@ -355,7 +358,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     }
 
     func scan(clearError: Bool = true) {
-        guard let manager, manager.state == .poweredOn, !connected else { return }
+        guard appActive, let manager, manager.state == .poweredOn, !connected else { return }
         if clearError { error = nil }
         scanTimer?.invalidate()
         presenceTimer?.invalidate()
@@ -380,7 +383,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     }
 
     func connectFound(requiresANCS: Bool = true) {
-        guard let discovered, let manager else {
+        guard appActive, let discovered, let manager else {
 #if !targetEnvironment(simulator)
             requestAccessoryPicker()
 #endif
@@ -402,9 +405,13 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         // system-owned setup. Declaring bridging in AccessorySetupKit only
         // authorizes it; this Core Bluetooth option performs it.
         manager.connect(discovered, options: Self.connectionOptions(requiresANCS: requiresANCS))
+        scheduleConnectionTimeout()
+    }
+
+    private func scheduleConnectionTimeout() {
         connectionTimer?.invalidate()
         connectionTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: false) { [weak self] _ in
-            guard let self, self.status == nil else { return }
+            guard let self, self.appActive, self.status == nil else { return }
             self.timedOut = true
             self.error = self.connected
                 ? "Your iPhone connected to DashBridge, but the app couldn't check it yet."
@@ -417,6 +424,36 @@ final class BridgeBluetooth: NSObject, ObservableObject {
                 self.manager?.cancelPeripheralConnection(peripheral)
             }
             self.clearConnection()
+        }
+    }
+
+    func setAppActive(_ active: Bool) {
+        appActive = active
+        if !active {
+            // Time spent in Apple's setup UI or Bluetooth Settings must not
+            // consume the foreground connection deadline.
+            connectionTimer?.invalidate()
+            connectionTimer = nil
+            scanTimer?.invalidate()
+            scanTimer = nil
+            presenceTimer?.invalidate()
+            presenceTimer = nil
+            availabilityTimer?.invalidate()
+            availabilityTimer = nil
+            manager?.stopScan()
+            scanning = false
+            endTimedCheck()
+            return
+        }
+
+        guard manager?.state == .poweredOn else { return }
+        timedOut = false
+        error = nil
+        if connected {
+            if status == nil { scheduleConnectionTimeout() }
+            refresh()
+        } else {
+            findExistingOrScan(tryRemembered: false)
         }
     }
 
@@ -571,16 +608,19 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
         guard self.peripheral?.identifier == peripheral.identifier else { return }
-        self.error = error?.localizedDescription ?? "Could not connect to DashBridge."
+        if appActive {
+            self.error = error?.localizedDescription ?? "Could not connect to DashBridge."
+        }
         clearConnection()
+        if appActive { findExistingOrScan(tryRemembered: false) }
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral,
                         error: Error?) {
         guard self.peripheral?.identifier == peripheral.identifier else { return }
-        if let error { self.error = error.localizedDescription }
+        if appActive, let error { self.error = error.localizedDescription }
         clearConnection()
-        if !timedOut && !incompatibleIdentifiers.contains(peripheral.identifier) {
+        if appActive, !timedOut && !incompatibleIdentifiers.contains(peripheral.identifier) {
             findExistingOrScan(tryRemembered: false)
         }
         timedOut = false

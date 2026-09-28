@@ -41,4 +41,9 @@ final class BridgeContractTests: XCTestCase {
         XCTAssertNil(reconnect[CBConnectPeripheralOptionRequiresANCS])
         XCTAssertEqual(reconnect[CBConnectPeripheralOptionEnableTransportBridgingKey] as? Bool, true)
     }
+
+    func testAuthorizedAccessoryReconnectOnlyRepeatsANCSWhenNeeded() {
+        XCTAssertTrue(BridgeBluetooth.reconnectRequiresANCS(ancsAuthorized: false))
+        XCTAssertFalse(BridgeBluetooth.reconnectRequiresANCS(ancsAuthorized: true))
+    }
 }

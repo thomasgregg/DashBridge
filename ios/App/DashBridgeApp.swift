@@ -113,6 +113,7 @@ struct DashBridgeApp: App {
 }
 
 private struct SetupView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var bridge = BridgeBluetooth()
     @StateObject private var catalog = AppCatalog()
     @StateObject private var flow = SetupFlowStore()
@@ -144,59 +145,7 @@ private struct SetupView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .background(Theme.background.ignoresSafeArea())
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar(showsBackButton ? .visible : .hidden, for: .navigationBar)
-                .toolbar {
-                    if showsBackButton {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(action: goBack) {
-                                Label("Back", systemImage: "chevron.left")
-                            }
-                        }
-                    }
-                    if step == .test {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("Later") {
-                                send(.deferTesla)
-                            }
-                        }
-                    }
-                }
-                .safeAreaInset(edge: .bottom) { actionBar }
-                .sheet(isPresented: $showingApps) {
-                    InstalledAppsSheet(catalog: catalog, selected: selected, onToggle: toggle)
-                }
-        }
-        .tint(Theme.accent)
-        .onAppear {
-            if AppTestMode.enabled {
-                send(.resetForTesting)
-                if AppTestMode.savedChoicePreview {
-                    previewAllowed = ["net.whatsapp.WhatsAppSMB"]
-                }
-                if let screen = AppTestMode.screenPreview {
-                    showPreviewScreen(screen)
-                    return
-                }
-            }
-            send(.launch)
-        }
-        .onChange(of: bridge.foundName) { _, name in
-            if name != nil { send(.peripheralFound) }
-        }
-        .onChange(of: bridge.accessorySetupReady) { _, ready in
-            if ready { send(.accessorySetupReady) }
-        }
-        .onChange(of: bridge.accessoryPickerCancellations) { _, _ in
-            send(.accessoryPickerCancelled)
-        }
-        .onChange(of: bridge.testWindowGrants) { _, _ in
-            guard testNotificationPending else { return }
-            Task { await scheduleTestNotification() }
-        }
+        observedSetup
         .onChange(of: bridge.commandError) { _, message in
             if testNotificationPending, let message {
                 testNotificationPending = false
@@ -230,6 +179,66 @@ private struct SetupView: View {
             } catch { return }
             guard step == .checking else { return }
             send(.checkingTimedOut(connected: connected))
+        }
+    }
+
+    private var observedSetup: some View {
+        NavigationStack {
+            content
+                .background(Theme.background.ignoresSafeArea())
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(showsBackButton ? .visible : .hidden, for: .navigationBar)
+                .toolbar {
+                    if showsBackButton {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(action: goBack) {
+                                Label("Back", systemImage: "chevron.left")
+                            }
+                        }
+                    }
+                    if step == .test {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Later") {
+                                send(.deferTesla)
+                            }
+                        }
+                    }
+                }
+                .safeAreaInset(edge: .bottom) { actionBar }
+                .sheet(isPresented: $showingApps) {
+                    InstalledAppsSheet(catalog: catalog, selected: selected, onToggle: toggle)
+                }
+        }
+        .tint(Theme.accent)
+        .onAppear {
+            bridge.setAppActive(true)
+            if AppTestMode.enabled {
+                send(.resetForTesting)
+                if AppTestMode.savedChoicePreview {
+                    previewAllowed = ["net.whatsapp.WhatsAppSMB"]
+                }
+                if let screen = AppTestMode.screenPreview {
+                    showPreviewScreen(screen)
+                    return
+                }
+            }
+            send(.launch)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            bridge.setAppActive(phase == .active)
+        }
+        .onChange(of: bridge.foundName) { _, name in
+            if name != nil { send(.peripheralFound) }
+        }
+        .onChange(of: bridge.accessorySetupReady) { _, ready in
+            if ready { send(.accessorySetupReady) }
+        }
+        .onChange(of: bridge.accessoryPickerCancellations) { _, _ in
+            send(.accessoryPickerCancelled)
+        }
+        .onChange(of: bridge.testWindowGrants) { _, _ in
+            guard testNotificationPending else { return }
+            Task { await scheduleTestNotification() }
         }
     }
 
@@ -283,7 +292,7 @@ private struct SetupView: View {
                                            detail: "Allow access so selected messages can reach your Tesla.")
                         connectionGuideRow(number: 3,
                                            title: "Connect calls and music",
-                                           detail: "Included in the iPhone setup.")
+                                           detail: "Handled during setup—no trip to Bluetooth Settings needed.")
                     }
                 }
             } else {
@@ -496,7 +505,7 @@ private struct SetupView: View {
                                     : status?.phoneBluetooth == true ? .waiting : .next)
                 connectionStatusRow("Calls and music",
                                     detail: status?.notifications == true
-                                    ? "iPhone is finishing the Dash Calls connection."
+                                    ? "Keep this app open while iPhone finishes Dash Calls."
                                     : "Included in the system setup.",
                                     symbol: "phone",
                                     state: status?.phoneCalls == true ? .ready

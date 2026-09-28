@@ -254,8 +254,14 @@ if contract:
             "showPicker(for:" in all_swift and
             ".bluetoothTransportBridging" in all_swift and
             "CBConnectPeripheralOptionEnableTransportBridgingKey" in ios_bluetooth and
+            ".finishInApp" not in ios_bluetooth and
             "In Settings → Bluetooth, tap Dash Calls." not in all_swift,
-            "the iOS app must authorize and activate system bridging for Dash Calls pairing")
+            "the iOS app must bridge Dash Calls without an unnecessary finish-in-app system screen")
+    require("func setAppActive(_ active: Bool)" in ios_bluetooth and
+            "guard let self, self.appActive, self.status == nil" in ios_bluetooth and
+            "connectFound(requiresANCS: Self.reconnectRequiresANCS(" in ios_bluetooth and
+            "bridge.setAppActive(phase == .active)" in all_swift,
+            "iOS must pause setup deadlines offscreen and reconnect an authorized accessory on return")
     require("!platform_runtime.has_classic_bond()" in app_main and
             "setup_state.open_pairing(setup_peer(peer))" in app_main,
             "secure BLE pairing must refresh the fresh-phone Classic pairing window")
