@@ -26,4 +26,12 @@ class Coordinator final {
     }
 };
 
+// Board A owns outgoing HFP reconnects. An explicitly opened phone-pairing
+// window temporarily gives the controller to Apple's incoming transport
+// bridge instead of a saved peer reconnect.
+bool should_cancel_saved_phone_link(bool pairing_open, bool pairing_window_observed,
+                                    bool linked, bool connecting);
+bool should_start_saved_phone_reconnect(bool pairing_open, bool linked, bool peer_saved,
+                                        bool connecting, bool deadline_reached);
+
 } // namespace dashbridge::core::connections

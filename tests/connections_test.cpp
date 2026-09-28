@@ -4,6 +4,8 @@
 
 using Coordinator = dashbridge::core::connections::Coordinator;
 using Profile = dashbridge::core::connections::Profile;
+using dashbridge::core::connections::should_cancel_saved_phone_link;
+using dashbridge::core::connections::should_start_saved_phone_reconnect;
 
 int main() {
     Coordinator coordinator;
@@ -35,5 +37,20 @@ int main() {
     assert(coordinator.try_begin(Profile::contacts));
     coordinator.finish(Profile::contacts);
 
-    std::cout << "PASS one-at-a-time Classic profile connection coordination and base-link reset\n";
+    // A deliberate replacement-pairing window cancels one old saved link or
+    // connection attempt, then leaves the newly bridged phone alone.
+    assert(should_cancel_saved_phone_link(true, false, true, false));
+    assert(should_cancel_saved_phone_link(true, false, false, true));
+    assert(!should_cancel_saved_phone_link(true, true, true, false));
+    assert(!should_cancel_saved_phone_link(false, false, true, true));
+
+    // Normal saved-peer reconnects run only outside the explicit setup window.
+    assert(should_start_saved_phone_reconnect(false, false, true, false, true));
+    assert(!should_start_saved_phone_reconnect(true, false, true, false, true));
+    assert(!should_start_saved_phone_reconnect(false, true, true, false, true));
+    assert(!should_start_saved_phone_reconnect(false, false, false, false, true));
+    assert(!should_start_saved_phone_reconnect(false, false, true, true, true));
+    assert(!should_start_saved_phone_reconnect(false, false, true, false, false));
+
+    std::cout << "PASS Classic profile coordination and phone reconnect/pairing policy\n";
 }

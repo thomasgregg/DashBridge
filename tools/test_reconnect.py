@@ -13,12 +13,16 @@ harness = r'''
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include "dashbridge/core/connections.hpp"
 #define ESP_LOGI(...) ((void)0)
 #define ESP_LOGW(...) ((void)0)
 using esp_err_t = int;
 constexpr int ESP_OK = 0;
 struct State { bool linked = false; } self;
 bool peer_saved = true, connecting = false;
+bool pairing_window_observed = false, setup_pairing_open = false;
+enum class Peer { phone };
+bool pairing_allowed(Peer) { return setup_pairing_open; }
 int64_t tick = 0, next_connect = 5000;
 unsigned reconnect_delay = 5000, reconnect_attempts = 0;
 int last_connect_result = ESP_OK, request_result = ESP_OK;
@@ -45,6 +49,14 @@ int main() {
     tick = 49999; poll(); assert(opens == 2);
     self.linked = true; tick = 70000; poll(); assert(opens == 2);
     self.linked = false; peer_saved = false; poll(); assert(opens == 2);
+    // Opening setup once disconnects an existing old phone and suppresses
+    // saved-peer retries without repeatedly disconnecting the new bridge.
+    peer_saved = true; self.linked = true; setup_pairing_open = true;
+    pairing_window_observed = false; tick = 80000; poll();
+    assert(closes == 2 && !connecting && pairing_window_observed);
+    poll(); assert(closes == 2);
+    self.linked = false; tick = 90000; poll(); assert(opens == 2);
+    setup_pairing_open = false; poll(); assert(opens == 3);
     assert(gateway_opens == 0 && gateway_closes == 0);
 #else
     // Board B is a listening HFP gateway. Tesla initiates both HFP and MAP;
@@ -65,6 +77,8 @@ with tempfile.TemporaryDirectory() as temporary:
         binary = path / f'test-{phone}'
         subprocess.run([os.environ.get('CXX', 'clang++'), '-std=c++17', '-Wall', '-Wextra', '-Werror',
                         '-fsanitize=address,undefined', f'-DCONFIG_BRIDGE_PHONE={phone}',
+                        '-I', str(root / 'firmware/core/dashbridge_domain_core/include'),
+                        str(root / 'firmware/core/dashbridge_domain_core/connections.cpp'),
                         str(path / 'test.cpp'), '-o', str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
 print('PASS reconnect policy: active iPhone client retries; Tesla gateway remains passive')

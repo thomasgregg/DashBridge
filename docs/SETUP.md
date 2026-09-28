@@ -1,6 +1,6 @@
 # DashBridge setup
 
-The current release is **0.5.3-alpha**, a two-board prototype for original
+The current release is **0.5.4-alpha**, a two-board prototype for original
 ESP32-WROOM-32 boards. Start with the [README](../README.md#get-started) for the
 five-wire layout, installation methods, pairing, and the parked-car test
 checklist. Install the matching Board A and Board B images from the same
@@ -49,9 +49,7 @@ can be flashed at `0x10000` to preserve pairings. Never interchange full and
 application-only images or flash an application-only image at `0x0`.
 
 The [firmware release page](FIRMWARE_RELEASE.md) separates software validation from
-hardware evidence. These exact images have been installed on the target boards
-and passed boot, Bluetooth service-registration, inter-board-link, controlled
-outage/recovery, and short stability checks. They have not been checked end to
-end. Notification delivery, phonebook synchronization, music sound and controls,
+hardware evidence. These exact images pass the automated build and protocol
+checks but have not been checked end to end. Notification delivery, phonebook synchronization, music sound and controls,
 clear call audio, and reconnection with the real iPhone and Tesla still need a
 parked-car test.

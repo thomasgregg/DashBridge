@@ -369,7 +369,8 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
         }
         const bool approved_first_pairing = first_pairing_candidate_valid &&
             !memcmp(first_pairing_candidate.data(), p->ble_security.auth_cmpl.bd_addr, 6);
-        if (!pairing_allowed(Peer::phone) && !known(p->ble_security.auth_cmpl.bd_addr) &&
+        const bool newly_bonded_phone = !known(p->ble_security.auth_cmpl.bd_addr);
+        if (!pairing_allowed(Peer::phone) && newly_bonded_phone &&
             !approved_first_pairing) {
             first_pairing_candidate_valid = false;
             esp_ble_remove_bond_device(p->ble_security.auth_cmpl.bd_addr);
@@ -378,6 +379,15 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
         }
         first_pairing_candidate_valid = false;
         secured = true;
+        if (newly_bonded_phone) {
+            // The user has just authorized a replacement phone. Give Apple's
+            // Classic transport bridge a fresh full window even when an old
+            // Dash Calls bond still exists and the earlier USB/button window
+            // was partly consumed by the system picker.
+            setup_controller().open_pairing(dashbridge::core::setup::Peer::phone);
+            ESP_LOGI(tag, "New iPhone BLE bond accepted; Classic pairing window refreshed");
+        }
+        snapshot_bonds();
         paired(Peer::phone);
         ESP_LOGI(tag, "iPhone link encrypted");
         search();

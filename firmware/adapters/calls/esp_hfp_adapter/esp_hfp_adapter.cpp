@@ -2,6 +2,7 @@
 #if CONFIG_BRIDGE_CALL_RELAY
 #include "dashbridge/adapters/features.hpp"
 #include "dashbridge/adapters/call_audio_test.hpp"
+#include "dashbridge/core/connections.hpp"
 #include "dashbridge/ports/runtime_services.hpp"
 #include "dashbridge/protocols/calls_v3.hpp"
 #include <algorithm>
@@ -35,6 +36,7 @@ static bool dirty = true, peer_saved = false;
 static int64_t next_connect = 0;
 static unsigned reconnect_delay = 5000, reconnect_attempts = 0;
 static bool connecting = false;
+static bool pairing_window_observed = false;
 static esp_err_t last_connect_result = ESP_OK;
 #endif
 static esp_bd_addr_t peer = {};
@@ -586,7 +588,20 @@ void relay_poll() {
     // The iPhone-facing HFP client owns its outgoing reconnect policy. Board B
     // is an HFP gateway and stays passive so Tesla can initiate its normal
     // HFP + MAP auto-connect sequence.
-    if (!self.linked && peer_saved && !connecting && now() >= next_connect) {
+    // A physical or USB pairing request means the owner may be replacing the
+    // phone. Do not let an outgoing attempt to the old saved peer occupy the
+    // controller while AccessorySetupKit bridges the new Classic connection.
+    const bool pairing_open = pairing_allowed(Peer::phone);
+    if (dashbridge::core::connections::should_cancel_saved_phone_link(
+            pairing_open, pairing_window_observed, self.linked, connecting)) {
+        ESP_LOGI("calls", "Disconnecting old saved phone while iPhone pairing is open");
+        esp_hf_client_disconnect(peer);
+        connecting = false;
+        next_connect = now() + 1000;
+    }
+    pairing_window_observed = pairing_open;
+    if (dashbridge::core::connections::should_start_saved_phone_reconnect(
+            pairing_open, self.linked, peer_saved, connecting, now() >= next_connect)) {
         ++reconnect_attempts;
         ESP_LOGI("calls", "Starting outgoing HFP reconnect attempt %u; bonded=%d",
                  reconnect_attempts, classic_bond_known(peer));

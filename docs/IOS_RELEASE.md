@@ -1,4 +1,4 @@
-# DashBridge iOS app 1.0 (build 24)
+# DashBridge iOS app 1.0 (build 25)
 
 The companion app finds Board A, guides iPhone pairing, reads live setup
 status, saves notification app choices, and can send a local test notification.
@@ -6,7 +6,7 @@ It is not in the call, music, or notification forwarding path after setup.
 
 ## Firmware compatibility
 
-App 1.0 uses Setup GATT v1 and is compatible with firmware 0.5.3-alpha. App
+App 1.0 uses Setup GATT v1 and is compatible with firmware 0.5.4-alpha. App
 and firmware releases are independent: the app can be updated without
 rebuilding firmware while Setup GATT v1 remains supported. See the
 [compatibility matrix](../contracts/COMPATIBILITY.md).
@@ -22,10 +22,24 @@ A signed physical-device build also requires the Apple entitlements described
 in the [iOS guide](../ios/README.md). First pairing, reconnection, notification
 delivery, and the complete parked-car flow remain physical release checks.
 
-The `ios-v1.0-b24` tag creates the independent GitHub release record after a
+The `ios-v1.0-b25` tag creates the independent GitHub release record after a
 clean build. TestFlight or App Store distribution remains a signed Xcode/App
 Store Connect step because signing credentials are not stored in this
 repository.
+
+## Build 25 changes
+
+- Keeps ordinary Retry non-destructive: a powered-off board no longer loses a
+  valid AccessorySetupKit authorization merely because it is temporarily absent.
+- Adds a clearly explained **Set up connection again** path for a reset or
+  replaced Board A. Authorization removal happens only after the user chooses
+  it and Apple confirms it.
+- Reconnects one exact saved accessory without claiming that an iPhone popup is
+  expected, and never guesses between several authorized boards.
+- Pauses setup deadlines behind Apple-owned prompts and ends a partial
+  BLE/notification/calls wait after 30 seconds without forward progress.
+- Adds unit and UI coverage for saved reconnection, explicit replacement,
+  multiple boards, partial setup, and the recovery instructions.
 
 ## Build 24 changes
 

@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 enum SetupStep: Equatable {
-    case welcome, finding, checking, apps
+    case welcome, finding, checking, repair, apps
     case car, test, ready, help
 }
 
@@ -11,6 +11,7 @@ enum PhoneSetupPhase: Equatable {
     case preparing
     case awaitingUser
     case systemSetup
+    case reconnecting
     case verifying
     case recovering
     case complete
@@ -24,6 +25,8 @@ enum PhoneSetupFailure: Equatable {
     case unavailable
     case incompatibleFirmware
     case incompleteService
+    case incompletePhoneSetup
+    case multipleAccessories
 }
 
 enum PhoneSetupAdapterEvent: Equatable {
@@ -31,6 +34,7 @@ enum PhoneSetupAdapterEvent: Equatable {
     case pairing
     case bridging
     case authorized
+    case reconnecting
     case connecting
     case recovering
     case failed(PhoneSetupFailure)
@@ -42,7 +46,7 @@ struct PhoneSetupSignal: Equatable {
 }
 
 enum SetupPreviewScreen: String {
-    case welcome, finding, checking, retry
+    case welcome, finding, checking, retry, repair
     case connectIPhone = "connect-iphone"
     case pairMessages = "pair-messages"
     case pairCalls = "pair-calls"
@@ -76,6 +80,8 @@ enum SetupFlowEvent {
     case deviceIdentified(String)
     case statusReceived(BridgeStatus)
     case openHelp(returnTo: SetupStep)
+    case openPhoneRepair
+    case confirmPhoneRepair
     case openAppsFromReady
     case phoneReviewContinued
     case appsContinued(status: BridgeStatus?)
@@ -93,6 +99,7 @@ enum SetupFlowEffect: Equatable {
     case startBluetooth
     case connectFound
     case retryBluetooth
+    case replaceAccessoryAuthorization
     case loadCatalog
     case clearBluetoothError
     case setBluetoothError(String)
@@ -162,6 +169,8 @@ struct SetupFlowMachine {
                 state.phoneSetupPhase = .systemSetup
             case .authorized, .connecting:
                 state.phoneSetupPhase = .verifying
+            case .reconnecting:
+                state.phoneSetupPhase = .reconnecting
             case .recovering:
                 state.phoneSetupPhase = .recovering
             case let .failed(failure):
@@ -199,6 +208,15 @@ struct SetupFlowMachine {
             state.helpReturnStep = returnTo
             state.step = .help
 
+        case .openPhoneRepair:
+            state.step = .repair
+
+        case .confirmPhoneRepair:
+            state.step = .checking
+            state.connectionRequestPending = false
+            state.phoneSetupPhase = .systemSetup
+            effects.append(.replaceAccessoryAuthorization)
+
         case .openAppsFromReady:
             state.appsReturnStep = .ready
             state.step = .apps
@@ -233,7 +251,10 @@ struct SetupFlowMachine {
 
         case let .helpDone(status):
             effects.append(.clearBluetoothError)
-            if state.progress.testConfirmed {
+            if state.helpReturnStep == .checking, status?.phoneSetupReady != true {
+                state.step = .finding
+                effects.append(.retryBluetooth)
+            } else if state.progress.testConfirmed {
                 state.step = .ready
             } else if status?.teslaSetupReady == true {
                 state.step = .test
@@ -308,6 +329,9 @@ struct SetupFlowMachine {
         case .finding, .checking:
             state.reviewingPhoneStep = false
             state.step = .welcome
+        case .repair:
+            state.helpReturnStep = .checking
+            state.step = .help
         case .apps:
             state.reviewingPhoneStep = state.appsReturnStep == .checking
             state.step = state.appsReturnStep
@@ -343,6 +367,8 @@ struct SetupFlowMachine {
         case .retry:
             state.helpReturnStep = .checking
             state.step = .help
+        case .repair:
+            state.step = .repair
         case .pairMessages, .sharing, .pairCalls:
             state.step = .checking
             state.phoneSetupPhase = .verifying
@@ -379,6 +405,10 @@ struct SetupFlowMachine {
             "This DashBridge needs the companion-app firmware."
         case .incompleteService:
             "DashBridge's setup connection is incomplete. Restart it and try again."
+        case .incompletePhoneSetup:
+            "DashBridge connected, but iPhone did not finish notification and calls setup. Try once more, or set up this iPhone again if the pairing was reset."
+        case .multipleAccessories:
+            "More than one DashBridge is authorized for this app. Remove the one you no longer use in iPhone Settings, then try again."
         }
     }
 }

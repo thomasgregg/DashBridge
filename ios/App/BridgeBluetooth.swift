@@ -23,6 +23,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     @Published private(set) var timeoutDuration: TimeInterval = 15
     @Published private(set) var testWindowGrants = 0
     @Published private(set) var phoneSetupSignal: PhoneSetupSignal?
+    @Published private(set) var canReplaceAccessoryAuthorization = false
     @Published var error: String?
 
     private var manager: CBCentralManager?
@@ -36,6 +37,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var scanTimer: Timer?
     private var presenceTimer: Timer?
     private var availabilityTimer: Timer?
+    private var phoneSetupProgressTimer: Timer?
+    private var lastPhoneSetupProgressMask: UInt8?
     private var appActive = true
     private enum RecoveryStage { case none, scanning }
     private var recoveryStage: RecoveryStage = .none
@@ -48,7 +51,9 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var pickerAccessory: ASAccessory?
     private var pickerPresentationRequested = false
     private var pickerPresented = false
+    private var authorizedIDsBeforePicker: Set<UUID> = []
     private var staleAccessoryRemovalInProgress = false
+    private var accessoryReplacementRequested = false
 #endif
     private struct PendingCommand {
         let command: BridgeCommand
@@ -79,11 +84,24 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         authorizedID == candidateID
     }
 
-    static func shouldRemoveAccessoryForReselection(requiresReselection: Bool,
-                                                    authorizedID: UUID?,
-                                                    candidateID: UUID?) -> Bool {
-        guard requiresReselection, let candidateID else { return false }
-        return authorizedID == nil || authorizedID == candidateID
+    static func preferredAuthorizedIdentifier(currentID: UUID?, rememberedID: UUID?,
+                                              candidates: [UUID]) -> UUID? {
+        if let currentID, candidates.contains(currentID) { return currentID }
+        if let rememberedID, candidates.contains(rememberedID) { return rememberedID }
+        return candidates.count == 1 ? candidates[0] : nil
+    }
+
+    static func pickerSelectionIdentifier(eventID: UUID?, authorizedBefore: Set<UUID>,
+                                          authorizedAfter: [UUID]) -> UUID? {
+        if let eventID, authorizedAfter.contains(eventID) { return eventID }
+        let newlyAuthorized = authorizedAfter.filter { !authorizedBefore.contains($0) }
+        return newlyAuthorized.count == 1 ? newlyAuthorized[0] : nil
+    }
+
+    static func phoneSetupProgressMask(_ status: BridgeStatus) -> UInt8 {
+        (status.phoneBluetooth ? 1 : 0) |
+        (status.notifications ? 2 : 0) |
+        (status.phoneCalls ? 4 : 0)
     }
 
     private func emitPhoneSetup(_ event: PhoneSetupAdapterEvent) {
@@ -149,31 +167,54 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             accessorySessionReady = true
             accessorySetupReady = true
             endTimedCheck()
-            if !removeStaleAccessoryBeforeReselection() {
+            refreshAccessoryReplacementCapability()
+            if !removeAuthorizedAccessoryForReplacementIfReady() {
                 presentAccessoryPickerIfReady()
             }
         case .accessoryAdded, .accessoryChanged:
-            if let accessory = event.accessory {
+            refreshAccessoryReplacementCapability()
+            if pickerPresented, let accessory = event.accessory,
+               accessory.state == .authorized {
                 pickerAccessory = accessory
-                if accessory.state == .authorized, pickerPresented {
-                    emitPhoneSetup(.authorized)
-                }
+                emitPhoneSetup(.authorized)
             }
         case .migrationComplete:
-            pickerAccessory = accessorySession?.accessories.first(where: { $0.state == .authorized })
+            refreshAccessoryReplacementCapability()
+            if pickerPresented, let session = accessorySession {
+                let authorized = session.accessories.filter {
+                    $0.state == .authorized && $0.bluetoothIdentifier != nil
+                }
+                let identifier = Self.pickerSelectionIdentifier(
+                    eventID: pickerAccessory?.bluetoothIdentifier,
+                    authorizedBefore: authorizedIDsBeforePicker,
+                    authorizedAfter: authorized.compactMap(\.bluetoothIdentifier))
+                pickerAccessory = identifier.flatMap { selected in
+                    authorized.first { $0.bluetoothIdentifier == selected }
+                }
+            }
         case .pickerDidDismiss:
             pickerPresented = false
             pickerPresentationRequested = false
-            guard let accessory = pickerAccessory else {
+            let authorized = accessorySession?.accessories.filter {
+                $0.state == .authorized && $0.bluetoothIdentifier != nil
+            } ?? []
+            let selectedIdentifier = Self.pickerSelectionIdentifier(
+                eventID: pickerAccessory?.bluetoothIdentifier,
+                authorizedBefore: authorizedIDsBeforePicker,
+                authorizedAfter: authorized.compactMap(\.bluetoothIdentifier))
+            authorizedIDsBeforePicker = []
+            pickerAccessory = nil
+            guard let selectedIdentifier else {
                 accessoryPickerCancellations += 1
                 return
             }
-            pickerAccessory = nil
-            guard let identifier = accessory.bluetoothIdentifier else {
+            guard let accessory = authorized.first(where: {
+                $0.bluetoothIdentifier == selectedIdentifier
+            }) else {
                 failPhoneSetup(.accessorySetup)
                 return
             }
-            authorizedPeripheralID = identifier
+            authorizedPeripheralID = selectedIdentifier
             requiresAccessoryReselection = false
             foundName = accessory.displayName
             emitPhoneSetup(.authorized)
@@ -187,6 +228,12 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             accessorySetupReady = false
             accessorySession = nil
             pickerPresented = false
+            pickerPresentationRequested = false
+            pickerAccessory = nil
+            authorizedIDsBeforePicker = []
+            staleAccessoryRemovalInProgress = false
+            accessoryReplacementRequested = false
+            canReplaceAccessoryAuthorization = false
             failPhoneSetup(.accessorySetup)
         case .pickerDidPresent:
             pickerPresented = true
@@ -196,7 +243,9 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             emitPhoneSetup(.pairing)
         case .pickerSetupBridging:
             emitPhoneSetup(.bridging)
-        case .pickerSetupRename, .accessoryRemoved, .accessoryDiscovered, .unknown:
+        case .accessoryRemoved:
+            refreshAccessoryReplacementCapability()
+        case .pickerSetupRename, .accessoryDiscovered, .unknown:
             break
         @unknown default:
             break
@@ -205,18 +254,25 @@ final class BridgeBluetooth: NSObject, ObservableObject {
 
     @discardableResult
     private func prepareAuthorizedAccessory() -> Bool {
-        guard !requiresAccessoryReselection else { return false }
         guard let session = accessorySession else { return false }
-        if let accessory = session.accessories.first(where: {
+        let accessories = session.accessories.filter {
             $0.state == .authorized && $0.bluetoothIdentifier != nil
-        }), let identifier = accessory.bluetoothIdentifier {
-            authorizedPeripheralID = identifier
-            foundName = accessory.displayName
-            emitPhoneSetup(.authorized)
-            beginCoreBluetooth()
+        }
+        guard !accessories.isEmpty else { return false }
+        let identifiers = accessories.compactMap(\.bluetoothIdentifier)
+        guard let identifier = Self.preferredAuthorizedIdentifier(
+            currentID: authorizedPeripheralID,
+            rememberedID: rememberedPeripheralStore.loadIdentifier(),
+            candidates: identifiers),
+              let accessory = accessories.first(where: { $0.bluetoothIdentifier == identifier }) else {
+            failPhoneSetup(.multipleAccessories)
             return true
         }
-        return false
+        authorizedPeripheralID = identifier
+        foundName = accessory.displayName
+        emitPhoneSetup(.reconnecting)
+        beginCoreBluetooth()
+        return true
     }
 
     private func beginCoreBluetooth() {
@@ -238,41 +294,69 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         if accessorySession == nil {
             startAccessorySession()
         }
-        if removeStaleAccessoryBeforeReselection() { return }
         presentAccessoryPickerIfReady()
     }
 
     @discardableResult
-    private func removeStaleAccessoryBeforeReselection() -> Bool {
-        guard !staleAccessoryRemovalInProgress, let session = accessorySession,
-              let accessory = session.accessories.first(where: {
-                  Self.shouldRemoveAccessoryForReselection(
-                      requiresReselection: requiresAccessoryReselection,
-                      authorizedID: authorizedPeripheralID,
-                      candidateID: $0.bluetoothIdentifier)
-              }) else { return false }
+    private func removeAuthorizedAccessoryForReplacementIfReady() -> Bool {
+        guard accessoryReplacementRequested, !staleAccessoryRemovalInProgress,
+              accessorySessionReady, let session = accessorySession else { return false }
+        let accessories = session.accessories.filter {
+            $0.state == .authorized && $0.bluetoothIdentifier != nil
+        }
+        guard !accessories.isEmpty else {
+            accessoryReplacementRequested = false
+            requiresAccessoryReselection = false
+            requestAccessoryPicker()
+            return true
+        }
+        let identifiers = accessories.compactMap(\.bluetoothIdentifier)
+        guard let identifier = Self.preferredAuthorizedIdentifier(
+            currentID: authorizedPeripheralID,
+            rememberedID: rememberedPeripheralStore.loadIdentifier(),
+            candidates: identifiers),
+              let accessory = accessories.first(where: { $0.bluetoothIdentifier == identifier }) else {
+            accessoryReplacementRequested = false
+            failPhoneSetup(.multipleAccessories)
+            return true
+        }
 
         staleAccessoryRemovalInProgress = true
         session.removeAccessory(accessory) { [weak self] removalError in
             guard let self else { return }
             self.staleAccessoryRemovalInProgress = false
+            self.accessoryReplacementRequested = false
             if let removalError {
                 self.pickerPresentationRequested = false
                 self.error = removalError.localizedDescription
                 self.failPhoneSetup(.accessorySetup)
                 return
             }
-            if let identifier = accessory.bluetoothIdentifier {
-                self.rememberedPeripheralStore.removeIdentifier(ifMatching: identifier)
-                if self.authorizedPeripheralID == identifier {
-                    self.authorizedPeripheralID = nil
-                }
+            self.rememberedPeripheralStore.removeIdentifier(ifMatching: identifier)
+            if self.authorizedPeripheralID == identifier {
+                self.authorizedPeripheralID = nil
             }
             self.pickerAccessory = nil
             self.requiresAccessoryReselection = false
+            self.refreshAccessoryReplacementCapability()
+            self.pickerPresentationRequested = true
             self.presentAccessoryPickerIfReady()
         }
         return true
+    }
+
+    private func refreshAccessoryReplacementCapability() {
+        guard let session = accessorySession else {
+            canReplaceAccessoryAuthorization = false
+            return
+        }
+        let identifiers = session.accessories.compactMap { accessory in
+            accessory.state == .authorized ? accessory.bluetoothIdentifier : nil
+        }
+        canReplaceAccessoryAuthorization = Self.preferredAuthorizedIdentifier(
+            currentID: authorizedPeripheralID,
+            rememberedID: rememberedPeripheralStore.loadIdentifier(),
+            candidates: identifiers) != nil
     }
 
     private func presentAccessoryPickerIfReady() {
@@ -301,6 +385,9 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             items.append(migration)
         }
         pickerAccessory = nil
+        authorizedIDsBeforePicker = Set(session.accessories.compactMap { accessory in
+            accessory.state == .authorized ? accessory.bluetoothIdentifier : nil
+        })
         pickerPresented = true
         session.showPicker(for: items) { [weak self] error in
             if let error {
@@ -392,6 +479,27 @@ final class BridgeBluetooth: NSObject, ObservableObject {
 
     private func endTimedCheck() {
         timeoutStartedAt = nil
+    }
+
+    private func updatePhoneSetupDeadline(_ current: BridgeStatus) {
+        if current.phoneSetupReady {
+            phoneSetupProgressTimer?.invalidate()
+            phoneSetupProgressTimer = nil
+            lastPhoneSetupProgressMask = nil
+            return
+        }
+        let mask = Self.phoneSetupProgressMask(current)
+        guard phoneSetupProgressTimer == nil || mask != lastPhoneSetupProgressMask else { return }
+        phoneSetupProgressTimer?.invalidate()
+        lastPhoneSetupProgressMask = mask
+        phoneSetupProgressTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: false) {
+            [weak self] _ in
+            guard let self, self.appActive, let status = self.status,
+                  !status.phoneSetupReady,
+                  Self.phoneSetupProgressMask(status) == self.lastPhoneSetupProgressMask else { return }
+            self.phoneSetupProgressTimer = nil
+            self.failPhoneSetup(.incompletePhoneSetup)
+        }
     }
 
     private func findExistingOrScan(clearError: Bool = true, tryRemembered: Bool = true) {
@@ -553,6 +661,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             presenceTimer = nil
             availabilityTimer?.invalidate()
             availabilityTimer = nil
+            phoneSetupProgressTimer?.invalidate()
+            phoneSetupProgressTimer = nil
             manager?.stopScan()
             scanning = false
             endTimedCheck()
@@ -562,6 +672,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         guard manager?.state == .poweredOn else { return }
         error = nil
         if connected {
+            if let status { updatePhoneSetupDeadline(status) }
             if status == nil { scheduleConnectionTimeout() }
             refresh()
         } else {
@@ -577,11 +688,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     func retry() {
         error = nil
         recoveryStage = .none
+        requiresAccessoryReselection = false
 #if !targetEnvironment(simulator)
-        if requiresAccessoryReselection {
-            requestAccessoryPicker()
-            return
-        }
         if manager == nil {
             if !prepareAuthorizedAccessory() { requestAccessoryPicker() }
             return
@@ -596,6 +704,26 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         }
         clearConnection()
         findExistingOrScan(tryRemembered: false)
+    }
+
+    func replaceAccessoryAuthorization() {
+        error = nil
+        recoveryStage = .none
+        requiresAccessoryReselection = true
+#if !targetEnvironment(simulator)
+        accessoryReplacementRequested = true
+        // Stop the old Core Bluetooth attachment before asking iOS to remove
+        // its authorization. Its disconnect callback must not start a recovery
+        // scan that races the replacement picker.
+        if let peripheral, peripheral.state != .disconnected {
+            manager?.cancelPeripheralConnection(peripheral)
+        }
+        clearConnection()
+        if accessorySession == nil { startAccessorySession() }
+        _ = removeAuthorizedAccessoryForReplacementIfReady()
+#else
+        failPhoneSetup(.accessorySetup)
+#endif
     }
 
     func send(_ command: BridgeCommand) {
@@ -652,6 +780,9 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         scanTimer = nil
         presenceTimer?.invalidate()
         presenceTimer = nil
+        phoneSetupProgressTimer?.invalidate()
+        phoneSetupProgressTimer = nil
+        lastPhoneSetupProgressMask = nil
         scanning = false
         foundName = nil
         discovered = nil
@@ -801,6 +932,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
             do {
                 status = try BridgeStatus(data)
                 recoveryStage = .none
+                if let status { updatePhoneSetupDeadline(status) }
                 if status?.notifications == true {
                     rememberedPeripheralStore.saveIdentifier(peripheral.identifier)
                 }

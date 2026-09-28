@@ -21,4 +21,14 @@ void Coordinator::finish(Profile profile) {
         attempt_active_ = false;
 }
 
+bool should_cancel_saved_phone_link(bool pairing_open, bool pairing_window_observed,
+                                    bool linked, bool connecting) {
+    return pairing_open && !pairing_window_observed && (linked || connecting);
+}
+
+bool should_start_saved_phone_reconnect(bool pairing_open, bool linked, bool peer_saved,
+                                        bool connecting, bool deadline_reached) {
+    return !pairing_open && !linked && peer_saved && !connecting && deadline_reached;
+}
+
 } // namespace dashbridge::core::connections

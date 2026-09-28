@@ -263,8 +263,15 @@ if contract:
             "bridge.setAppActive(phase == .active)" in all_swift,
             "iOS must pause setup deadlines offscreen and reconnect an authorized accessory on return")
     require("!platform_runtime.has_classic_bond()" in app_main and
-            "setup_state.open_pairing(setup_peer(peer))" in app_main,
-            "secure BLE pairing must refresh the fresh-phone Classic pairing window")
+            "setup_state.open_pairing(setup_peer(peer))" in app_main and
+            "newly_bonded_phone" in phone_source and
+            "setup_controller().open_pairing(dashbridge::core::setup::Peer::phone)" in phone_source and
+            "snapshot_bonds();" in phone_source,
+            "secure BLE pairing must refresh Classic setup and recognize a newly bonded phone immediately")
+    require("should_cancel_saved_phone_link" in call_relay and
+            "should_start_saved_phone_reconnect" in call_relay and
+            "pairing_window_observed" in call_relay,
+            "an explicit phone pairing window must disconnect one old Classic peer and suspend outgoing reconnects")
     require("NSAccessorySetupKitSupports" in ios_info and
             "NSAccessorySetupBluetoothServices" in ios_info and
             contract["service_uuid"] in ios_info and
@@ -283,6 +290,11 @@ if contract:
             "presentAccessoryPickerIfReady()" in all_swift and
             "Task.sleep(for: .milliseconds(550))" not in all_swift,
             "iOS must request the system picker immediately after explicit guidance approval and preserve early requests until the accessory session is ready")
+    require("case replaceAccessoryAuthorization" in all_swift and
+            'Button("Set up connection again")' in all_swift and
+            "bridge.replaceAccessoryAuthorization()" in all_swift and
+            "session.removeAccessory(accessory)" in ios_bluetooth,
+            "stale AccessorySetupKit authorization removal must be an explicit recovery action")
     require("esp_ble_get_bond_device_num() == 0" in phone_source and
             "first_pairing_candidate_valid" in phone_source,
             "a fresh Board A must not lose first-phone pairing eligibility to a setup timeout")

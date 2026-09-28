@@ -300,6 +300,23 @@ private struct SetupView: View {
             } else {
                 phoneConnectionProgress
             }
+        case .repair:
+            VStack(alignment: .leading, spacing: 24) {
+                stageHeader("Set up this iPhone again.",
+                            "Use this only when the saved DashBridge connection was removed or the hardware was reset.",
+                            symbol: "arrow.triangle.2.circlepath")
+                connectionGuideRow(number: 1,
+                                   title: "Open pairing on DashBridge",
+                                   detail: "Hold Board A’s BOOT button for 2 seconds, then release it.")
+                connectionGuideRow(number: 2,
+                                   title: "Remove the old iPhone connection",
+                                   detail: "Tap Pair again below and confirm Apple’s removal prompt.")
+                connectionGuideRow(number: 3,
+                                   title: "Choose DashBridge",
+                                   detail: "Apple’s accessory picker will open immediately afterward.")
+                Spacer(minLength: 0)
+            }
+            .padding(24)
         case .apps:
             appChoices
         case .car:
@@ -425,6 +442,10 @@ private struct SetupView: View {
                         "Keep DashBridge powered and nearby, then try again.",
                         symbol: "arrow.clockwise",
                         accessibilityLabel: "Retry connection")
+            if bridge.canReplaceAccessoryAuthorization {
+                Text("If this iPhone’s Bluetooth entry or DashBridge pairing was reset, set up the connection again.")
+                    .foregroundStyle(Theme.muted)
+            }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -521,6 +542,8 @@ private struct SetupView: View {
         switch flow.state.phoneSetupPhase {
         case .systemSetup:
             "Follow the prompts on your iPhone. DashBridge handles both connections together."
+        case .reconnecting:
+            "Reconnecting your saved DashBridge. No iPhone popup is expected."
         case .recovering:
             "Finishing the connection automatically. Keep DashBridge powered and nearby."
         case .complete:
@@ -748,7 +771,7 @@ private struct SetupView: View {
     private var actionBar: some View {
         if step == .welcome || step == .finding ||
             (step == .checking && (flow.state.connectionRequestPending || flow.state.reviewingPhoneStep)) ||
-            step == .apps || step == .car || step == .test ||
+            step == .repair || step == .apps || step == .car || step == .test ||
             step == .help || (step == .ready && !progress.testConfirmed) {
             VStack(spacing: 8) {
                 switch step {
@@ -792,6 +815,10 @@ private struct SetupView: View {
                             send(.phoneReviewContinued)
                         }
                     }
+                case .repair:
+                    primary("Pair again") {
+                        send(.confirmPhoneRepair)
+                    }
                 case .apps:
                     primary("Continue") {
                         send(.appsContinued(status: status))
@@ -821,8 +848,15 @@ private struct SetupView: View {
                         confirmTest()
                     }
                 case .help:
-                    primary(flow.state.helpReturnStep == .checking && status == nil ? "Try again" : "Done") {
+                    primary(flow.state.helpReturnStep == .checking && status?.phoneSetupReady != true
+                            ? "Try again" : "Done") {
                         send(.helpDone(status: status))
+                    }
+                    if flow.state.helpReturnStep == .checking && status?.phoneSetupReady != true &&
+                        bridge.canReplaceAccessoryAuthorization {
+                        Button("Set up connection again") {
+                            send(.openPhoneRepair)
+                        }
                     }
                 case .ready:
                     primary(status?.teslaSetupReady == true
@@ -908,6 +942,8 @@ private struct SetupView: View {
             break
         case .retry:
             bridge.error = "Your iPhone connected to DashBridge, but the app couldn't check its setup yet."
+        case .repair:
+            break
         case .pairMessages:
             previewStatus = BridgeStatus(bits: 0b0000_0001)
         case .pairCalls:
@@ -1019,6 +1055,8 @@ private struct SetupView: View {
                 bridge.connectFound()
             case .retryBluetooth:
                 bridge.retry()
+            case .replaceAccessoryAuthorization:
+                bridge.replaceAccessoryAuthorization()
             case .loadCatalog:
                 catalog.loadIfNeeded()
             case .clearBluetoothError:

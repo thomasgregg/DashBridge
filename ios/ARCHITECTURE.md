@@ -77,6 +77,8 @@ stateDiagram-v2
     Ready --> Apps: Change apps
     Ready --> Car: Finish in the car
     PhoneSetup --> Help: terminal adapter failure
+    Help --> Repair: explicit reset/replacement recovery
+    Repair --> PhoneSetup: confirm saved authorization removal
     PhoneSetup --> Welcome: Back
 ```
 
@@ -89,10 +91,19 @@ Apple's system setup, verification, and recovery. Those phases never become
 separate navigation owners. `BridgeBluetooth` owns one bounded automatic
 recovery attempt and reports typed events; only the reducer decides whether a
 terminal failure navigates to help. Automatic recovery accepts only the
-peripheral identifier authorized by AccessorySetupKit. If that identity is
-stale or unavailable, retry removes that stale app authorization and returns
-to Apple's picker instead of attaching to
-another nearby board.
+peripheral identifier authorized by AccessorySetupKit. A powered-off valid
+board and stale authorization are intentionally not guessed apart: ordinary
+retry preserves authorization. Removing authorization is a separate,
+user-confirmed recovery action that explains the Board A pairing-window step
+before calling AccessorySetupKit and returning to Apple's picker. When several
+accessories are authorized, the adapter selects only an exact current or
+remembered identifier and otherwise stops with a recoverable ambiguity error.
+
+The adapter bounds both transport connection and partial setup. Every forward
+change among BLE, notification sharing, and calls earns a new 30-second
+foreground completion window. Time inside Apple-owned UI does not count. If
+the state stops advancing, setup goes to help instead of displaying an
+indefinite Waiting row.
 
 ## System-dialog contract
 
@@ -103,7 +114,8 @@ points must not move during refactors.
 | System behavior | Application trigger | Required ordering |
 | --- | --- | --- |
 | Bluetooth application permission | First creation of `CBCentralManager` | Every fresh app session first shows Welcome. Setup and Bluetooth begin only after the user confirms **It's plugged in**. |
-| Unified DashBridge phone setup | AccessorySetupKit selection with BLE pairing and Classic transport bridging, followed by `connect(_:options:)` with `CBConnectPeripheralOptionRequiresANCS` and `CBConnectPeripheralOptionEnableTransportBridgingKey` | The app first shows connection guidance without requesting a connection. After the user taps **Connect my iPhone**, it transitions to **Connecting your iPhone** and immediately asks iOS to present the picker. If the accessory session is still activating, the request is retained and presented as soon as activation completes. iOS may show pairing and notification prompts at different times; the app remains on the same progress screen until Setup GATT proves BLE, notifications, and calls are ready. |
+| Unified DashBridge phone setup | AccessorySetupKit selection with BLE pairing and Classic transport bridging, followed by `connect(_:options:)` with `CBConnectPeripheralOptionRequiresANCS` and `CBConnectPeripheralOptionEnableTransportBridgingKey` | The app first shows connection guidance without requesting a connection. After the user taps **Connect my iPhone**, it transitions to **Connecting your iPhone** and immediately asks iOS to present the picker. A previously authorized accessory reconnects without a popup and the screen says so. If the accessory session is still activating, the request is retained and presented as soon as activation completes. iOS may show pairing and notification prompts at different times; the app remains on the same progress screen until Setup GATT proves BLE, notifications, and calls are ready. |
+| Reset or replacement recovery | Explicit **Set up connection again**, followed by `removeAccessory` and a new picker request | Never runs from ordinary Retry or a timeout. The app first tells the user to open Board A's pairing window. Apple owns the removal confirmation. Cancellation leaves the saved authorization intact. |
 | Encrypted policy access | Read the policy characteristic | Only after status reports notification sharing ready, avoiding a competing security exchange. |
 | App & Website Usage | Load the installed-app catalog | When entering app selection or the ready screen, never during launch. |
 | Local notification permission | Request authorization from `UNUserNotificationCenter` | Only after the user taps **Send test notification**. |
@@ -169,6 +181,10 @@ timing:
 8. Replacement Board A resets board-specific setup progress.
 9. Tesla setup deferred, then completed later.
 10. Local notification permission allowed and denied from the test screen.
+11. Powered-off authorized board: Retry preserves authorization and no picker is expected.
+12. Reset/reflashed Board A: explicit recovery removes one exact saved authorization, then opens the picker.
+13. Two authorized DashBridge boards: exact remembered selection or a clear ambiguity error; never first-item selection.
+14. App backgrounded by each Apple prompt: foreground deadlines resume rather than expiring behind the prompt.
 
 Record the screen visible before each system dialog, the resulting screen, and
 the status bits reported by Board A. Simulator success does not replace this

@@ -3,7 +3,7 @@
 This is the canonical description of the current two-board architecture. It
 explains the Bluetooth identities, functional paths, reconnection rules, source
 layout, and compatibility boundaries. It describes the implemented
-**0.5.3-alpha** design; passing software validation does not replace the outstanding
+**0.5.4-alpha** design; passing software validation does not replace the outstanding
 iPhone-and-Tesla hardware validation listed in the README.
 
 ## System overview
@@ -118,6 +118,27 @@ bonded phone, `pair phone` opens a 120-second firmware window and the user pairs
 Dash Messages first, then Dash Calls manually in Bluetooth Settings. Unknown
 Classic devices are accepted only while that window is open and ANCS is already
 ready. Already bonded devices may reconnect without reopening pairing.
+
+When a new BLE bond is accepted, Board A refreshes the full 120-second Classic
+pairing window and immediately refreshes its BLE-bond snapshot. While that
+explicit window is open, Board A cancels one old saved-phone HFP link or
+outgoing attempt and suppresses further saved-peer reconnects, leaving the
+controller available for Apple's incoming Classic bridge. This combines the
+app-owned unified picker with the firmware's existing pairing controller; it
+does not create a second setup architecture.
+
+The app distinguishes these recovery cases instead of inferring from radio
+silence:
+
+| Observed state | App behavior |
+| --- | --- |
+| No prior authorization | Present Apple's picker after the user's Connect tap. |
+| One exact saved authorization | Reconnect it; no popup is expected. |
+| Saved board powered off or temporarily absent | Bounded retry while preserving authorization. |
+| Board reset, reflashed, or intentionally replaced | User opens pairing on Board A and explicitly chooses **Set up connection again**; Apple confirms removal before the picker reopens. |
+| Several authorized boards without an exact current/remembered match | Stop with an ambiguity explanation; never choose the first board. |
+| Apple prompt backgrounds the app | Pause foreground deadlines and resume them on return. |
+| BLE, notifications, or calls stops advancing | End the progress wait and offer retry/re-pair recovery rather than waiting indefinitely. |
 
 ### Reconnection ownership
 

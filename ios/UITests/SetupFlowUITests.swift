@@ -15,6 +15,18 @@ final class SetupFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Connecting your iPhone."].waitForExistence(timeout: 5))
     }
 
+    func testReplacementPairingExplainsEveryDestructiveAndSystemOwnedStep() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-dashbridge-ui-testing", "-dashbridge-ui-screen-preview", "repair"]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Set up this iPhone again."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Hold Board A’s BOOT button for 2 seconds, then release it."].exists)
+        XCTAssertTrue(app.staticTexts["Tap Pair again below and confirm Apple’s removal prompt."].exists)
+        XCTAssertTrue(app.staticTexts["Apple’s accessory picker will open immediately afterward."].exists)
+        XCTAssertTrue(app.buttons["Pair again"].exists)
+    }
+
     func testWelcomeExplainsPowerBeforeScanning() {
         let app = XCUIApplication()
         app.launchArguments = ["-dashbridge-ui-testing"]

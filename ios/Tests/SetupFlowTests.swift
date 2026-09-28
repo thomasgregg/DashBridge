@@ -172,6 +172,41 @@ final class SetupFlowTests: XCTestCase {
         XCTAssertEqual(machine.state.phoneSetupPhase, .verifying)
     }
 
+    func testSavedAccessoryReconnectExplainsThatNoPopupIsExpected() {
+        var machine = SetupFlowMachine()
+        _ = machine.handle(.getStarted(connected: false, status: nil))
+        _ = machine.handle(.accessorySetupReady)
+        _ = machine.handle(.connectionGuidancePresented)
+
+        XCTAssertEqual(machine.handle(.phoneSetupEvent(.reconnecting)), [])
+        XCTAssertEqual(machine.state.step, .checking)
+        XCTAssertEqual(machine.state.phoneSetupPhase, .reconnecting)
+    }
+
+    func testPhonePairingReplacementRequiresAnExplicitConfirmationStep() {
+        var machine = SetupFlowMachine()
+        _ = machine.handle(.getStarted(connected: true, status: nil))
+        _ = machine.handle(.phoneSetupEvent(.failed(.unavailable)))
+
+        XCTAssertEqual(machine.handle(.openPhoneRepair), [])
+        XCTAssertEqual(machine.state.step, .repair)
+        XCTAssertEqual(machine.handle(.confirmPhoneRepair), [.replaceAccessoryAuthorization])
+        XCTAssertEqual(machine.state.step, .checking)
+        XCTAssertEqual(machine.state.phoneSetupPhase, .systemSetup)
+    }
+
+    func testIncompletePhoneSetupRetriesInsteadOfContinuingToTesla() {
+        var machine = SetupFlowMachine()
+        _ = machine.handle(.getStarted(connected: true, status: nil))
+        _ = machine.handle(.phoneSetupEvent(.failed(.incompletePhoneSetup)))
+        let partial = BridgeStatus(bits: 0b0000_0011)
+
+        XCTAssertEqual(machine.state.step, .help)
+        XCTAssertEqual(machine.handle(.helpDone(status: partial)),
+                       [.clearBluetoothError, .retryBluetooth])
+        XCTAssertEqual(machine.state.step, .finding)
+    }
+
     func testBackNavigationPreservesEstablishedBehavior() {
         var machine = SetupFlowMachine()
         _ = machine.handle(.previewScreen(.test))

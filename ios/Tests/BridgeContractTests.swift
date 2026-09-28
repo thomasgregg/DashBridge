@@ -58,25 +58,58 @@ final class BridgeContractTests: XCTestCase {
             authorizedID: nil, candidateID: selected))
     }
 
-    func testReselectionRemovesOnlyTheStaleAuthorizedAccessory() {
-        let selected = UUID()
+    func testAuthorizedAccessorySelectionNeverGuessesBetweenMultipleBoards() {
+        let current = UUID()
+        let remembered = UUID()
+        let other = UUID()
 
-        XCTAssertFalse(BridgeBluetooth.shouldRemoveAccessoryForReselection(
-            requiresReselection: false, authorizedID: selected, candidateID: selected))
-        XCTAssertTrue(BridgeBluetooth.shouldRemoveAccessoryForReselection(
-            requiresReselection: true, authorizedID: selected, candidateID: selected))
-        XCTAssertFalse(BridgeBluetooth.shouldRemoveAccessoryForReselection(
-            requiresReselection: true, authorizedID: selected, candidateID: UUID()))
-        XCTAssertTrue(BridgeBluetooth.shouldRemoveAccessoryForReselection(
-            requiresReselection: true, authorizedID: nil, candidateID: selected))
-        XCTAssertFalse(BridgeBluetooth.shouldRemoveAccessoryForReselection(
-            requiresReselection: true, authorizedID: selected, candidateID: nil))
+        XCTAssertEqual(BridgeBluetooth.preferredAuthorizedIdentifier(
+            currentID: current, rememberedID: remembered,
+            candidates: [other, current, remembered]), current)
+        XCTAssertEqual(BridgeBluetooth.preferredAuthorizedIdentifier(
+            currentID: nil, rememberedID: remembered,
+            candidates: [other, remembered]), remembered)
+        XCTAssertEqual(BridgeBluetooth.preferredAuthorizedIdentifier(
+            currentID: nil, rememberedID: nil, candidates: [other]), other)
+        XCTAssertNil(BridgeBluetooth.preferredAuthorizedIdentifier(
+            currentID: nil, rememberedID: nil, candidates: [other, UUID()]))
+        XCTAssertNil(BridgeBluetooth.preferredAuthorizedIdentifier(
+            currentID: current, rememberedID: remembered, candidates: []))
+    }
+
+    func testPickerSelectionUsesOnlyTheEventOrOneNewAuthorization() {
+        let existing = UUID()
+        let selected = UUID()
+        let unrelated = UUID()
+
+        XCTAssertEqual(BridgeBluetooth.pickerSelectionIdentifier(
+            eventID: selected, authorizedBefore: [existing],
+            authorizedAfter: [existing, selected]), selected)
+        XCTAssertEqual(BridgeBluetooth.pickerSelectionIdentifier(
+            eventID: nil, authorizedBefore: [existing],
+            authorizedAfter: [existing, selected]), selected)
+        XCTAssertNil(BridgeBluetooth.pickerSelectionIdentifier(
+            eventID: nil, authorizedBefore: [existing], authorizedAfter: [existing]))
+        XCTAssertNil(BridgeBluetooth.pickerSelectionIdentifier(
+            eventID: nil, authorizedBefore: [existing],
+            authorizedAfter: [existing, selected, unrelated]))
+        XCTAssertEqual(BridgeBluetooth.pickerSelectionIdentifier(
+            eventID: unrelated, authorizedBefore: [existing],
+            authorizedAfter: [existing, selected]), selected)
     }
 
     func testPhoneSetupRequiresMessagesNotificationsAndCalls() {
         XCTAssertFalse(BridgeStatus(bits: 0b0000_0011).phoneSetupReady)
         XCTAssertFalse(BridgeStatus(bits: 0b0000_0101).phoneSetupReady)
         XCTAssertTrue(BridgeStatus(bits: 0b0000_0111).phoneSetupReady)
+    }
+
+    func testPhoneSetupProgressMaskTracksEachIndependentConnection() {
+        XCTAssertEqual(BridgeBluetooth.phoneSetupProgressMask(BridgeStatus(bits: 0)), 0)
+        XCTAssertEqual(BridgeBluetooth.phoneSetupProgressMask(BridgeStatus(bits: 0b001)), 1)
+        XCTAssertEqual(BridgeBluetooth.phoneSetupProgressMask(BridgeStatus(bits: 0b010)), 2)
+        XCTAssertEqual(BridgeBluetooth.phoneSetupProgressMask(BridgeStatus(bits: 0b100)), 4)
+        XCTAssertEqual(BridgeBluetooth.phoneSetupProgressMask(BridgeStatus(bits: 0b111)), 7)
     }
 
     func testTeslaSetupRequiresEveryBoardTransport() {
