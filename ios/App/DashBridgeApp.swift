@@ -129,8 +129,6 @@ private struct SetupView: View {
     @State private var showCompletionConfetti = false
     @State private var hasPlayedCompletionConfetti = false
 
-    private var checkingDuration: TimeInterval { AppTestMode.checkingPreview ? 3 : 25 }
-
     private var status: BridgeStatus? { isPreview ? previewStatus : bridge.status }
     private var selected: Set<String> { isPreview ? previewAllowed : bridge.allowedIDs }
     private var connected: Bool { isPreview || bridge.connected }
@@ -154,7 +152,7 @@ private struct SetupView: View {
         }
         .onChange(of: bridge.connected) { _, value in
             guard !isPreview else { return }
-            send(.connectionChanged(connected: value, hasError: bridge.error != nil))
+            send(.connectionChanged(connected: value))
         }
         .onChange(of: bridge.deviceID) { _, value in
             guard let id = value?.uuidString else { return }
@@ -163,11 +161,15 @@ private struct SetupView: View {
         .onChange(of: bridge.status) { _, value in
             if let value { send(.statusReceived(value)) }
         }
-        .onChange(of: bridge.error) { _, value in
-            if value != nil { send(.connectionFailedDuringCheck) }
+        .onChange(of: bridge.phoneSetupSignal) { _, signal in
+            if let signal { send(.phoneSetupEvent(signal.event)) }
         }
         .task(id: checkingTaskID) {
-            guard step == .checking, !flow.state.connectionRequestPending else {
+            // Production deadlines belong to the Bluetooth setup operation so
+            // Apple-owned prompts and automatic recovery cannot race a view
+            // timer. This short deadline exists only for the UI-test preview.
+            guard AppTestMode.checkingPreview, step == .checking,
+                  !flow.state.connectionRequestPending else {
                 return
             }
             // A status can arrive while the found screen is still visible.
@@ -175,10 +177,10 @@ private struct SetupView: View {
             if let status { send(.statusReceived(status)) }
             guard step == .checking else { return }
             do {
-                try await Task.sleep(for: .seconds(checkingDuration))
+                try await Task.sleep(for: .seconds(3))
             } catch { return }
             guard step == .checking else { return }
-            send(.checkingTimedOut(connected: connected))
+            send(.phoneSetupEvent(.failed(.unavailable)))
         }
     }
 
@@ -298,8 +300,6 @@ private struct SetupView: View {
             } else {
                 phoneConnectionProgress
             }
-        case .pair, .sharing:
-            phoneConnectionProgress
         case .apps:
             appChoices
         case .car:
@@ -340,8 +340,8 @@ private struct SetupView: View {
                 brandedList {
                     completionHeader
                     Section("Connections") {
-                        LabeledContent("iPhone", value: status?.notifications == true ? "Connected" : "Not nearby")
-                        LabeledContent("Tesla", value: status?.teslaMessages == true ? "Connected" : "Not nearby")
+                        LabeledContent("iPhone", value: status?.phoneSetupReady == true ? "Connected" : "Not nearby")
+                        LabeledContent("Tesla", value: status?.teslaSetupReady == true ? "Connected" : "Not nearby")
                     }
                     Section("Allowed apps") {
                         if !isPreview && !bridge.policyLoaded {
@@ -492,7 +492,7 @@ private struct SetupView: View {
     private var phoneConnectionProgress: some View {
         brandedList {
             listHeaderRow("Connecting your iPhone.",
-                          "Follow the prompts on your iPhone. This screen updates as each connection becomes ready.")
+                          phoneSetupSubtitle)
             Section {
                 connectionStatusRow("Bluetooth pairing",
                                     detail: "Secure connection to Dash Messages.",
@@ -503,24 +503,30 @@ private struct SetupView: View {
                                     symbol: "bell.badge",
                                     state: status?.notifications == true ? .ready
                                     : status?.phoneBluetooth == true ? .waiting : .next)
-                connectionStatusRow("Calls and music",
-                                    detail: status?.notifications == true
-                                    ? "Keep this app open while iPhone finishes Dash Calls."
-                                    : "Included in the system setup.",
+                connectionStatusRow("Calls",
+                                    detail: "Connected automatically during DashBridge setup.",
                                     symbol: "phone",
                                     state: status?.phoneCalls == true ? .ready
                                     : status?.notifications == true ? .waiting : .next)
             } header: {
                 Text("Connection progress")
             }
-            if step == .pair, status?.phonePairingOpen == false {
-                Section {
-                    Button("Open pairing for 2 minutes") { bridge.send(.openPhonePairing) }
-                }
-            }
             if let commandError = bridge.commandError {
                 Section { Text(commandError).foregroundStyle(.red) }
             }
+        }
+    }
+
+    private var phoneSetupSubtitle: String {
+        switch flow.state.phoneSetupPhase {
+        case .systemSetup:
+            "Follow the prompts on your iPhone. DashBridge handles both connections together."
+        case .recovering:
+            "Finishing the connection automatically. Keep DashBridge powered and nearby."
+        case .complete:
+            "Your iPhone connections are ready."
+        default:
+            "This screen updates as each connection becomes ready."
         }
     }
 
@@ -741,8 +747,8 @@ private struct SetupView: View {
     @ViewBuilder
     private var actionBar: some View {
         if step == .welcome || step == .finding ||
-            (step == .checking && flow.state.connectionRequestPending) || step == .apps ||
-            (step == .pair && flow.state.reviewingPhoneStep) || step == .car || step == .test ||
+            (step == .checking && (flow.state.connectionRequestPending || flow.state.reviewingPhoneStep)) ||
+            step == .apps || step == .car || step == .test ||
             step == .help || (step == .ready && !progress.testConfirmed) {
             VStack(spacing: 8) {
                 switch step {
@@ -777,11 +783,11 @@ private struct SetupView: View {
 #endif
                     }
                 case .checking:
-                    primary("Connect my iPhone") {
-                        send(.connectionGuidancePresented)
-                    }
-                case .pair:
-                    if flow.state.reviewingPhoneStep {
+                    if flow.state.connectionRequestPending {
+                        primary("Connect my iPhone") {
+                            send(.connectionGuidancePresented)
+                        }
+                    } else if flow.state.reviewingPhoneStep {
                         primary("Continue") {
                             send(.phoneReviewContinued)
                         }
@@ -798,7 +804,7 @@ private struct SetupView: View {
                             previewStatus = connectedStatus
                             send(.statusReceived(connectedStatus))
                         }
-                    } else if flow.state.reviewingCarStep && status?.teslaMessages == true && status?.teslaCalls == true {
+                    } else if flow.state.reviewingCarStep && status?.teslaSetupReady == true {
                         primary("Continue") {
                             send(.carReviewContinued)
                         }
@@ -819,12 +825,10 @@ private struct SetupView: View {
                         send(.helpDone(status: status))
                     }
                 case .ready:
-                    primary(status?.teslaMessages == true && status?.teslaCalls == true
+                    primary(status?.teslaSetupReady == true
                             ? "Try a notification" : "Finish in the car") {
                         send(.readyAction(status: status))
                     }
-                default:
-                    EmptyView()
                 }
             }
             .padding(.horizontal)
@@ -1013,8 +1017,6 @@ private struct SetupView: View {
                 // The instructions are visible until the user explicitly
                 // chooses Connect, so the system picker can open immediately.
                 bridge.connectFound()
-            case .openPhonePairing:
-                bridge.send(.openPhonePairing)
             case .retryBluetooth:
                 bridge.retry()
             case .loadCatalog:

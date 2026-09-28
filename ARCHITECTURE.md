@@ -48,15 +48,16 @@ implementations.
 
 | Name | Board and transport | Profiles and purpose | How it is paired |
 | --- | --- | --- | --- |
-| **Dash Messages** | Board A, Bluetooth Low Energy | Apple ANCS notification access and the released Setup GATT v1 status/policy interface | The companion app normally connects it and iOS asks the user to approve pairing and notification sharing. It can also be paired manually during a USB pairing window. |
-| **Dash Calls** | Board A, Bluetooth Classic | HFP calls, A2DP/AVRCP music, and PBAP contacts/call lists | Selected in iPhone Bluetooth settings only after Dash Messages is ready |
+| **Dash Messages** | Board A, Bluetooth Low Energy | Apple ANCS notification access and the released Setup GATT v1 status/policy interface | The companion app's AccessorySetupKit flow pairs it as part of one DashBridge setup. It can also be paired manually during a USB pairing window. |
+| **Dash Calls** | Board A, Bluetooth Classic | HFP calls, A2DP/AVRCP music, and PBAP contacts/call lists | The companion app asks iOS to bridge it automatically during the same DashBridge setup. In the USB-only fallback, select it manually after Dash Messages is ready. |
 | **Dash Tesla** | Board B, Bluetooth Classic | HFP phone/call audio, MAP/MNS messages, A2DP/AVRCP music, and PBAP phonebook projection | Paired once from the Tesla Bluetooth screen |
 
-Dash Messages and Dash Calls must remain distinct because ANCS and app setup
-use BLE/GATT, while calls, music, and phonebook access use Bluetooth Classic
-profiles. Their state machines remain separate so simultaneous security and
-profile negotiations cannot interfere with each other. The staged flow makes
-that ordering explicit while preserving every feature.
+Dash Messages and Dash Calls remain distinct transports because ANCS and app
+setup use BLE/GATT, while calls, music, and phonebook access use Bluetooth
+Classic profiles. Their firmware state machines remain separate so simultaneous
+security and profile negotiations cannot interfere with each other. The app
+presents and coordinates them as one setup operation; the distinction remains
+available in diagnostics rather than becoming separate user steps.
 
 Dash Messages may not show as continuously “Connected” in iPhone Settings even
 when ANCS is operational. Board A's `status` output and the companion app's
@@ -97,17 +98,20 @@ sequenceDiagram
     App->>App: Show pairing guidance
     App->>Phone: Present accessory picker after explicit Connect tap
     User->>Phone: Select DashBridge
-    Phone->>A: Pair Dash Messages over BLE and bridge Dash Calls
+    Phone->>A: Pair BLE and bridge the Classic transport
     User->>Phone: Approve notification sharing
     A->>A: Wait until ANCS is secured and ready
-    A->>Phone: Finish Dash Calls profile connection
+    A->>Phone: Finish the calls, music, and contacts profiles
     A->>A: Close pairing when both sides are ready
 ```
 
 The app shows its approval guidance before it opens Apple's accessory picker.
-The picker owns Dash Messages pairing and Dash Calls transport bridging; iOS
-still owns and presents the pairing and notification-sharing prompts. A Board
-A with no saved BLE bond accepts its
+The picker owns the unified user operation: Dash Messages BLE pairing plus Dash
+Calls Classic transport bridging. Core Bluetooth then verifies Setup GATT with
+ANCS and transport bridging enabled; iOS still owns and presents the pairing
+and notification-sharing prompts. The app remains on one progress screen across
+those prompts and performs one bounded automatic recovery before showing an
+error. A Board A with no saved BLE bond accepts its
 first Dash Messages pairing while it is powered, so first setup is not racing a
 boot-time pairing deadline. Without the app, or when replacing an already
 bonded phone, `pair phone` opens a 120-second firmware window and the user pairs

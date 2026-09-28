@@ -24,6 +24,14 @@ struct BridgeStatus: Equatable {
     let teslaCalls: Bool
     let phonePairingOpen: Bool
 
+    var phoneSetupReady: Bool {
+        phoneBluetooth && notifications && phoneCalls
+    }
+
+    var teslaSetupReady: Bool {
+        internalLink && teslaMessages && teslaTransport && teslaSync && teslaCalls
+    }
+
     init(_ data: Data) throws {
         guard data.count == 3, data[0] == 1 else { throw BridgeError.unsupportedStatus }
         let bits = UInt16(data[1]) | (UInt16(data[2]) << 8)

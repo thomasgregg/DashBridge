@@ -249,7 +249,7 @@ if contract:
             "ESP_LE_AUTH_REQ_SC_BOND" in phone_source and
             "ESP_BLE_SEC_ENCRYPT_MITM" not in phone_source,
             "iPhone pairing must report ready only after encryption and use the iOS-compatible secure-bond flow")
-    require('connectionStatusRow("Calls and music"' in all_swift and
+    require('connectionStatusRow("Calls"' in all_swift and
             "import AccessorySetupKit" in all_swift and
             "showPicker(for:" in all_swift and
             ".bluetoothTransportBridging" in all_swift and

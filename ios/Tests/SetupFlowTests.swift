@@ -55,27 +55,35 @@ final class SetupFlowTests: XCTestCase {
         XCTAssertFalse(machine.state.connectionRequestPending)
     }
 
-    func testPhoneSetupRoutesThroughSharingPairingAndApps() {
+    func testPhoneSetupRemainsOnOneScreenUntilBothTransportsAreReady() {
         var machine = SetupFlowMachine()
         _ = machine.handle(.getStarted(connected: true, status: nil))
 
         _ = machine.handle(.statusReceived(BridgeStatus(bits: 0b0000_0001)))
-        XCTAssertEqual(machine.state.step, .sharing)
+        XCTAssertEqual(machine.state.step, .checking)
+        XCTAssertEqual(machine.state.phoneSetupPhase, .verifying)
 
-        XCTAssertEqual(machine.handle(.statusReceived(BridgeStatus(bits: 0b0000_0011))),
-                       [.openPhonePairing])
-        XCTAssertEqual(machine.state.step, .pair)
+        XCTAssertEqual(machine.handle(.phoneSetupEvent(.pairing)), [])
+        XCTAssertEqual(machine.state.step, .checking)
+        XCTAssertEqual(machine.state.phoneSetupPhase, .systemSetup)
+
+        XCTAssertEqual(machine.handle(.phoneSetupEvent(.bridging)), [])
+        XCTAssertEqual(machine.state.step, .checking)
+
+        XCTAssertEqual(machine.handle(.phoneSetupEvent(.recovering)), [])
+        XCTAssertEqual(machine.state.step, .checking)
+        XCTAssertEqual(machine.state.phoneSetupPhase, .recovering)
 
         XCTAssertEqual(machine.handle(.statusReceived(phoneReady)), [.loadCatalog])
         XCTAssertEqual(machine.state.step, .apps)
 
         XCTAssertEqual(machine.handle(.back), [])
-        XCTAssertEqual(machine.state.step, .pair)
+        XCTAssertEqual(machine.state.step, .checking)
         XCTAssertTrue(machine.state.reviewingPhoneStep)
 
         // Repeated hardware status must not bounce the review straight back to Apps.
         XCTAssertEqual(machine.handle(.statusReceived(phoneReady)), [])
-        XCTAssertEqual(machine.state.step, .pair)
+        XCTAssertEqual(machine.state.step, .checking)
 
         XCTAssertEqual(machine.handle(.phoneReviewContinued), [.loadCatalog])
         XCTAssertEqual(machine.state.step, .apps)
@@ -127,16 +135,41 @@ final class SetupFlowTests: XCTestCase {
         XCTAssertEqual(machine.state.progress.completedDeviceID, "new")
     }
 
-    func testCheckingTimeoutHasOneDeterministicDestination() {
+    func testTerminalAdapterFailureHasOneReducerOwnedDestination() {
         var machine = SetupFlowMachine()
         _ = machine.handle(.getStarted(connected: true, status: nil))
 
-        let effects = machine.handle(.checkingTimedOut(connected: true))
+        let effects = machine.handle(.phoneSetupEvent(.failed(.unavailable)))
 
         XCTAssertEqual(machine.state.step, .help)
         XCTAssertEqual(machine.state.helpReturnStep, .checking)
         XCTAssertEqual(effects, [.setBluetoothError(
-            "Your iPhone connected to DashBridge, but the app couldn't check its setup yet.")])
+            "The app couldn't reconnect to DashBridge after trying automatically. Keep it powered and nearby, then try again.")])
+    }
+
+    func testBluetoothFailureWhileFindingAlsoHasARecoverableDestination() {
+        var machine = SetupFlowMachine()
+        _ = machine.handle(.getStarted(connected: false, status: nil))
+
+        let effects = machine.handle(.phoneSetupEvent(.failed(.bluetoothOff)))
+
+        XCTAssertEqual(machine.state.step, .help)
+        XCTAssertEqual(machine.state.helpReturnStep, .checking)
+        XCTAssertEqual(effects, [.setBluetoothError(
+            "Turn on Bluetooth on your iPhone, then try again.")])
+    }
+
+    func testTransientDisconnectDuringSetupRecoversWithoutNavigation() {
+        var machine = SetupFlowMachine()
+        _ = machine.handle(.getStarted(connected: true, status: nil))
+
+        XCTAssertEqual(machine.handle(.connectionChanged(connected: false)), [])
+        XCTAssertEqual(machine.state.step, .checking)
+        XCTAssertEqual(machine.state.phoneSetupPhase, .recovering)
+
+        XCTAssertEqual(machine.handle(.connectionChanged(connected: true)), [])
+        XCTAssertEqual(machine.state.step, .checking)
+        XCTAssertEqual(machine.state.phoneSetupPhase, .verifying)
     }
 
     func testBackNavigationPreservesEstablishedBehavior() {

@@ -15,7 +15,8 @@ checklist. Install the matching Board A and Board B images from the same
 With the companion app, keep it open, tap **Connect my iPhone**, and approve
 Apple's accessory picker and notification-sharing prompts. The picker pairs
 **Dash Messages** and bridges **Dash Calls** for calls and music without a trip
-to Bluetooth Settings. Without the app, enter `pair phone` on Board A's USB console,
+to Bluetooth Settings. This is one setup in the app even though diagnostics
+show separate BLE and Classic connections. Without the app, enter `pair phone` on Board A's USB console,
 pair **Dash Messages** first, allow notification sharing, and then select
 **Dash Calls** after it becomes visible. On Board B, enter `pair car`, pair Dash Tesla with
 the car, and enable message/contact syncing where offered. Explicit pairing

@@ -1,4 +1,4 @@
-# DashBridge iOS app 1.0 (build 22)
+# DashBridge iOS app 1.0 (build 23)
 
 The companion app finds Board A, guides iPhone pairing, reads live setup
 status, saves notification app choices, and can send a local test notification.
@@ -22,10 +22,21 @@ A signed physical-device build also requires the Apple entitlements described
 in the [iOS guide](../ios/README.md). First pairing, reconnection, notification
 delivery, and the complete parked-car flow remain physical release checks.
 
-The `ios-v1.0-b22` tag creates the independent GitHub release record after a
+The `ios-v1.0-b23` tag creates the independent GitHub release record after a
 clean build. TestFlight or App Store distribution remains a signed Xcode/App
 Store Connect step because signing credentials are not stored in this
 repository.
+
+## Build 23 changes
+
+- Combines BLE pairing, notification access, and Bluetooth Classic transport
+  bridging into one user-facing DashBridge setup operation.
+- Keeps one stable progress screen while Apple presents prompts and while the
+  app performs one bounded automatic recovery attempt.
+- Requires live BLE, notification, calls, and complete Tesla transport status
+  before setup is reported as finished.
+- Returns stale accessory authorization to Apple's picker instead of attaching
+  to a different nearby board.
 
 ## Build 22 changes
 

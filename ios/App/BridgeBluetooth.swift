@@ -22,6 +22,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     @Published private(set) var timeoutStartedAt: Date?
     @Published private(set) var timeoutDuration: TimeInterval = 15
     @Published private(set) var testWindowGrants = 0
+    @Published private(set) var phoneSetupSignal: PhoneSetupSignal?
     @Published var error: String?
 
     private var manager: CBCentralManager?
@@ -35,13 +36,16 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var scanTimer: Timer?
     private var presenceTimer: Timer?
     private var availabilityTimer: Timer?
-    private var timedOut = false
     private var appActive = true
+    private enum RecoveryStage { case none, scanning }
+    private var recoveryStage: RecoveryStage = .none
+    private var setupSignalSequence = 0
+    private var authorizedPeripheralID: UUID?
+    private var requiresAccessoryReselection = false
 #if !targetEnvironment(simulator)
     private var accessorySession: ASAccessorySession?
     private var accessorySessionReady = false
     private var pickerAccessory: ASAccessory?
-    private var authorizedPeripheralID: UUID?
     private var pickerPresentationRequested = false
     private var pickerPresented = false
 #endif
@@ -68,6 +72,21 @@ final class BridgeBluetooth: NSObject, ObservableObject {
 
     static func reconnectRequiresANCS(ancsAuthorized: Bool) -> Bool {
         !ancsAuthorized
+    }
+
+    static func isAuthorizedRecoveryCandidate(authorizedID: UUID?, candidateID: UUID) -> Bool {
+        authorizedID == candidateID
+    }
+
+    private func emitPhoneSetup(_ event: PhoneSetupAdapterEvent) {
+        setupSignalSequence += 1
+        phoneSetupSignal = PhoneSetupSignal(sequence: setupSignalSequence, event: event)
+    }
+
+    private func failPhoneSetup(_ failure: PhoneSetupFailure) {
+        recoveryStage = .none
+        endTimedCheck()
+        emitPhoneSetup(.failed(failure))
     }
 
     init(rememberedPeripheralStore: RememberedPeripheralPersisting = UserDefaultsRememberedPeripheralStore()) {
@@ -104,7 +123,6 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private func startAccessorySession() {
         if accessorySessionReady {
             accessorySetupReady = true
-            prepareAuthorizedAccessoryOrPicker()
             return
         }
         guard accessorySession == nil else { return }
@@ -123,10 +141,14 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             accessorySessionReady = true
             accessorySetupReady = true
             endTimedCheck()
-            prepareAuthorizedAccessoryOrPicker()
             presentAccessoryPickerIfReady()
         case .accessoryAdded, .accessoryChanged:
-            if let accessory = event.accessory { pickerAccessory = accessory }
+            if let accessory = event.accessory {
+                pickerAccessory = accessory
+                if accessory.state == .authorized, pickerPresented {
+                    emitPhoneSetup(.authorized)
+                }
+            }
         case .migrationComplete:
             pickerAccessory = accessorySession?.accessories.first(where: { $0.state == .authorized })
         case .pickerDidDismiss:
@@ -138,42 +160,53 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             }
             pickerAccessory = nil
             guard let identifier = accessory.bluetoothIdentifier else {
-                error = "iPhone paired DashBridge but did not provide its Bluetooth connection. Try again."
+                failPhoneSetup(.accessorySetup)
                 return
             }
             authorizedPeripheralID = identifier
+            requiresAccessoryReselection = false
             foundName = accessory.displayName
+            emitPhoneSetup(.authorized)
             beginCoreBluetooth()
         case .pickerSetupFailed:
             pickerPresented = false
             pickerPresentationRequested = false
-            error = event.error?.localizedDescription ?? "iPhone couldn't set up DashBridge. Try again nearby."
+            failPhoneSetup(.accessorySetup)
         case .invalidated:
             accessorySessionReady = false
             accessorySetupReady = false
             accessorySession = nil
             pickerPresented = false
-            error = event.error?.localizedDescription ?? "Accessory setup stopped. Try again."
+            failPhoneSetup(.accessorySetup)
         case .pickerDidPresent:
             pickerPresented = true
             pickerPresentationRequested = false
-        case .pickerSetupBridging, .pickerSetupPairing,
-             .pickerSetupRename, .accessoryRemoved, .accessoryDiscovered, .unknown:
+            emitPhoneSetup(.pickerPresented)
+        case .pickerSetupPairing:
+            emitPhoneSetup(.pairing)
+        case .pickerSetupBridging:
+            emitPhoneSetup(.bridging)
+        case .pickerSetupRename, .accessoryRemoved, .accessoryDiscovered, .unknown:
             break
         @unknown default:
             break
         }
     }
 
-    private func prepareAuthorizedAccessoryOrPicker() {
-        guard let session = accessorySession else { return }
+    @discardableResult
+    private func prepareAuthorizedAccessory() -> Bool {
+        guard !requiresAccessoryReselection else { return false }
+        guard let session = accessorySession else { return false }
         if let accessory = session.accessories.first(where: {
             $0.state == .authorized && $0.bluetoothIdentifier != nil
         }), let identifier = accessory.bluetoothIdentifier {
             authorizedPeripheralID = identifier
             foundName = accessory.displayName
+            emitPhoneSetup(.authorized)
             beginCoreBluetooth()
+            return true
         }
+        return false
     }
 
     private func beginCoreBluetooth() {
@@ -191,6 +224,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         guard !pickerPresented else { return }
         pickerPresentationRequested = true
         error = nil
+        recoveryStage = .none
         if accessorySession == nil {
             startAccessorySession()
         }
@@ -228,6 +262,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
                 self?.pickerPresented = false
                 self?.pickerPresentationRequested = false
                 self?.error = error.localizedDescription
+                self?.failPhoneSetup(.accessorySetup)
             }
         }
     }
@@ -261,9 +296,15 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         case .poweredOff:
             endTimedCheck()
             error = "Turn on Bluetooth in iPhone Settings, then try again."
+#if !targetEnvironment(simulator)
+            emitPhoneSetup(.failed(.bluetoothOff))
+#endif
         case .unauthorized:
             endTimedCheck()
             error = "Allow Bluetooth for DashBridge in iPhone Settings."
+#if !targetEnvironment(simulator)
+            emitPhoneSetup(.failed(.bluetoothPermission))
+#endif
         case .unsupported:
             endTimedCheck()
 #if targetEnvironment(simulator)
@@ -271,11 +312,17 @@ final class BridgeBluetooth: NSObject, ObservableObject {
 #else
             error = "Bluetooth accessories aren't available on this iPhone."
 #endif
+#if !targetEnvironment(simulator)
+            emitPhoneSetup(.failed(.bluetoothUnavailable))
+#endif
         case .unknown, .resetting:
             waitForBluetooth()
         @unknown default:
             endTimedCheck()
             error = "Bluetooth isn't available right now. Try again in a moment."
+#if !targetEnvironment(simulator)
+            emitPhoneSetup(.failed(.bluetoothUnavailable))
+#endif
         }
     }
 
@@ -287,6 +334,9 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             guard let self, self.manager?.state != .poweredOn else { return }
             self.endTimedCheck()
             self.error = "Bluetooth didn't become ready. Try again in a moment."
+#if !targetEnvironment(simulator)
+            self.emitPhoneSetup(.failed(.bluetoothUnavailable))
+#endif
         }
     }
 
@@ -317,7 +367,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         }
         // AccessorySetupKit owns first-time discovery. Core Bluetooth is used
         // only after the system has authorized one selected accessory.
-        if accessorySession != nil {
+        if accessorySession != nil, authorizedPeripheralID == nil {
             foundName = "DashBridge"
             return
         }
@@ -354,6 +404,10 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             }
             return
         }
+        if authorizedPeripheralID != nil {
+            recoveryStage = .scanning
+            emitPhoneSetup(.recovering)
+        }
         scan(clearError: false)
     }
 
@@ -378,13 +432,19 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             self.manager?.stopScan()
             self.scanning = false
             self.endTimedCheck()
-            self.error = Self.notFoundMessage
+            if self.recoveryStage == .scanning {
+                self.requiresAccessoryReselection = true
+                self.failPhoneSetup(.unavailable)
+            } else {
+                self.error = Self.notFoundMessage
+            }
         }
     }
 
     func connectFound(requiresANCS: Bool = true) {
         guard appActive, let discovered, let manager else {
 #if !targetEnvironment(simulator)
+            if prepareAuthorizedAccessory() { return }
             requestAccessoryPicker()
 #endif
             return
@@ -399,6 +459,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         peripheral = discovered
         connectionStage = "Opening Bluetooth link"
         notificationPermission = nil
+        emitPhoneSetup(.connecting)
         discovered.delegate = self
         // Ask iOS to offer ANCS notification permission during pairing and to
         // activate the authorized Dash Calls Classic profiles over the same
@@ -412,19 +473,26 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         connectionTimer?.invalidate()
         connectionTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: false) { [weak self] _ in
             guard let self, self.appActive, self.status == nil else { return }
-            self.timedOut = true
-            self.error = self.connected
-                ? "Your iPhone connected to DashBridge, but the app couldn't check it yet."
-                : "DashBridge may be connected in iPhone Bluetooth settings, but the app couldn't reach it yet."
-            if self.status == nil, let id = self.peripheral?.identifier,
-               self.rememberedPeripheralStore.loadIdentifier() == id {
-                self.rememberedPeripheralStore.removeIdentifier(ifMatching: id)
-            }
-            if let peripheral = self.peripheral {
-                self.manager?.cancelPeripheralConnection(peripheral)
-            }
-            self.clearConnection()
+            self.recoverAuthorizedConnection()
         }
+    }
+
+    private func recoverAuthorizedConnection() {
+        guard appActive, authorizedPeripheralID != nil else {
+            requiresAccessoryReselection = true
+            failPhoneSetup(.unavailable)
+            return
+        }
+        guard recoveryStage == .none else {
+            requiresAccessoryReselection = true
+            failPhoneSetup(.unavailable)
+            return
+        }
+        recoveryStage = .scanning
+        emitPhoneSetup(.recovering)
+        if let peripheral { manager?.cancelPeripheralConnection(peripheral) }
+        clearConnection()
+        scan(clearError: false)
     }
 
     func setAppActive(_ active: Bool) {
@@ -447,22 +515,30 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         }
 
         guard manager?.state == .poweredOn else { return }
-        timedOut = false
         error = nil
         if connected {
             if status == nil { scheduleConnectionTimeout() }
             refresh()
         } else {
-            findExistingOrScan(tryRemembered: false)
+            if recoveryStage == .scanning {
+                emitPhoneSetup(.recovering)
+                scan(clearError: false)
+            } else {
+                findExistingOrScan(tryRemembered: false)
+            }
         }
     }
 
     func retry() {
         error = nil
-        timedOut = false
+        recoveryStage = .none
 #if !targetEnvironment(simulator)
+        if requiresAccessoryReselection {
+            requestAccessoryPicker()
+            return
+        }
         if manager == nil {
-            prepareAuthorizedAccessoryOrPicker()
+            if !prepareAuthorizedAccessory() { requestAccessoryPicker() }
             return
         }
 #endif
@@ -569,6 +645,11 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
         guard BridgeService.discoveryNames.contains(where: {
             name.caseInsensitiveCompare($0) == .orderedSame
         }), !incompatibleIdentifiers.contains(peripheral.identifier) else { return }
+        if recoveryStage == .scanning,
+           !Self.isAuthorizedRecoveryCandidate(authorizedID: authorizedPeripheralID,
+                                               candidateID: peripheral.identifier) {
+            return
+        }
         guard discovered == nil || discovered?.identifier == peripheral.identifier else { return }
         discovered = peripheral
         foundName = name
@@ -584,7 +665,10 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
             self.discovered = nil
             self.scan(clearError: false)
         }
-        if rememberedPeripheralStore.loadIdentifier() == peripheral.identifier,
+        if recoveryStage == .scanning {
+            connectFound(requiresANCS: Self.reconnectRequiresANCS(
+                ancsAuthorized: peripheral.ancsAuthorized))
+        } else if rememberedPeripheralStore.loadIdentifier() == peripheral.identifier,
            peripheral.ancsAuthorized {
             connectFound(requiresANCS: false)
         }
@@ -595,6 +679,7 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
         notificationPermission = peripheral.ancsAuthorized ? true : nil
         connectionStage = "Finding setup service"
         error = nil
+        emitPhoneSetup(.connecting)
         peripheral.delegate = self
         peripheral.discoverServices([BridgeService.service])
     }
@@ -608,31 +693,26 @@ extension BridgeBluetooth: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
         guard self.peripheral?.identifier == peripheral.identifier else { return }
-        if appActive {
-            self.error = error?.localizedDescription ?? "Could not connect to DashBridge."
-        }
         clearConnection()
-        if appActive { findExistingOrScan(tryRemembered: false) }
+        if appActive { recoverAuthorizedConnection() }
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral,
                         error: Error?) {
         guard self.peripheral?.identifier == peripheral.identifier else { return }
-        if appActive, let error { self.error = error.localizedDescription }
         clearConnection()
-        if appActive, !timedOut && !incompatibleIdentifiers.contains(peripheral.identifier) {
-            findExistingOrScan(tryRemembered: false)
+        if appActive, !incompatibleIdentifiers.contains(peripheral.identifier) {
+            recoverAuthorizedConnection()
         }
-        timedOut = false
     }
 }
 
 extension BridgeBluetooth: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        if let error { self.error = error.localizedDescription; return }
+        if error != nil { recoverAuthorizedConnection(); return }
         guard let service = peripheral.services?.first(where: { $0.uuid == BridgeService.service }) else {
-            self.error = "This DashBridge needs the companion-app firmware."
             incompatibleIdentifiers.insert(peripheral.identifier)
+            failPhoneSetup(.incompatibleFirmware)
             manager?.cancelPeripheralConnection(peripheral)
             return
         }
@@ -642,7 +722,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService,
                     error: Error?) {
-        if let error { self.error = error.localizedDescription; return }
+        if error != nil { recoverAuthorizedConnection(); return }
         for characteristic in service.characteristics ?? [] {
             switch characteristic.uuid {
             case BridgeService.status: statusCharacteristic = characteristic
@@ -653,7 +733,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
         }
         guard statusCharacteristic != nil, policyCharacteristic != nil,
               commandCharacteristic != nil else {
-            self.error = "DashBridge setup service is incomplete."
+            failPhoneSetup(.incompleteService)
             return
         }
         deviceID = peripheral.identifier
@@ -667,14 +747,15 @@ extension BridgeBluetooth: CBPeripheralDelegate {
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic,
                     error: Error?) {
-        if let error {
-            if characteristic.uuid == BridgeService.status { self.error = error.localizedDescription }
+        if error != nil {
+            if characteristic.uuid == BridgeService.status { recoverAuthorizedConnection() }
             return
         }
         guard let data = characteristic.value else { return }
         if characteristic.uuid == BridgeService.status {
             do {
                 status = try BridgeStatus(data)
+                recoveryStage = .none
                 if status?.notifications == true {
                     rememberedPeripheralStore.saveIdentifier(peripheral.identifier)
                 }
@@ -683,7 +764,7 @@ extension BridgeBluetooth: CBPeripheralDelegate {
                 connectionTimer = nil
                 endTimedCheck()
             }
-            catch { self.error = error.localizedDescription }
+            catch { failPhoneSetup(.incompatibleFirmware) }
         } else if characteristic.uuid == BridgeService.policy {
             let text = String(decoding: data, as: UTF8.self)
             allowedIDs = Set(text.split(separator: "\n").map(String.init))

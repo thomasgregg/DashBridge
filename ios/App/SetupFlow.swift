@@ -2,8 +2,43 @@ import Combine
 import Foundation
 
 enum SetupStep: Equatable {
-    case welcome, finding, checking, pair, sharing, apps
+    case welcome, finding, checking, apps
     case car, test, ready, help
+}
+
+enum PhoneSetupPhase: Equatable {
+    case inactive
+    case preparing
+    case awaitingUser
+    case systemSetup
+    case verifying
+    case recovering
+    case complete
+}
+
+enum PhoneSetupFailure: Equatable {
+    case accessorySetup
+    case bluetoothOff
+    case bluetoothPermission
+    case bluetoothUnavailable
+    case unavailable
+    case incompatibleFirmware
+    case incompleteService
+}
+
+enum PhoneSetupAdapterEvent: Equatable {
+    case pickerPresented
+    case pairing
+    case bridging
+    case authorized
+    case connecting
+    case recovering
+    case failed(PhoneSetupFailure)
+}
+
+struct PhoneSetupSignal: Equatable {
+    let sequence: Int
+    let event: PhoneSetupAdapterEvent
 }
 
 enum SetupPreviewScreen: String {
@@ -25,6 +60,7 @@ struct SetupFlowState: Equatable {
     var appsReturnStep: SetupStep = .welcome
     var helpReturnStep: SetupStep = .car
     var connectionRequestPending = false
+    var phoneSetupPhase: PhoneSetupPhase = .inactive
 }
 
 enum SetupFlowEvent {
@@ -35,11 +71,10 @@ enum SetupFlowEvent {
     case accessorySetupReady
     case accessoryPickerCancelled
     case connectionGuidancePresented
-    case connectionChanged(connected: Bool, hasError: Bool)
+    case phoneSetupEvent(PhoneSetupAdapterEvent)
+    case connectionChanged(connected: Bool)
     case deviceIdentified(String)
     case statusReceived(BridgeStatus)
-    case connectionFailedDuringCheck
-    case checkingTimedOut(connected: Bool)
     case openHelp(returnTo: SetupStep)
     case openAppsFromReady
     case phoneReviewContinued
@@ -57,7 +92,6 @@ enum SetupFlowEvent {
 enum SetupFlowEffect: Equatable {
     case startBluetooth
     case connectFound
-    case openPhonePairing
     case retryBluetooth
     case loadCatalog
     case clearBluetoothError
@@ -91,34 +125,63 @@ struct SetupFlowMachine {
             state.progress.welcomed = true
             if connected {
                 state.step = .checking
+                state.phoneSetupPhase = .verifying
                 if let status { route(status) }
             } else {
                 state.step = .finding
+                state.phoneSetupPhase = .preparing
                 effects.append(.startBluetooth)
             }
 
         case .peripheralFound:
             guard state.step == .finding else { break }
             state.connectionRequestPending = true
+            state.phoneSetupPhase = .awaitingUser
             state.step = .checking
 
         case .accessorySetupReady:
             guard state.step == .finding else { break }
             state.connectionRequestPending = true
+            state.phoneSetupPhase = .awaitingUser
             state.step = .checking
 
         case .accessoryPickerCancelled:
             guard state.step == .checking else { break }
             state.connectionRequestPending = true
+            state.phoneSetupPhase = .awaitingUser
 
         case .connectionGuidancePresented:
             guard state.step == .checking, state.connectionRequestPending else { break }
             state.connectionRequestPending = false
+            state.phoneSetupPhase = .systemSetup
             effects.append(.connectFound)
 
-        case let .connectionChanged(connected, hasError):
-            if connected, state.step == .finding { state.step = .checking }
-            if !connected, state.step == .checking, !hasError { state.step = .finding }
+        case let .phoneSetupEvent(event):
+            switch event {
+            case .pickerPresented, .pairing, .bridging:
+                state.phoneSetupPhase = .systemSetup
+            case .authorized, .connecting:
+                state.phoneSetupPhase = .verifying
+            case .recovering:
+                state.phoneSetupPhase = .recovering
+            case let .failed(failure):
+                guard state.step == .finding || state.step == .checking else { break }
+                state.helpReturnStep = .checking
+                state.step = .help
+                effects.append(.setBluetoothError(Self.message(for: failure)))
+            }
+
+        case let .connectionChanged(connected):
+            if connected {
+                if state.step == .finding { state.step = .checking }
+                if state.step == .checking { state.phoneSetupPhase = .verifying }
+            } else if state.step == .checking, !state.connectionRequestPending,
+                      state.phoneSetupPhase != .systemSetup {
+                // Pairing and notification authorization can deliberately
+                // rebuild the BLE link. Keep one stable setup screen while
+                // the adapter performs bounded automatic recovery.
+                state.phoneSetupPhase = .recovering
+            }
 
         case let .deviceIdentified(identifier):
             if !state.progress.completedDeviceID.isEmpty,
@@ -131,20 +194,6 @@ struct SetupFlowMachine {
 
         case let .statusReceived(status):
             route(status)
-
-        case .connectionFailedDuringCheck:
-            guard state.step == .checking else { break }
-            state.helpReturnStep = .checking
-            state.step = .help
-
-        case let .checkingTimedOut(connected):
-            guard state.step == .checking else { break }
-            let message = connected
-                ? "Your iPhone connected to DashBridge, but the app couldn't check its setup yet."
-                : "The app couldn't reach DashBridge's setup connection yet."
-            state.helpReturnStep = .checking
-            state.step = .help
-            effects.append(.setBluetoothError(message))
 
         case let .openHelp(returnTo):
             state.helpReturnStep = returnTo
@@ -162,7 +211,7 @@ struct SetupFlowMachine {
             state.progress.choseApps = true
             if state.progress.testConfirmed || state.progress.teslaDeferred {
                 state.step = .ready
-            } else if status?.teslaMessages == true, status?.teslaCalls == true {
+            } else if status?.teslaSetupReady == true {
                 state.step = .test
             } else {
                 state.step = .car
@@ -186,7 +235,7 @@ struct SetupFlowMachine {
             effects.append(.clearBluetoothError)
             if state.progress.testConfirmed {
                 state.step = .ready
-            } else if status?.teslaMessages == true {
+            } else if status?.teslaSetupReady == true {
                 state.step = .test
             } else if status != nil {
                 state.step = .car
@@ -196,7 +245,7 @@ struct SetupFlowMachine {
             }
 
         case let .readyAction(status):
-            if status?.teslaMessages == true, status?.teslaCalls == true {
+            if status?.teslaSetupReady == true {
                 state.step = .test
             } else {
                 state.reviewingCarStep = false
@@ -222,11 +271,6 @@ struct SetupFlowMachine {
         }
 
         if state.step != previousStep {
-            if state.step == .pair, !state.reviewingPhoneStep {
-                // Refresh the board's finite pairing window at the moment the
-                // system picker is actually ready to finish Dash Calls.
-                effects.append(.openPhonePairing)
-            }
             if state.step == .apps || state.step == .ready {
                 effects.append(.loadCatalog)
             }
@@ -235,23 +279,24 @@ struct SetupFlowMachine {
     }
 
     private mutating func route(_ status: BridgeStatus) {
-        if state.step == .checking || state.step == .pair || state.step == .sharing {
+        if state.step == .checking {
             if state.reviewingPhoneStep { return }
-            if status.phoneCalls && status.notifications {
+            if status.phoneSetupReady {
+                state.phoneSetupPhase = .complete
                 if state.progress.choseApps {
                     state.step = state.progress.testConfirmed || state.progress.teslaDeferred
                         ? .ready
-                        : (status.teslaMessages && status.teslaCalls ? .test : .car)
+                        : (status.teslaSetupReady ? .test : .car)
                 } else {
-                    state.appsReturnStep = .pair
+                    state.appsReturnStep = .checking
                     state.step = .apps
                 }
                 return
             }
-            state.step = status.notifications ? .pair : .sharing
+            state.phoneSetupPhase = .verifying
         }
         if state.step == .car, !state.reviewingCarStep,
-           status.teslaMessages, status.teslaCalls {
+           status.teslaSetupReady {
             state.step = state.progress.testConfirmed ? .ready : .test
         }
     }
@@ -260,11 +305,11 @@ struct SetupFlowMachine {
         switch state.step {
         case .welcome:
             break
-        case .finding, .checking, .pair, .sharing:
+        case .finding, .checking:
             state.reviewingPhoneStep = false
             state.step = .welcome
         case .apps:
-            state.reviewingPhoneStep = state.appsReturnStep == .pair
+            state.reviewingPhoneStep = state.appsReturnStep == .checking
             state.step = state.appsReturnStep
         case .car:
             state.reviewingCarStep = false
@@ -291,12 +336,16 @@ struct SetupFlowMachine {
         case .connectIPhone:
             state.step = .checking
             state.connectionRequestPending = true
-        case .checking: state.step = .checking
+            state.phoneSetupPhase = .awaitingUser
+        case .checking:
+            state.step = .checking
+            state.phoneSetupPhase = .verifying
         case .retry:
             state.helpReturnStep = .checking
             state.step = .help
-        case .pairMessages, .sharing: state.step = .sharing
-        case .pairCalls: state.step = .pair
+        case .pairMessages, .sharing, .pairCalls:
+            state.step = .checking
+            state.phoneSetupPhase = .verifying
         case .apps:
             state.appsReturnStep = .welcome
             state.step = .apps
@@ -311,6 +360,25 @@ struct SetupFlowMachine {
         case .status:
             state.helpReturnStep = .ready
             state.step = .help
+        }
+    }
+
+    private static func message(for failure: PhoneSetupFailure) -> String {
+        switch failure {
+        case .accessorySetup:
+            "iPhone couldn't finish setting up DashBridge. Keep it powered and nearby, then try again."
+        case .bluetoothOff:
+            "Turn on Bluetooth on your iPhone, then try again."
+        case .bluetoothPermission:
+            "Allow Bluetooth for DashBridge in iPhone Settings, then try again."
+        case .bluetoothUnavailable:
+            "Bluetooth isn't available on this iPhone right now. Try again in a moment."
+        case .unavailable:
+            "The app couldn't reconnect to DashBridge after trying automatically. Keep it powered and nearby, then try again."
+        case .incompatibleFirmware:
+            "This DashBridge needs the companion-app firmware."
+        case .incompleteService:
+            "DashBridge's setup connection is incomplete. Restart it and try again."
         }
     }
 }

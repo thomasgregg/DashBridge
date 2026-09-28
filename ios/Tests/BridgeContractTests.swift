@@ -46,4 +46,27 @@ final class BridgeContractTests: XCTestCase {
         XCTAssertTrue(BridgeBluetooth.reconnectRequiresANCS(ancsAuthorized: false))
         XCTAssertFalse(BridgeBluetooth.reconnectRequiresANCS(ancsAuthorized: true))
     }
+
+    func testAutomaticRecoveryCannotAttachToADifferentNearbyBoard() {
+        let selected = UUID()
+
+        XCTAssertTrue(BridgeBluetooth.isAuthorizedRecoveryCandidate(
+            authorizedID: selected, candidateID: selected))
+        XCTAssertFalse(BridgeBluetooth.isAuthorizedRecoveryCandidate(
+            authorizedID: selected, candidateID: UUID()))
+        XCTAssertFalse(BridgeBluetooth.isAuthorizedRecoveryCandidate(
+            authorizedID: nil, candidateID: selected))
+    }
+
+    func testPhoneSetupRequiresMessagesNotificationsAndCalls() {
+        XCTAssertFalse(BridgeStatus(bits: 0b0000_0011).phoneSetupReady)
+        XCTAssertFalse(BridgeStatus(bits: 0b0000_0101).phoneSetupReady)
+        XCTAssertTrue(BridgeStatus(bits: 0b0000_0111).phoneSetupReady)
+    }
+
+    func testTeslaSetupRequiresEveryBoardTransport() {
+        XCTAssertFalse(BridgeStatus(bits: 0b0111_1111).teslaSetupReady)
+        XCTAssertFalse(BridgeStatus(bits: 0b1111_0111).teslaSetupReady)
+        XCTAssertTrue(BridgeStatus(bits: 0b1111_1111).teslaSetupReady)
+    }
 }
