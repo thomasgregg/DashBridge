@@ -1,6 +1,6 @@
 # DashBridge setup
 
-The current release is **0.5.5-alpha**, a two-board prototype for original
+The current release is **0.5.6-alpha**, a two-board prototype for original
 ESP32-WROOM-32 boards. Start with the [README](../README.md#get-started) for the
 five-wire layout, installation methods, pairing, and the parked-car test
 checklist. Install the matching Board A and Board B images from the same

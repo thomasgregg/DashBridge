@@ -3,7 +3,7 @@
 This is the canonical description of the current two-board architecture. It
 explains the Bluetooth identities, functional paths, reconnection rules, source
 layout, and compatibility boundaries. It describes the implemented
-**0.5.5-alpha** design; passing software validation does not replace the outstanding
+**0.5.6-alpha** design; passing software validation does not replace the outstanding
 iPhone-and-Tesla hardware validation listed in the README.
 
 ## System overview
@@ -48,7 +48,7 @@ implementations.
 
 | Name | Board and transport | Profiles and purpose | How it is paired |
 | --- | --- | --- | --- |
-| **Dash Messages** | Board A, Bluetooth Low Energy | Apple ANCS notification access and the released Setup GATT v1 status/policy interface | The primary advertisement carries a versioned DashBridge manufacturer-data signature for deterministic AccessorySetupKit discovery. The companion app pairs it as part of one DashBridge setup. It can also be paired manually during a USB pairing window. |
+| **Dash Messages** | Board A, Bluetooth Low Energy | Apple ANCS notification access and the released Setup GATT v1 status/policy interface | The primary advertisement carries ANCS solicitation, Espressif's company ID, and a short `Dash` name. The complete `Dash Messages` name follows in the scan response. This keeps fresh AccessorySetupKit discovery reliable after iOS forgets cached Bluetooth names. The companion app pairs it as part of one DashBridge setup. It can also be paired manually during a USB pairing window. |
 | **Dash Calls** | Board A, Bluetooth Classic | HFP calls, A2DP/AVRCP music, and PBAP contacts/call lists | The companion app asks iOS to bridge it automatically during the same DashBridge setup. In the USB-only fallback, select it manually after Dash Messages is ready. |
 | **Dash Tesla** | Board B, Bluetooth Classic | HFP phone/call audio, MAP/MNS messages, A2DP/AVRCP music, and PBAP phonebook projection | Paired once from the Tesla Bluetooth screen |
 

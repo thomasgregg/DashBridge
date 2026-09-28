@@ -29,29 +29,27 @@ static uint8_t control_uuid[] = {0xd9, 0xd9, 0xaa, 0xfd, 0xbd, 0x9b, 0x21, 0x98,
                                  0xa8, 0x49, 0xe1, 0x45, 0xf3, 0xd8, 0xd1, 0x69};
 static uint8_t data_uuid[] = {0xfb, 0x7b, 0x7c, 0xce, 0x6a, 0xb3, 0x44, 0xbe,
                               0xb5, 0x4b, 0xd6, 0x24, 0xe9, 0xc6, 0xea, 0x22};
-// Keep the ANCS solicitation and the AccessorySetupKit discovery signature in
-// the primary packet. Apple discovery does not reliably use the scan response
-// for descriptor matching. 0x02e5 is Espressif's registered Bluetooth company
-// identifier; "DB\x01" identifies DashBridge discovery format 1 on this board.
+// Keep the ANCS solicitation, manufacturer ID and a short local name in the
+// primary packet. AccessorySetupKit can ignore an otherwise matching device
+// after iOS forgets its cached name when the name exists only in a scan
+// response. 0x02e5 is Espressif's registered Bluetooth company identifier.
 static constexpr uint16_t discovery_company_id = 0x02e5;
-static constexpr uint8_t discovery_signature[] = {'D', 'B', 0x01};
 static uint8_t advertisement[] = {
     2, 0x01, 0x06,
     17, 0x15, 0xd0, 0x00, 0x2d, 0x12, 0x1e, 0x4b, 0x0f, 0xa4,
     0x99, 0x4e, 0xce, 0xb5, 0x31, 0xf4, 0x05, 0x79,
-    6, 0xff,
+    3, 0xff,
     uint8_t(discovery_company_id & 0xff), uint8_t(discovery_company_id >> 8),
-    discovery_signature[0], discovery_signature[1], discovery_signature[2]};
-static_assert(sizeof(discovery_signature) == 3, "DashBridge discovery signature changed");
-static_assert(sizeof(advertisement) == 28, "BLE primary discovery packet changed");
-// Retain the friendly name and the generic HID discovery fields in the scan
-// response for diagnostics and Settings compatibility. Setup no longer relies
-// on this secondary packet being returned to AccessorySetupKit.
+    5, 0x08, 'D', 'a', 's', 'h'};
+static_assert(sizeof(advertisement) == 31, "BLE primary discovery packet changed");
+// The scan response carries the complete BLE identity shown by Settings plus
+// the generic HID compatibility fields. Discovery no longer requires iOS to
+// obtain this secondary packet because the primary packet already says Dash.
 static uint8_t scan_response[] = {
     3, 0x03, 0x12, 0x18, // Complete 16-bit service list: HID, 0x1812.
     3, 0x19, 0xc0, 0x03, // Appearance: generic HID, 0x03c0.
-    11, 0x09, 'D', 'a', 's', 'h', 'B', 'r', 'i', 'd', 'g', 'e'};
-static_assert(sizeof(scan_response) == 20, "BLE scan response layout changed");
+    14, 0x09, 'D', 'a', 's', 'h', ' ', 'M', 'e', 's', 's', 'a', 'g', 'e', 's'};
+static_assert(sizeof(scan_response) == 23, "BLE scan response layout changed");
 static esp_ble_adv_params_t advertising = {};
 static esp_gatt_if_t interface_id = ESP_GATT_IF_NONE;
 static uint16_t connection = 0, start_handle = 0, end_handle = 0;
@@ -315,7 +313,7 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
     }
     case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT: {
         adv_data_status = p->adv_data_raw_cmpl.status;
-        ESP_LOGI(tag, "BLE advertisement (ANCS + DashBridge discovery signature) configured: status=0x%02x",
+        ESP_LOGI(tag, "BLE advertisement (ANCS + company ID + short name) configured: status=0x%02x",
                  unsigned(adv_data_status));
         if (adv_data_status != ESP_BT_STATUS_SUCCESS) {
             adv_pending = 0;
@@ -332,7 +330,7 @@ static void gap(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p) {
     case ESP_GAP_BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE_EVT: {
         scan_data_status = p->scan_rsp_data_raw_cmpl.status;
         adv_pending = 0;
-        ESP_LOGI(tag, "BLE scan response (HID compatibility + name) configured: status=0x%02x",
+        ESP_LOGI(tag, "BLE scan response (HID compatibility + Dash Messages name) configured: status=0x%02x",
                  unsigned(scan_data_status));
         if (scan_data_status == ESP_BT_STATUS_SUCCESS)
             ESP_ERROR_CHECK(start_advertising());
@@ -732,7 +730,7 @@ bool phone_setup_test_notification() {
 void phone_start() {
     load_policy();
     ESP_LOGI(tag, "BLE notification diagnostics enabled; configuration status -1=pending, 0=success");
-    ESP_LOGI(tag, "BLE discovery: primary DashBridge signature; HID compatibility has no input reports");
+    ESP_LOGI(tag, "BLE discovery: primary Dash name; HID compatibility has no input reports");
     advertising.adv_int_min = 0x100;
     advertising.adv_int_max = 0x100;
     advertising.adv_type = ADV_TYPE_IND;

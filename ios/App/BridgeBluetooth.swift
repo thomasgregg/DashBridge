@@ -6,7 +6,7 @@ import UIKit
 final class BridgeBluetooth: NSObject, ObservableObject {
     static let notFoundMessage = "The app can't find DashBridge. Make sure it's powered and not connected to another iPhone, then try again."
     static let discoveryCompanyIdentifier = ASBluetoothCompanyIdentifier(rawValue: 0x02E5)
-    static let discoverySignature = Data([0x44, 0x42, 0x01])
+    static let discoveryNameSubstring = "Dash"
 
     @Published private(set) var bluetoothReady = false
     @Published private(set) var accessorySetupReady = false
@@ -85,10 +85,8 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     static func accessoryDiscoveryDescriptor() -> ASDiscoveryDescriptor {
         let descriptor = ASDiscoveryDescriptor()
         descriptor.bluetoothCompanyIdentifier = discoveryCompanyIdentifier
-        descriptor.bluetoothManufacturerDataBlob = discoverySignature
-        descriptor.bluetoothManufacturerDataMask = Data(
-            repeating: 0xff, count: discoverySignature.count)
-        descriptor.bluetoothRange = .immediate
+        descriptor.bluetoothNameSubstring = discoveryNameSubstring
+        descriptor.bluetoothRange = .default
         descriptor.supportedOptions = [.bluetoothPairingLE, .bluetoothTransportBridging]
         return descriptor
     }

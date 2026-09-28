@@ -48,14 +48,15 @@ final class BridgeContractTests: XCTestCase {
         XCTAssertFalse(BridgeBluetooth.reconnectRequiresANCS(ancsAuthorized: true))
     }
 
-    func testAccessoryPickerMatchesPrimaryDashBridgeAdvertisement() {
+    func testAccessoryPickerMatchesPrimaryDashMessagesAdvertisement() {
         let descriptor = BridgeBluetooth.accessoryDiscoveryDescriptor()
 
         XCTAssertEqual(descriptor.bluetoothCompanyIdentifier,
                        ASBluetoothCompanyIdentifier(rawValue: 0x02E5))
-        XCTAssertEqual(descriptor.bluetoothManufacturerDataBlob, Data([0x44, 0x42, 0x01]))
-        XCTAssertEqual(descriptor.bluetoothManufacturerDataMask, Data([0xff, 0xff, 0xff]))
-        XCTAssertNil(descriptor.bluetoothNameSubstring)
+        XCTAssertNil(descriptor.bluetoothManufacturerDataBlob)
+        XCTAssertNil(descriptor.bluetoothManufacturerDataMask)
+        XCTAssertEqual(descriptor.bluetoothNameSubstring, "Dash")
+        XCTAssertEqual(descriptor.bluetoothRange, .default)
         XCTAssertNil(descriptor.bluetoothServiceUUID)
         XCTAssertTrue(descriptor.supportedOptions.contains(.bluetoothPairingLE))
         XCTAssertTrue(descriptor.supportedOptions.contains(.bluetoothTransportBridging))

@@ -6,12 +6,12 @@ No extra iPhone app is required in the observed setup.
 
 ## Discovery and pairing
 
-The primary BLE advertisement solicits ANCS and includes an Espressif
-manufacturer-data field containing the versioned DashBridge signature
-`44 42 01`. Apple's AccessorySetupKit picker matches this primary signature,
-so discovery does not depend on a secondary scan response. The scan response
-retains the `DashBridge` name, generic HID service UUID, and HID appearance for
-Settings compatibility. Both packets fit within the 31-byte BLE limits. The
+The primary BLE advertisement solicits ANCS and includes Espressif's company ID
+plus a shortened `Dash` local name. Apple's AccessorySetupKit picker matches
+that company-and-name pair. Keeping a name in the primary packet avoids an iOS
+discovery failure after cached Bluetooth records are deleted. The scan response
+retains the complete `Dash Messages` name, generic HID service UUID, and HID
+appearance for Settings compatibility. Both packets fit within the 31-byte BLE limits. The
 HID fields are a discovery compatibility advertisement, not a full keyboard
 implementation; no input reports are sent.
 
@@ -38,8 +38,8 @@ firmware updates. These results do not establish daily reliability.
 ## Interpret the log
 
 - `BLE GATT registration complete` and `BLE privacy complete` identify setup callbacks.
-- `BLE advertisement (ANCS + DashBridge discovery signature)` and the
-  scan-response log identify primary signature and name configuration.
+- `BLE advertisement (ANCS + company ID + short name)` and the scan-response
+  log identify primary discovery and the complete Dash Messages name.
 - `BLE advertising start complete` with status zero means advertising started;
   it does not prove the iPhone saw it.
 - `BLE connection event` shows the BLE connection reached the callback.

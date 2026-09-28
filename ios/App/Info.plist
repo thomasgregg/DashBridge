@@ -34,6 +34,7 @@
 	</array>
 	<key>NSAccessorySetupBluetoothNames</key>
 	<array>
+		<string>Dash</string>
 		<string>DashBridge</string>
 		<string>Dash Messages</string>
 	</array>

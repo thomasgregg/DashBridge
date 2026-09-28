@@ -1,4 +1,4 @@
-# DashBridge firmware 0.5.5-alpha
+# DashBridge firmware 0.5.6-alpha
 
 This two-board prerelease is for original ESP32-WROOM-32 boards. It includes
 notifications, calls, encoded call audio, music and media controls, contacts
@@ -9,8 +9,8 @@ browser USB setup flow, and Setup GATT v1 support for the iPhone app.
 
 | Board | Complete image | Embedded version | SHA-256 |
 | --- | --- | --- | --- |
-| A — iPhone | `phone-full.bin` | `0.5.5-alpha+c0d798ee4a99` | `96614d3125b3af0ed75f7a6c6f15d3f2b5cd2c8ec9ecf355cc0cc0ecf13bc994` |
-| B — Tesla | `car-full.bin` | `0.5.5-alpha+e56d0a852e05` | `4459e08815fa13dd07dadc1661e04a04d0551a8834ab7222bf4f2d17da7fc7ff` |
+| A — iPhone | `phone-full.bin` | `0.5.6-alpha+c5dbf4ba4bfb` | `9973d00c54aa78c6e88161869c4b8012406687bb21ddd1b846ac0cb4414e560b` |
+| B — Tesla | `car-full.bin` | `0.5.6-alpha+e56d0a852e05` | `54b39f9558e33e3aea2d766d503759880653aa22b2703e54cdc6850dd9491207` |
 
 The complete images contain the bootloader, partition table, and application
 and are flashed at `0x0`. They may erase Bluetooth bonds and app choices.
@@ -34,9 +34,10 @@ contacts, pairing order, reconnect ownership, persistence, replay protection,
 browser integrity, production Bluetooth configuration, and SDP checks pass.
 
 Earlier secure BLE and Classic Bluetooth pairing changes passed a live Board A
-pairing trace. Board A's primary BLE packet now carries the versioned DashBridge
-discovery signature used by AccessorySetupKit; a live Mac scan verified the
-signature, connection, Setup-service UUID, and status read. These images also
+pairing trace. Board A's primary BLE packet carries ANCS solicitation,
+Espressif's company ID, and a shortened local name so fresh AccessorySetupKit
+discovery does not depend on a cached name or scan response. The complete
+Bluetooth identity remains Dash Messages. These images also
 refresh the full Classic pairing window after a new BLE bond, immediately
 recognize that bond, and suspend the old saved-phone HFP link while Apple's
 replacement bridge is running. They have not yet completed

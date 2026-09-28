@@ -11,7 +11,7 @@ private final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
     private var device: CBPeripheral?
     private let setupService = CBUUID(string: "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F0")
     private let statusCharacteristic = CBUUID(string: "0D9B6B3D-CEB1-4E16-A0C1-3D28C258A6F1")
-    private let discoveryPrefix = Data([0xe5, 0x02, 0x44, 0x42, 0x01])
+    private let discoveryCompany = Data([0xe5, 0x02])
     private let scanOnly = CommandLine.arguments.contains("--scan-only")
 
     override init() {
@@ -30,12 +30,12 @@ private final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDeleg
                         advertisementData: [String: Any], rssi: NSNumber) {
         let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name ?? ""
         let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data
-        let signatureMatches = manufacturerData?.starts(with: discoveryPrefix) == true
-        guard signatureMatches || name == "DashBridge" || name == "DashBridge A" || name == "Dash Messages" else { return }
+        let companyMatches = manufacturerData?.starts(with: discoveryCompany) == true
+        let nameMatches = name.hasPrefix("Dash")
+        guard companyMatches && nameMatches else { return }
         if scanOnly {
             let displayedName = name.isEmpty ? "not returned" : name
-            let signatureStatus = signatureMatches ? "valid" : "missing"
-            report("Found DashBridge advertising; name=\(displayedName), signature=\(signatureStatus); no connection attempted")
+            report("Found Dash Messages advertising; name=\(displayedName), company=Espressif; no connection attempted")
             central.stopScan()
             exit(0)
         }
