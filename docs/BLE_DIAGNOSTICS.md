@@ -6,12 +6,14 @@ No extra iPhone app is required in the observed setup.
 
 ## Discovery and pairing
 
-The BLE advertisement solicits ANCS and includes the generic HID service UUID
-`0x1812` and appearance `0x03c0`, following the pinned SDK's ANCS example. Its
-scan response advertises the released setup-service UUID so Apple's
-AccessorySetupKit picker can authorize BLE and bridge the Classic profiles.
-Both packets fit within the 31-byte BLE limits. This is a discovery
-advertisement, not a full keyboard implementation; no input reports are sent.
+The primary BLE advertisement solicits ANCS and includes an Espressif
+manufacturer-data field containing the versioned DashBridge signature
+`44 42 01`. Apple's AccessorySetupKit picker matches this primary signature,
+so discovery does not depend on a secondary scan response. The scan response
+retains the `DashBridge` name, generic HID service UUID, and HID appearance for
+Settings compatibility. Both packets fit within the 31-byte BLE limits. The
+HID fields are a discovery compatibility advertisement, not a full keyboard
+implementation; no input reports are sent.
 
 The iOS 27 test initially showed no notification connection in Settings.
 After the discovery change and fresh pairing, the notification-sharing prompt
@@ -36,8 +38,8 @@ firmware updates. These results do not establish daily reliability.
 ## Interpret the log
 
 - `BLE GATT registration complete` and `BLE privacy complete` identify setup callbacks.
-- `BLE advertisement (ANCS + generic HID discovery)` and the scan-response log
-  identify advertisement and name configuration.
+- `BLE advertisement (ANCS + DashBridge discovery signature)` and the
+  scan-response log identify primary signature and name configuration.
 - `BLE advertising start complete` with status zero means advertising started;
   it does not prove the iPhone saw it.
 - `BLE connection event` shows the BLE connection reached the callback.

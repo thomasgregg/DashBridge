@@ -5,6 +5,8 @@ import UIKit
 
 final class BridgeBluetooth: NSObject, ObservableObject {
     static let notFoundMessage = "The app can't find DashBridge. Make sure it's powered and not connected to another iPhone, then try again."
+    static let discoveryCompanyIdentifier = ASBluetoothCompanyIdentifier(rawValue: 0x02E5)
+    static let discoverySignature = Data([0x44, 0x42, 0x01])
 
     @Published private(set) var bluetoothReady = false
     @Published private(set) var accessorySetupReady = false
@@ -78,6 +80,17 @@ final class BridgeBluetooth: NSObject, ObservableObject {
 
     static func reconnectRequiresANCS(ancsAuthorized: Bool) -> Bool {
         !ancsAuthorized
+    }
+
+    static func accessoryDiscoveryDescriptor() -> ASDiscoveryDescriptor {
+        let descriptor = ASDiscoveryDescriptor()
+        descriptor.bluetoothCompanyIdentifier = discoveryCompanyIdentifier
+        descriptor.bluetoothManufacturerDataBlob = discoverySignature
+        descriptor.bluetoothManufacturerDataMask = Data(
+            repeating: 0xff, count: discoverySignature.count)
+        descriptor.bluetoothRange = .immediate
+        descriptor.supportedOptions = [.bluetoothPairingLE, .bluetoothTransportBridging]
+        return descriptor
     }
 
     static func isAuthorizedRecoveryCandidate(authorizedID: UUID?, candidateID: UUID) -> Bool {
@@ -365,11 +378,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
               let session = accessorySession, accessorySessionReady else {
             return
         }
-        let descriptor = ASDiscoveryDescriptor()
-        descriptor.bluetoothServiceUUID = BridgeService.service
-        descriptor.bluetoothNameSubstring = "DashBridge"
-        descriptor.bluetoothRange = .immediate
-        descriptor.supportedOptions = [.bluetoothPairingLE, .bluetoothTransportBridging]
+        let descriptor = Self.accessoryDiscoveryDescriptor()
 
         let image = Self.pickerProductImage()
         let display = ASPickerDisplayItem(name: "DashBridge", productImage: image,

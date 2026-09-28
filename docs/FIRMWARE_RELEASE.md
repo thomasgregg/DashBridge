@@ -1,4 +1,4 @@
-# DashBridge firmware 0.5.4-alpha
+# DashBridge firmware 0.5.5-alpha
 
 This two-board prerelease is for original ESP32-WROOM-32 boards. It includes
 notifications, calls, encoded call audio, music and media controls, contacts
@@ -9,8 +9,8 @@ browser USB setup flow, and Setup GATT v1 support for the iPhone app.
 
 | Board | Complete image | Embedded version | SHA-256 |
 | --- | --- | --- | --- |
-| A — iPhone | `phone-full.bin` | `0.5.4-alpha+6c946703fd10` | `c3246ba765f3fcaa4f203ae5670e7707edf6ceffc4366e2657b1032a6b8d0a1c` |
-| B — Tesla | `car-full.bin` | `0.5.4-alpha+e56d0a852e05` | `d433767fc426a7b7eecb91d66dffd47c16634b6d1d5afe5e62ecace868b0c6c4` |
+| A — iPhone | `phone-full.bin` | `0.5.5-alpha+c0d798ee4a99` | `96614d3125b3af0ed75f7a6c6f15d3f2b5cd2c8ec9ecf355cc0cc0ecf13bc994` |
+| B — Tesla | `car-full.bin` | `0.5.5-alpha+e56d0a852e05` | `4459e08815fa13dd07dadc1661e04a04d0551a8834ab7222bf4f2d17da7fc7ff` |
 
 The complete images contain the bootloader, partition table, and application
 and are flashed at `0x0`. They may erase Bluetooth bonds and app choices.
@@ -34,9 +34,12 @@ contacts, pairing order, reconnect ownership, persistence, replay protection,
 browser integrity, production Bluetooth configuration, and SDP checks pass.
 
 Earlier secure BLE and Classic Bluetooth pairing changes passed a live Board A
-pairing trace. These images refresh the full Classic pairing window after a new
-BLE bond, immediately recognize that bond, and suspend the old saved-phone HFP
-link while Apple's replacement bridge is running. They have not yet completed
+pairing trace. Board A's primary BLE packet now carries the versioned DashBridge
+discovery signature used by AccessorySetupKit; a live Mac scan verified the
+signature, connection, Setup-service UUID, and status read. These images also
+refresh the full Classic pairing window after a new BLE bond, immediately
+recognize that bond, and suspend the old saved-phone HFP link while Apple's
+replacement bridge is running. They have not yet completed
 the full iPhone/Tesla matrix. The [manifest](../dist/manifest.json) therefore records
 `hardware_tested: false` for both boards. Physical testing must confirm the
 one-step iPhone pairing flow, notification delivery, phonebook synchronization,

@@ -26,7 +26,7 @@ flowchart LR
     Flow -->|SetupFlowEffect| Shell[SetupView effect runner]
 
     Shell --> BLE[BridgeBluetooth adapter]
-    BLE --> ASK[AccessorySetupKit picker and transport bridging]
+    BLE --> ASK[AccessorySetupKit primary-signature discovery and transport bridging]
     Shell --> Apps[AppCatalog adapter]
     Shell --> Notify[UserNotifications adapter]
 
@@ -114,7 +114,7 @@ points must not move during refactors.
 | System behavior | Application trigger | Required ordering |
 | --- | --- | --- |
 | Bluetooth application permission | First creation of `CBCentralManager` | Every fresh app session first shows Welcome. Setup and Bluetooth begin only after the user confirms **It's plugged in**. |
-| Unified DashBridge phone setup | AccessorySetupKit selection with BLE pairing and Classic transport bridging, followed by `connect(_:options:)` with `CBConnectPeripheralOptionRequiresANCS` and `CBConnectPeripheralOptionEnableTransportBridgingKey` | The app first shows connection guidance without requesting a connection. After the user taps **Connect my iPhone**, it transitions to **Connecting your iPhone** and immediately asks iOS to present the picker. A previously authorized accessory reconnects without a popup and the screen says so. If the accessory session is still activating, the request is retained and presented as soon as activation completes. iOS may show pairing and notification prompts at different times; the app remains on the same progress screen until Setup GATT proves BLE, notifications, and calls are ready. |
+| Unified DashBridge phone setup | AccessorySetupKit selection using the versioned DashBridge signature in Board A's primary advertisement, with BLE pairing and Classic transport bridging, followed by `connect(_:options:)` with `CBConnectPeripheralOptionRequiresANCS` and `CBConnectPeripheralOptionEnableTransportBridgingKey` | The app first shows connection guidance without requesting a connection. After the user taps **Connect my iPhone**, it transitions to **Connecting your iPhone** and immediately asks iOS to present the picker. A previously authorized accessory reconnects without a popup and the screen says so. If the accessory session is still activating, the request is retained and presented as soon as activation completes. iOS may show pairing and notification prompts at different times; the app remains on the same progress screen until Setup GATT proves BLE, notifications, and calls are ready. |
 | Reset or replacement recovery | Explicit **Set up connection again**, followed by `removeAccessory` and a new picker request | Never runs from ordinary Retry or a timeout. The app first tells the user to open Board A's pairing window. Apple owns the removal confirmation. Cancellation leaves the saved authorization intact. |
 | Encrypted policy access | Read the policy characteristic | Only after status reports notification sharing ready, avoiding a competing security exchange. |
 | App & Website Usage | Load the installed-app catalog | When entering app selection or the ready screen, never during launch. |

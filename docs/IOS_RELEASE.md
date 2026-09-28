@@ -1,4 +1,4 @@
-# DashBridge iOS app 1.0 (build 25)
+# DashBridge iOS app 1.0 (build 26)
 
 The companion app finds Board A, guides iPhone pairing, reads live setup
 status, saves notification app choices, and can send a local test notification.
@@ -6,7 +6,7 @@ It is not in the call, music, or notification forwarding path after setup.
 
 ## Firmware compatibility
 
-App 1.0 uses Setup GATT v1 and is compatible with firmware 0.5.4-alpha. App
+App 1.0 uses Setup GATT v1 and is compatible with firmware 0.5.5-alpha. App
 and firmware releases are independent: the app can be updated without
 rebuilding firmware while Setup GATT v1 remains supported. See the
 [compatibility matrix](../contracts/COMPATIBILITY.md).
@@ -22,10 +22,18 @@ A signed physical-device build also requires the Apple entitlements described
 in the [iOS guide](../ios/README.md). First pairing, reconnection, notification
 delivery, and the complete parked-car flow remain physical release checks.
 
-The `ios-v1.0-b25` tag creates the independent GitHub release record after a
+The `ios-v1.0-b26` tag creates the independent GitHub release record after a
 clean build. TestFlight or App Store distribution remains a signed Xcode/App
 Store Connect step because signing credentials are not stored in this
 repository.
+
+## Build 26 changes
+
+- Matches Board A using a versioned DashBridge manufacturer-data signature in
+  the primary BLE advertisement. Discovery no longer depends on Apple returning
+  the secondary scan response to AccessorySetupKit.
+- Declares the matching registered Espressif company identifier in the app and
+  verifies the descriptor, mask, and transport-bridging options in unit tests.
 
 ## Build 25 changes
 

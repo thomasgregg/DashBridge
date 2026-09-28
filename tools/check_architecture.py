@@ -275,11 +275,17 @@ if contract:
     require("NSAccessorySetupKitSupports" in ios_info and
             "NSAccessorySetupBluetoothServices" in ios_info and
             contract["service_uuid"] in ios_info and
+            "NSAccessorySetupBluetoothCompanyIdentifiers" in ios_info and
+            "02E5" in ios_info and
+            "bluetoothCompanyIdentifier = discoveryCompanyIdentifier" in ios_bluetooth and
+            "bluetoothManufacturerDataBlob = discoverySignature" in ios_bluetooth and
+            "bluetoothManufacturerDataMask" in ios_bluetooth and
             "esp_ble_gap_config_scan_rsp_data_raw" in phone_source and
             "ESP_GAP_BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE_EVT" in phone_source and
             "scan_rsp_data_raw_cmpl.status" in phone_source and
-            "0xf0, 0xa6, 0x58, 0xc2" in phone_source,
-            "AccessorySetupKit metadata and the Board A setup-service scan response must match the released contract")
+            "discovery_company_id = 0x02e5" in phone_source and
+            "discovery_signature[] = {'D', 'B', 0x01}" in phone_source,
+            "AccessorySetupKit metadata and Board A's primary discovery signature must stay aligned")
     require("connectionRequestPending = true" in all_swift and
             "connectionRequestPending = false" in all_swift and
             'primary("Connect my iPhone")' in all_swift and

@@ -1,3 +1,4 @@
+import AccessorySetupKit
 import CoreBluetooth
 import XCTest
 @testable import DashBridge
@@ -45,6 +46,19 @@ final class BridgeContractTests: XCTestCase {
     func testAuthorizedAccessoryReconnectOnlyRepeatsANCSWhenNeeded() {
         XCTAssertTrue(BridgeBluetooth.reconnectRequiresANCS(ancsAuthorized: false))
         XCTAssertFalse(BridgeBluetooth.reconnectRequiresANCS(ancsAuthorized: true))
+    }
+
+    func testAccessoryPickerMatchesPrimaryDashBridgeAdvertisement() {
+        let descriptor = BridgeBluetooth.accessoryDiscoveryDescriptor()
+
+        XCTAssertEqual(descriptor.bluetoothCompanyIdentifier,
+                       ASBluetoothCompanyIdentifier(rawValue: 0x02E5))
+        XCTAssertEqual(descriptor.bluetoothManufacturerDataBlob, Data([0x44, 0x42, 0x01]))
+        XCTAssertEqual(descriptor.bluetoothManufacturerDataMask, Data([0xff, 0xff, 0xff]))
+        XCTAssertNil(descriptor.bluetoothNameSubstring)
+        XCTAssertNil(descriptor.bluetoothServiceUUID)
+        XCTAssertTrue(descriptor.supportedOptions.contains(.bluetoothPairingLE))
+        XCTAssertTrue(descriptor.supportedOptions.contains(.bluetoothTransportBridging))
     }
 
     func testAutomaticRecoveryCannotAttachToADifferentNearbyBoard() {

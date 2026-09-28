@@ -28,6 +28,10 @@
 	<array>
 		<string>Bluetooth</string>
 	</array>
+	<key>NSAccessorySetupBluetoothCompanyIdentifiers</key>
+	<array>
+		<string>02E5</string>
+	</array>
 	<key>NSAccessorySetupBluetoothNames</key>
 	<array>
 		<string>DashBridge</string>
