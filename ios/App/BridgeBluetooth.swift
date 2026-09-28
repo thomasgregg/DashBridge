@@ -56,6 +56,16 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private let rememberedPeripheralStore: RememberedPeripheralPersisting
     private var incompatibleIdentifiers: Set<UUID> = []
 
+    static func connectionOptions(requiresANCS: Bool) -> [String: Any] {
+        var options: [String: Any] = [
+            CBConnectPeripheralOptionEnableTransportBridgingKey: true
+        ]
+        if requiresANCS {
+            options[CBConnectPeripheralOptionRequiresANCS] = true
+        }
+        return options
+    }
+
     init(rememberedPeripheralStore: RememberedPeripheralPersisting = UserDefaultsRememberedPeripheralStore()) {
         self.rememberedPeripheralStore = rememberedPeripheralStore
         super.init()
@@ -387,11 +397,11 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         connectionStage = "Opening Bluetooth link"
         notificationPermission = nil
         discovered.delegate = self
-        // Ask iOS to offer ANCS notification permission during pairing in the
-        // app, rather than depending on a device-settings button that may not
-        // exist for this BLE accessory.
-        manager.connect(discovered, options: requiresANCS
-                        ? [CBConnectPeripheralOptionRequiresANCS: true] : nil)
+        // Ask iOS to offer ANCS notification permission during pairing and to
+        // activate the authorized Dash Calls Classic profiles over the same
+        // system-owned setup. Declaring bridging in AccessorySetupKit only
+        // authorizes it; this Core Bluetooth option performs it.
+        manager.connect(discovered, options: Self.connectionOptions(requiresANCS: requiresANCS))
         connectionTimer?.invalidate()
         connectionTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: false) { [weak self] _ in
             guard let self, self.status == nil else { return }

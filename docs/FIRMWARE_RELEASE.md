@@ -9,8 +9,8 @@ browser USB setup flow, and Setup GATT v1 support for the iPhone app.
 
 | Board | Complete image | Embedded version | SHA-256 |
 | --- | --- | --- | --- |
-| A — iPhone | `phone-full.bin` | `0.5.3-alpha+10e32023240b` | `49b81c7cd6c8a508591b46297b9d5430de3274137ed7adc8b03b5079646db4ee` |
-| B — Tesla | `car-full.bin` | `0.5.3-alpha+689d47c3c548` | `d19a038170821a3707347dfcc9ad22bdbd9ec6984b7eab9a66c8b3fcc2489a8c` |
+| A — iPhone | `phone-full.bin` | `0.5.3-alpha+a151619c299d` | `b163d9f8103a0057be7759262ff58bd40e14c776d6bfcf3df961c403f3d98ffb` |
+| B — Tesla | `car-full.bin` | `0.5.3-alpha+aca88d9d4637` | `662337db3528576683f03bcd192b0d55bd0d8cef8a475ef5e3730155ce63fb8f` |
 
 The complete images contain the bootloader, partition table, and application
 and are flashed at `0x0`. They may erase Bluetooth bonds and app choices.
@@ -33,15 +33,14 @@ call and music control, encoded media transport, audio timing and isolation,
 contacts, pairing order, reconnect ownership, persistence, replay protection,
 browser integrity, production Bluetooth configuration, and SDP checks pass.
 
-The secure BLE and Classic Bluetooth pairing changes passed a live Board A
-pairing trace. These exact images were hash-verified while flashing the target
-boards, booted with the expected embedded versions, and established the board
-link. Board A also reported active BLE advertising and was independently found
-as **DashBridge** by a Bluetooth scan. They have **not** yet completed the full
-iPhone and Tesla release check, so the [manifest](../dist/manifest.json)
-records `hardware_tested: false` for both boards. Physical testing must confirm
-notification delivery, phonebook synchronization, call controls and audible
-quality, music playback and controls, and sustained reconnection.
+Earlier secure BLE and Classic Bluetooth pairing changes passed a live Board A
+pairing trace. These newly built images add a pairing-window refresh for the
+app's Classic transport-bridging request and have not yet been flashed or
+hardware-tested. The [manifest](../dist/manifest.json) therefore records
+`hardware_tested: false` for both boards. Physical testing must confirm the
+one-step iPhone pairing flow, notification delivery, phonebook synchronization,
+call controls and audible quality, music playback and controls, and sustained
+reconnection.
 
 Use the [setup guide](SETUP.md) and the
 [parked-car checklist](../README.md#parked-car-test-checklist). Keep the

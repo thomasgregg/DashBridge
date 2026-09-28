@@ -172,6 +172,7 @@ if contract:
     protocol_source = protocol_source_path.read_text()
     adapter = adapter_path.read_text()
     all_swift = "\n".join(path.read_text() for path in (ROOT / "ios").rglob("*.swift"))
+    ios_bluetooth = (ROOT / "ios/App/BridgeBluetooth.swift").read_text()
     ios_info = (ROOT / "ios/App/Info.plist").read_text()
 
     require("esp_" not in setup_composition and "freertos/" not in setup_composition,
@@ -252,8 +253,12 @@ if contract:
             "import AccessorySetupKit" in all_swift and
             "showPicker(for:" in all_swift and
             ".bluetoothTransportBridging" in all_swift and
+            "CBConnectPeripheralOptionEnableTransportBridgingKey" in ios_bluetooth and
             "In Settings → Bluetooth, tap Dash Calls." not in all_swift,
-            "the iOS app must use the system accessory picker to bridge Dash Calls pairing")
+            "the iOS app must authorize and activate system bridging for Dash Calls pairing")
+    require("!platform_runtime.has_classic_bond()" in app_main and
+            "setup_state.open_pairing(setup_peer(peer))" in app_main,
+            "secure BLE pairing must refresh the fresh-phone Classic pairing window")
     require("NSAccessorySetupKitSupports" in ios_info and
             "NSAccessorySetupBluetoothServices" in ios_info and
             contract["service_uuid"] in ios_info and

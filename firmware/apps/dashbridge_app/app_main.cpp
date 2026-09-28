@@ -76,7 +76,15 @@ class AppServices final : public dashbridge::ports::RuntimeServices {
     bool pairing_allowed(Peer peer) const override { return setup_state.pairing_allowed(setup_peer(peer)); }
     void paired(Peer peer) override {
 #if CONFIG_BRIDGE_CALL_RELAY && CONFIG_BRIDGE_PHONE
-        if (peer == Peer::phone && (!phone_notifications_ready() || !relay_calls_ready())) return;
+        if (peer == Peer::phone) {
+            // A fresh AccessorySetupKit connection can request Classic
+            // transport bridging immediately after BLE becomes secure. Keep
+            // the finite pairing window aligned with that request even if the
+            // board has been powered for longer than the boot-time window.
+            if (!platform_runtime.has_classic_bond())
+                setup_state.open_pairing(setup_peer(peer));
+            if (!phone_notifications_ready() || !relay_calls_ready()) return;
+        }
 #endif
         setup_state.paired(setup_peer(peer));
     }

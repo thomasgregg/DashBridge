@@ -1,3 +1,4 @@
+import CoreBluetooth
 import XCTest
 @testable import DashBridge
 
@@ -29,5 +30,15 @@ final class BridgeContractTests: XCTestCase {
                        Data([2]) + Data("net.example.chat".utf8))
         XCTAssertEqual(BridgeCommand.openPhonePairing.payload, Data([3]))
         XCTAssertEqual(BridgeCommand.beginNotificationTest.payload, Data([4]))
+    }
+
+    func testEveryPhoneConnectionEnablesClassicTransportBridging() {
+        let firstPairing = BridgeBluetooth.connectionOptions(requiresANCS: true)
+        XCTAssertEqual(firstPairing[CBConnectPeripheralOptionRequiresANCS] as? Bool, true)
+        XCTAssertEqual(firstPairing[CBConnectPeripheralOptionEnableTransportBridgingKey] as? Bool, true)
+
+        let reconnect = BridgeBluetooth.connectionOptions(requiresANCS: false)
+        XCTAssertNil(reconnect[CBConnectPeripheralOptionRequiresANCS])
+        XCTAssertEqual(reconnect[CBConnectPeripheralOptionEnableTransportBridgingKey] as? Bool, true)
     }
 }
