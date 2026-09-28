@@ -48,6 +48,7 @@ final class BridgeBluetooth: NSObject, ObservableObject {
     private var pickerAccessory: ASAccessory?
     private var pickerPresentationRequested = false
     private var pickerPresented = false
+    private var staleAccessoryRemovalInProgress = false
 #endif
     private struct PendingCommand {
         let command: BridgeCommand
@@ -76,6 +77,13 @@ final class BridgeBluetooth: NSObject, ObservableObject {
 
     static func isAuthorizedRecoveryCandidate(authorizedID: UUID?, candidateID: UUID) -> Bool {
         authorizedID == candidateID
+    }
+
+    static func shouldRemoveAccessoryForReselection(requiresReselection: Bool,
+                                                    authorizedID: UUID?,
+                                                    candidateID: UUID?) -> Bool {
+        guard requiresReselection, let candidateID else { return false }
+        return authorizedID == nil || authorizedID == candidateID
     }
 
     private func emitPhoneSetup(_ event: PhoneSetupAdapterEvent) {
@@ -141,7 +149,9 @@ final class BridgeBluetooth: NSObject, ObservableObject {
             accessorySessionReady = true
             accessorySetupReady = true
             endTimedCheck()
-            presentAccessoryPickerIfReady()
+            if !removeStaleAccessoryBeforeReselection() {
+                presentAccessoryPickerIfReady()
+            }
         case .accessoryAdded, .accessoryChanged:
             if let accessory = event.accessory {
                 pickerAccessory = accessory
@@ -228,11 +238,46 @@ final class BridgeBluetooth: NSObject, ObservableObject {
         if accessorySession == nil {
             startAccessorySession()
         }
+        if removeStaleAccessoryBeforeReselection() { return }
         presentAccessoryPickerIfReady()
+    }
+
+    @discardableResult
+    private func removeStaleAccessoryBeforeReselection() -> Bool {
+        guard !staleAccessoryRemovalInProgress, let session = accessorySession,
+              let accessory = session.accessories.first(where: {
+                  Self.shouldRemoveAccessoryForReselection(
+                      requiresReselection: requiresAccessoryReselection,
+                      authorizedID: authorizedPeripheralID,
+                      candidateID: $0.bluetoothIdentifier)
+              }) else { return false }
+
+        staleAccessoryRemovalInProgress = true
+        session.removeAccessory(accessory) { [weak self] removalError in
+            guard let self else { return }
+            self.staleAccessoryRemovalInProgress = false
+            if let removalError {
+                self.pickerPresentationRequested = false
+                self.error = removalError.localizedDescription
+                self.failPhoneSetup(.accessorySetup)
+                return
+            }
+            if let identifier = accessory.bluetoothIdentifier {
+                self.rememberedPeripheralStore.removeIdentifier(ifMatching: identifier)
+                if self.authorizedPeripheralID == identifier {
+                    self.authorizedPeripheralID = nil
+                }
+            }
+            self.pickerAccessory = nil
+            self.requiresAccessoryReselection = false
+            self.presentAccessoryPickerIfReady()
+        }
+        return true
     }
 
     private func presentAccessoryPickerIfReady() {
         guard pickerPresentationRequested, !pickerPresented,
+              !staleAccessoryRemovalInProgress,
               let session = accessorySession, accessorySessionReady else {
             return
         }

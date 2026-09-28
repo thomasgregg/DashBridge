@@ -90,7 +90,8 @@ separate navigation owners. `BridgeBluetooth` owns one bounded automatic
 recovery attempt and reports typed events; only the reducer decides whether a
 terminal failure navigates to help. Automatic recovery accepts only the
 peripheral identifier authorized by AccessorySetupKit. If that identity is
-stale or unavailable, retry returns to Apple's picker instead of attaching to
+stale or unavailable, retry removes that stale app authorization and returns
+to Apple's picker instead of attaching to
 another nearby board.
 
 ## System-dialog contract

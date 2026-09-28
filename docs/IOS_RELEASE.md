@@ -1,4 +1,4 @@
-# DashBridge iOS app 1.0 (build 23)
+# DashBridge iOS app 1.0 (build 24)
 
 The companion app finds Board A, guides iPhone pairing, reads live setup
 status, saves notification app choices, and can send a local test notification.
@@ -22,10 +22,17 @@ A signed physical-device build also requires the Apple entitlements described
 in the [iOS guide](../ios/README.md). First pairing, reconnection, notification
 delivery, and the complete parked-car flow remain physical release checks.
 
-The `ios-v1.0-b23` tag creates the independent GitHub release record after a
+The `ios-v1.0-b24` tag creates the independent GitHub release record after a
 clean build. TestFlight or App Store distribution remains a signed Xcode/App
 Store Connect step because signing credentials are not stored in this
 repository.
+
+## Build 24 changes
+
+- Removes a stale AccessorySetupKit authorization before retrying Apple's
+  picker, so an advertising board is not hidden as already authorized.
+- Clears only the matching cached Bluetooth identifier during that recovery;
+  firmware and saved notification-app choices are left untouched.
 
 ## Build 23 changes
 

@@ -58,6 +58,21 @@ final class BridgeContractTests: XCTestCase {
             authorizedID: nil, candidateID: selected))
     }
 
+    func testReselectionRemovesOnlyTheStaleAuthorizedAccessory() {
+        let selected = UUID()
+
+        XCTAssertFalse(BridgeBluetooth.shouldRemoveAccessoryForReselection(
+            requiresReselection: false, authorizedID: selected, candidateID: selected))
+        XCTAssertTrue(BridgeBluetooth.shouldRemoveAccessoryForReselection(
+            requiresReselection: true, authorizedID: selected, candidateID: selected))
+        XCTAssertFalse(BridgeBluetooth.shouldRemoveAccessoryForReselection(
+            requiresReselection: true, authorizedID: selected, candidateID: UUID()))
+        XCTAssertTrue(BridgeBluetooth.shouldRemoveAccessoryForReselection(
+            requiresReselection: true, authorizedID: nil, candidateID: selected))
+        XCTAssertFalse(BridgeBluetooth.shouldRemoveAccessoryForReselection(
+            requiresReselection: true, authorizedID: selected, candidateID: nil))
+    }
+
     func testPhoneSetupRequiresMessagesNotificationsAndCalls() {
         XCTAssertFalse(BridgeStatus(bits: 0b0000_0011).phoneSetupReady)
         XCTAssertFalse(BridgeStatus(bits: 0b0000_0101).phoneSetupReady)
